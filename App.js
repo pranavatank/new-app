@@ -9,11 +9,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SplashScreen from 'expo-splash-screen';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemeProvider, useTheme } from './src/store/ThemeContext';
 import { initializeDatabase } from './src/db/schema';
+import { processRecurringExpenses } from './src/db/queries';
 import useAppStore from './src/store/useAppStore';
-import { Typography, Spacing, Radius, makeShadow } from './src/constants/theme';
+import { scaleTheme, makeShadow } from './src/constants/theme';
 import './src/i18n'; // must import before any useTranslation usage
 
 import HomeScreen      from './src/screens/Home';
@@ -25,6 +28,8 @@ import NotesScreen     from './src/screens/Notes';
 import SettingsScreen  from './src/screens/Settings';
 import AnalyticsScreen from './src/screens/Analytics';
 import VehicleScreen   from './src/screens/Vehicle';
+import SearchScreen    from './src/screens/Search';
+import RecurringScreen from './src/screens/Recurring';
 
 SplashScreen.preventAutoHideAsync();
 const Tab = createBottomTabNavigator();
@@ -32,23 +37,24 @@ const Tab = createBottomTabNavigator();
 // Check if biometric is available (not on web)
 const isBiometricAvailable = Platform.OS !== 'web';
 
-// ─── Tab config (static labels as fallback) ───────────────────────────────────
+// ─── Tab config (static labels as fallback, used for accessibility only —
+// the floating bar is icon-only per design) ────────────────────────────────
 const TABS = [
-  { name: 'Home',      icon: '🏠', en: 'Home',    gu: 'હોમ'       },
-  { name: 'Expense',   icon: '💸', en: 'Expense', gu: 'ખર્ચ'       },
-  { name: 'Tasks',     icon: '✅', en: 'Tasks',   gu: 'કાર્યો'      },
-  { name: 'Places',    icon: '📍', en: 'Places',  gu: 'સ્થળો'      },
-  { name: 'Analytics', icon: '📊', en: 'Stats',   gu: 'આંકડા'      },
-  { name: 'Settings',  icon: '⚙️', en: 'Settings',gu: 'સેટિંગ્સ'   },
+  { name: 'Home',      icon: 'home-outline',             iconActive: 'home',             accent: 'iconHome',     en: 'Home',    gu: 'હોમ'       },
+  { name: 'Expense',   icon: 'wallet-outline',           iconActive: 'wallet',           accent: 'iconExpense',  en: 'Expense', gu: 'ખર્ચ'       },
+  { name: 'Tasks',     icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', accent: 'iconTask',     en: 'Tasks',   gu: 'કાર્યો'      },
+  { name: 'Places',    icon: 'location-outline',         iconActive: 'location',         accent: 'iconPlaces',   en: 'Places',  gu: 'સ્થળો'      },
+  { name: 'Analytics', icon: 'stats-chart-outline',      iconActive: 'stats-chart',      accent: 'iconStats',    en: 'Stats',   gu: 'આંકડા'      },
+  { name: 'Settings',  icon: 'settings-outline',         iconActive: 'settings',         accent: 'iconSettings', en: 'Settings',gu: 'સેટિંગ્સ'   },
 ];
 
-// ─── Custom Tab Bar ───────────────────────────────────────────────────────────
+// ─── Custom Tab Bar (floating, icon-only pill) ────────────────────────────────
 function CustomTabBar({ state, navigation }) {
   const { C, language } = useTheme();
   const Shadow = makeShadow(C);
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'ios' ? (insets?.bottom || 0) : 0;
-  const bottomPad = (Platform.OS === 'web' ? 12 : 16) + bottomInset;
+  const bottomMargin = (Platform.OS === 'web' ? 16 : 14) + bottomInset;
 
   const getLabel = (name) => {
     const tab = TABS.find(t => t.name === name);
@@ -61,51 +67,60 @@ function CustomTabBar({ state, navigation }) {
   );
 
   return (
-    <View style={[tb.bar, { backgroundColor: C.bgCard, paddingBottom: bottomPad }, Shadow.md]}>
-      {visibleRoutes.map((route) => {
-        const idx     = state.routes.findIndex(r => r.key === route.key);
-        const focused = state.index === idx;
-        const tab     = TABS.find(t => t.name === route.name) || {};
+    <View style={[tb.wrap, { bottom: bottomMargin }]} pointerEvents="box-none">
+      <View style={[tb.bar, { backgroundColor: C.bgCard, borderColor: C.border }, Shadow.lg]}>
+        {visibleRoutes.map((route) => {
+          const idx     = state.routes.findIndex(r => r.key === route.key);
+          const focused = state.index === idx;
+          const tab     = TABS.find(t => t.name === route.name) || {};
+          const accent  = C[tab.accent] || C.primary;
 
-        return (
-          <TouchableOpacity
-            key={route.key}
-            style={tb.item}
-            onPress={() => navigation.navigate(route.name)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityState={{ selected: focused }}
-            accessibilityLabel={getLabel(route.name)}
-          >
-            <View style={[tb.topDot, { backgroundColor: focused ? C.primary : 'transparent' }]} />
-
-            <Text style={[tb.icon, { opacity: focused ? 1 : 0.5 }]}>{tab.icon}</Text>
-
-            <Text
-              style={[tb.label, { color: focused ? C.primary : C.textMuted, fontWeight: focused ? Typography.weights.bold : Typography.weights.semibold }]}
-              numberOfLines={1}
+          return (
+            <TouchableOpacity
+              key={route.key}
+              style={tb.item}
+              onPress={() => navigation.navigate(route.name)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 6, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: focused }}
+              accessibilityLabel={getLabel(route.name)}
             >
-              {getLabel(route.name)}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+              {focused ? (
+                <LinearGradient
+                  colors={[accent, accent + 'CC']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={tb.activePill}
+                >
+                  <Ionicons name={tab.iconActive} size={22} color={C.textOnPrimary} />
+                </LinearGradient>
+              ) : (
+                <View style={tb.inactivePill}>
+                  <Ionicons name={tab.icon} size={22} color={C.textMuted} />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 const tb = StyleSheet.create({
-  bar:      { flexDirection: 'row', borderTopWidth: 0, paddingTop: 12, paddingHorizontal: 4, paddingBottom: 2 },
-  item:     { flex: 1, alignItems: 'center', gap: 6 },
-  topDot:   { width: 28, height: 3, borderRadius: 2, marginBottom: 2 },
-  icon:     { fontSize: 22 },
-  label:    { fontSize: 11, letterSpacing: 0.3 },
+  wrap:         { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
+  bar:          { flexDirection: 'row', borderRadius: 999, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 8, width: '100%', maxWidth: 480 },
+  item:         { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  activePill:   { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  inactivePill: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });
 
 // ─── Biometric Lock Screen ────────────────────────────────────────────────────
 function BiometricGate({ onUnlocked }) {
-  const { C, language } = useTheme();
+  const { C, language, scale } = useTheme();
+  const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
+  const ls = lsStyles(Typography, Spacing, Radius);
   const [checking, setChecking] = useState(true);
   const [failed,   setFailed]   = useState(false);
 
@@ -197,7 +212,7 @@ function BiometricGate({ onUnlocked }) {
               borderColor: failed ? C.expense : C.primary,
             },
           ]}>
-            <Text style={ls.lockIcon}>{failed ? '🔐' : '👆'}</Text>
+            <Ionicons name={failed ? 'lock-closed' : 'finger-print'} size={44} color={failed ? C.expense : C.primary} />
           </View>
         </View>
         <Text style={[ls.msg, { color: C.textSecondary }]}>
@@ -216,7 +231,7 @@ function BiometricGate({ onUnlocked }) {
     </View>
   );
 }
-const ls = StyleSheet.create({
+const lsStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   root:     { flex: 1, alignItems: 'center', justifyContent: 'space-evenly', paddingHorizontal: Spacing.xxl, paddingVertical: 40 },
   top:      { alignItems: 'center', gap: Spacing.md },
   ring:     { width: 140, height: 140, borderRadius: 70, borderWidth: 3, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
@@ -227,7 +242,6 @@ const ls = StyleSheet.create({
   mid:      { alignItems: 'center', gap: Spacing.xl },
   lockRing: { width: 130, height: 130, borderRadius: 65, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   lockBox:  { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  lockIcon: { fontSize: 44 },
   msg:      { fontSize: Typography.sizes.md, textAlign: 'center', lineHeight: 24, maxWidth: 280, fontWeight: Typography.weights.medium },
   btn:      { width: '100%', paddingVertical: Spacing.xl, borderRadius: Radius.full, alignItems: 'center' },
   btnTxt:   { color: '#fff', fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, letterSpacing: 0.8 },
@@ -245,6 +259,11 @@ function AppInner() {
       try {
         await initializeDatabase();
         setDbReady(true);
+        try {
+          processRecurringExpenses();
+        } catch (e) {
+          console.warn('Recurring processing failed:', e?.message || e);
+        }
         refreshDayData();
       } catch (e) {
         console.error('DB init error:', e);
@@ -297,6 +316,16 @@ function AppInner() {
           <Tab.Screen
             name="Vehicle"
             component={VehicleScreen}
+            options={{ tabBarButton: () => null }}
+          />
+          <Tab.Screen
+            name="Search"
+            component={SearchScreen}
+            options={{ tabBarButton: () => null }}
+          />
+          <Tab.Screen
+            name="Recurring"
+            component={RecurringScreen}
             options={{ tabBarButton: () => null }}
           />
         </Tab.Navigator>

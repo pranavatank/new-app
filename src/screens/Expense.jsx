@@ -1,16 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, Pressable, Alert, KeyboardAvoidingView,
-  Platform, StatusBar, useWindowDimensions, Image,
+  TextInput, Alert, StatusBar, useWindowDimensions, Image,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { scaleTheme, makeShadow, Typography, Spacing, Radius } from '../constants/theme';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
+import { Card, Button, IconBadge, Sheet, Input, Chip, Badge } from '../components/common';
 import {
   getExpenseSummaryForDay,
   setExpenseAmount,
@@ -33,28 +34,9 @@ import {
 const fmt  = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const fmtN = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-// ── Bottom Sheet Base ─────────────────────────────────────────────────────────
-
-const Sheet = ({ visible, onClose, children, C, Shadow }) => (
-  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={{ flex: 1 }}>
-      <Pressable style={[bs.overlay, { backgroundColor: C.overlay }]} onPress={onClose} />
-      <View style={[bs.sheet, { backgroundColor: C.bgCard }, Shadow.md]}>
-        <View style={[bs.handle, { backgroundColor: C.border }]} />
-        {children}
-      </View>
-    </View>
-  </Modal>
-);
-const bs = StyleSheet.create({
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  sheet:   { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing.xl, paddingBottom: 42 },
-  handle:  { width: 44, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
-});
-
 // ── Balance Header ────────────────────────────────────────────────────────────
 
-const BalanceHeader = ({ dayData, C, Shadow, t }) => {
+const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
   const bal  = dayData?.closing_balance ?? 0;
   const dep  = dayData?.deposit_today   ?? 0;
   const cash = dayData?.cash_spent      ?? 0;
@@ -62,13 +44,15 @@ const BalanceHeader = ({ dayData, C, Shadow, t }) => {
   const pos  = bal >= 0;
 
   return (
-    <View style={[bh.card, { backgroundColor: C.isDark ? C.bgElevated : C.primary }, Shadow.primary]}>
+    <Card gradient={C.gradients.primary} elevation="primary" style={{ borderRadius: R.xl, padding: S.xl, marginBottom: S.md, borderWidth: 0 }}>
       <View style={bh.topRow}>
         <View>
-          <Text style={bh.lbl}>{t('expense.cashBalance').toUpperCase()}</Text>
-          <Text style={[bh.bal, { color: pos ? '#A7F3D0' : '#FCA5A5' }]}>{fmt(bal)}</Text>
+          <Text style={[bh.lbl]}>{t('expense.cashBalance').toUpperCase()}</Text>
+          <Text style={[bh.bal, { fontSize: T.sizes.hero, fontWeight: T.weights.black }, { color: pos ? '#A7F3D0' : '#FCA5A5' }]}>{fmt(bal)}</Text>
         </View>
-        <View style={bh.circle}><Text style={{ fontSize: 30 }}>💰</Text></View>
+        <View style={bh.circle}>
+          <Ionicons name="wallet" size={28} color="#fff" />
+        </View>
       </View>
 
       <View style={bh.hr} />
@@ -83,62 +67,58 @@ const BalanceHeader = ({ dayData, C, Shadow, t }) => {
             {i > 0 && <View style={bh.pipe} />}
             <View style={bh.stat}>
               <Text style={bh.statLbl}>{x.l}</Text>
-              <Text style={[bh.statVal, { color: x.c }]}>{x.v}</Text>
+              <Text style={[bh.statVal, { fontSize: T.sizes.sm, fontWeight: T.weights.bold }, { color: x.c }]}>{x.v}</Text>
             </View>
           </React.Fragment>
         ))}
       </View>
-    </View>
+    </Card>
   );
 };
 const bh = StyleSheet.create({
-  card:     { borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.md },
   topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   lbl:      { fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 2, fontWeight: '700', marginBottom: 6 },
-  bal:      { fontSize: Typography.sizes.hero, fontWeight: Typography.weights.black, letterSpacing: -1.5 },
+  bal:      { letterSpacing: -1.5 },
   circle:   { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  hr:       { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: Spacing.lg },
+  hr:       { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 20 },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   stat:     { flex: 1, alignItems: 'center' },
   statLbl:  { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
-  statVal:  { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
+  statVal:  {},
   pipe:     { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)' },
 });
 
 // ── Deposit Row ───────────────────────────────────────────────────────────────
 
-const DepositRow = ({ deposit, onPress, C, Shadow, t }) => (
+const DepositRow = ({ deposit, onPress, C, T, S, R, Shadow, t }) => (
   <TouchableOpacity
-    style={[dr.wrap, { backgroundColor: C.incomeBg, borderColor: C.income + '60' }, Shadow.sm]}
+    style={[dr.wrap, { backgroundColor: C.incomeBg, borderColor: C.income + '60', borderRadius: R.xl, padding: S.base, marginBottom: S.md }, Shadow.sm]}
     onPress={onPress}
     activeOpacity={0.8}
   >
-    <View style={[dr.iconBox, { backgroundColor: C.income + '20' }]}>
-      <Text style={{ fontSize: 24 }}>💵</Text>
-    </View>
+    <IconBadge icon="cash-outline" color={C.income} size={48} style={{ marginRight: S.md }} />
     <View style={{ flex: 1 }}>
       <Text style={[dr.lbl, { color: C.income }]}>{t('expense.cashDeposit')}</Text>
-      <Text style={[dr.val, { color: C.textPrimary }]}>
+      <Text style={[dr.val, { color: C.textPrimary, fontSize: T.sizes.md, fontWeight: T.weights.bold }]}>
         {deposit > 0 ? fmt(deposit) : t('expense.tapToSet')}
       </Text>
     </View>
-    <View style={[dr.pill, { backgroundColor: C.income }]}>
-      <Text style={dr.pillTxt}>{deposit > 0 ? t('common.edit') : t('common.add')}</Text>
+    <View style={[dr.pill, { backgroundColor: C.income, borderRadius: R.full, paddingHorizontal: S.md }]}>
+      <Text style={[dr.pillTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold }]}>{deposit > 0 ? t('common.edit') : t('common.add')}</Text>
     </View>
   </TouchableOpacity>
 );
 const dr = StyleSheet.create({
-  wrap:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base, borderRadius: Radius.xl, borderWidth: 1.5, marginBottom: Spacing.md },
-  iconBox: { width: 48, height: 48, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
-  lbl:     { fontSize: 11, fontWeight: Typography.weights.bold, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
-  val:     { fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold },
-  pill:    { paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: Radius.full },
-  pillTxt: { color: '#fff', fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
+  wrap:    { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5 },
+  lbl:     { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
+  val:     {},
+  pill:    { paddingVertical: 8 },
+  pillTxt: { color: '#fff' },
 });
 
 // ── Deposit Sheet ─────────────────────────────────────────────────────────────
 
-const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, Shadow, t }) => {
+const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, T, S, R, t }) => {
   const [val, setVal] = useState('');
   const PRESETS = [500, 1000, 2000, 5000, 10000];
 
@@ -160,14 +140,13 @@ const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, Shadow, 
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} C={C} Shadow={Shadow}>
-      <Text style={[s2.title, { color: C.textPrimary }]}>{t('expense.depositTitle')}</Text>
-      <Text style={[s2.sub, { color: C.textSecondary }]}>{t('expense.depositPrompt')}</Text>
+    <Sheet visible={visible} onClose={onClose} title={t('expense.depositTitle')}>
+      <Text style={[s2.sub, { color: C.textSecondary, fontSize: T.sizes.sm, marginBottom: S.lg }]}>{t('expense.depositPrompt')}</Text>
 
-      <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary }]}>
-        <Text style={[s2.rupee, { color: C.primary }]}>₹</Text>
+      <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: R.lg, paddingHorizontal: S.base, marginBottom: S.base }]}>
+        <Text style={[s2.rupee, { color: C.primary, fontSize: T.sizes.xl, fontWeight: T.weights.black }]}>₹</Text>
         <TextInput
-          style={[s2.input, { color: C.textPrimary }]}
+          style={[s2.input, { color: C.textPrimary, fontSize: T.sizes.xxl, fontWeight: T.weights.black }]}
           value={val}
           onChangeText={setVal}
           keyboardType="numeric"
@@ -178,54 +157,40 @@ const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, Shadow, 
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s2.presets}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s2.presets, { gap: S.sm, paddingBottom: S.base }]}>
         {PRESETS.map(p => (
-          <TouchableOpacity
+          <Chip
             key={p}
-            style={[s2.preset, {
-              backgroundColor: val === String(p) ? C.income : C.incomeBg,
-              borderColor: C.income,
-            }]}
+            label={`₹${fmtN(p)}`}
+            color={C.income}
+            active={val === String(p)}
             onPress={() => setVal(String(p))}
-          >
-            <Text style={[s2.presetTxt, { color: val === String(p) ? '#fff' : C.income }]}>₹{fmtN(p)}</Text>
-          </TouchableOpacity>
+          />
         ))}
       </ScrollView>
 
-      <View style={s2.btnRow}>
-        <TouchableOpacity style={[s2.btn, { borderColor: C.border, borderWidth: 1 }]} onPress={onClose}>
-          <Text style={[s2.btnTxt, { color: C.textSecondary }]}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
+      <View style={[s2.btnRow, { gap: S.sm }]}>
+        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
         {current > 0 && (
-          <TouchableOpacity style={[s2.btn, { backgroundColor: C.expense }]} onPress={handleDelete}>
-            <Text style={[s2.btnTxt, { color: '#fff' }]}>{t('common.delete')}</Text>
-          </TouchableOpacity>
+          <Button label={t('common.delete')} variant="danger" onPress={handleDelete} style={{ flex: 1 }} />
         )}
-        <TouchableOpacity style={[s2.btn, { backgroundColor: C.income, flex: current > 0 ? 1 : 1 }]} onPress={save}>
-          <Text style={[s2.btnTxt, { color: '#fff' }]}>{t('expense.saveDeposit')}</Text>
-        </TouchableOpacity>
+        <Button label={t('expense.saveDeposit')} variant="primary" onPress={save} style={{ flex: 1 }} />
       </View>
     </Sheet>
   );
 };
 const s2 = StyleSheet.create({
-  title:   { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold, marginBottom: 4 },
-  sub:     { fontSize: Typography.sizes.sm, marginBottom: Spacing.lg },
-  inputRow:{ flexDirection: 'row', alignItems: 'center', borderRadius: Radius.lg, borderWidth: 2, paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
-  rupee:   { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.black, marginRight: Spacing.xs },
-  input:   { flex: 1, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black, paddingVertical: Spacing.base },
-  presets: { gap: Spacing.sm, paddingBottom: Spacing.base },
-  preset:  { paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1.5 },
-  presetTxt:{ fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
-  btnRow:  { flexDirection: 'row', gap: Spacing.sm },
-  btn:     { flex: 1, paddingVertical: Spacing.md, borderRadius: Radius.lg, alignItems: 'center' },
-  btnTxt:  { fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold },
+  sub:     {},
+  inputRow:{ flexDirection: 'row', alignItems: 'center', borderWidth: 2 },
+  rupee:   { marginRight: 6 },
+  input:   { flex: 1, paddingVertical: 14 },
+  presets: { flexDirection: 'row' },
+  btnRow:  { flexDirection: 'row' },
 });
 
 // ── Amount Entry Sheet ────────────────────────────────────────────────────────
 
-const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, dayId, selectedDate, onReload }) => {
+const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shadow, t, dayId, selectedDate, onReload }) => {
   const [val,   setVal]   = useState('');
   const [pType, setPType] = useState('cash');
   const [items, setItems] = useState([]);
@@ -242,7 +207,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
         const categoryItems = getAllCategoryItems(cat.id);
         setItems(categoryItems);
         setShowItems(categoryItems.length > 0);
-        
+
         if (dayId && categoryItems.length > 0) {
           const itemExpenses = getItemExpenses(dayId, cat.id, 'cash');
           const amounts = {};
@@ -277,6 +242,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
   };
 
   const handleItemStep = (itemId, currentAmt, delta) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newAmt = Math.max(0, currentAmt + delta);
     setItemAmounts(prev => ({ ...prev, [itemId]: newAmt }));
   };
@@ -296,26 +262,32 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} C={C} Shadow={Shadow}>
-      <Text style={[sa.emoji]}>{cat.icon}</Text>
-      <Text style={[s2.title, { color: C.textPrimary, textAlign: 'center' }]}>{cat.name}</Text>
-      <Text style={[s2.sub, { color: C.textSecondary, textAlign: 'center' }]}>{t('expense.enterAmount')}</Text>
+    <Sheet visible={visible} onClose={onClose}>
+      <View style={{ alignItems: 'center', marginBottom: S.xs }}>
+        <IconBadge emoji={cat.icon} color={C.primary} size={56} />
+      </View>
+      <Text style={[s2b.title, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold, textAlign: 'center', marginTop: S.sm }]}>{cat.name}</Text>
+      <Text style={[s2b.sub, { color: C.textSecondary, fontSize: T.sizes.sm, textAlign: 'center', marginBottom: S.lg }]}>{t('expense.enterAmount')}</Text>
 
-      <View style={[sa.toggle, { backgroundColor: C.bgElevated }]}>
-        {[{ k: 'cash', lbl: '💵  ' + t('expense.cash') }, { k: 'online', lbl: '🌐  ' + t('expense.onlineLabel') }].map(({ k, lbl }) => (
+      <View style={[sa.toggle, { backgroundColor: C.bgElevated, borderRadius: R.lg, marginBottom: S.base }]}>
+        {[
+          { k: 'cash', icon: 'cash-outline', lbl: t('expense.cash') },
+          { k: 'online', icon: 'globe-outline', lbl: t('expense.onlineLabel') },
+        ].map(({ k, icon, lbl }) => (
           <TouchableOpacity
             key={k}
-            style={[sa.toggleBtn, pType === k && { backgroundColor: C.primary, borderRadius: Radius.md }]}
+            style={[sa.toggleBtn, pType === k && { backgroundColor: C.primary, borderRadius: R.md }]}
             onPress={() => setPType(k)}
           >
-            <Text style={[sa.toggleTxt, { color: pType === k ? '#fff' : C.textSecondary }]}>{lbl}</Text>
+            <Ionicons name={icon} size={16} color={pType === k ? '#fff' : C.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[sa.toggleTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold, color: pType === k ? '#fff' : C.textSecondary }]}>{lbl}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {showItems ? (
         <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-          <View style={sa.itemsGrid}>
+          <View style={[sa.itemsGrid, { gap: S.sm, marginBottom: S.base }]}>
             {items.map((item) => {
               const amt = itemAmounts[item.id] || 0;
               const isActive = amt > 0;
@@ -324,7 +296,8 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
                   key={item.id}
                   style={[
                     sa.itemCard,
-                    { 
+                    {
+                      borderRadius: R.xl, padding: S.sm,
                       backgroundColor: C.bgCard,
                       borderColor: isActive ? C.primary : C.border,
                       borderWidth: isActive ? 2 : 1,
@@ -339,36 +312,36 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
                   activeOpacity={0.82}
                 >
                   {isActive && <View style={[sa.activeDot, { backgroundColor: C.primary }]} />}
-                  
-                  <View style={[sa.itemIconBox, { backgroundColor: C.primary + (isActive ? '20' : '12') }]}>
-                    {item.icon_type === 'image' ? (
-                      <Image source={{ uri: item.icon }} style={sa.itemIconImg} />
-                    ) : (
-                      <Text style={{ fontSize: 26 }}>{item.icon}</Text>
-                    )}
-                  </View>
-                  
-                  <Text style={[sa.itemName, { color: C.textPrimary }]} numberOfLines={1}>{item.name}</Text>
-                  
-                  <Text style={[sa.itemAmt, { color: isActive ? C.primary : C.textMuted }]}>
+
+                  <IconBadge
+                    photoUri={item.icon_type === 'image' ? item.icon : undefined}
+                    emoji={item.icon_type !== 'image' ? item.icon : undefined}
+                    color={C.primary}
+                    size={50}
+                    style={{ marginBottom: 6, marginTop: 4 }}
+                  />
+
+                  <Text style={[sa.itemName, { color: C.textPrimary, fontSize: T.sizes.xs, fontWeight: T.weights.semibold }]} numberOfLines={1}>{item.name}</Text>
+
+                  <Text style={[sa.itemAmt, { fontSize: T.sizes.sm, fontWeight: T.weights.black, color: isActive ? C.primary : C.textMuted }]}>
                     {isActive ? fmt(amt) : '—'}
                   </Text>
-                  
-                  <View style={[sa.itemStepper, { backgroundColor: C.bgElevated }]}>
+
+                  <View style={[sa.itemStepper, { backgroundColor: C.bgElevated, borderRadius: R.full }]}>
                     <TouchableOpacity
                       style={sa.stepBtn}
                       onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, Math.max(0, amt - 10), -10); }}
                     >
-                      <Text style={[sa.stepTxt, { color: C.expense }]}>−</Text>
+                      <Ionicons name="remove" size={18} color={C.expense} />
                     </TouchableOpacity>
-                    <Text style={[sa.stepVal, { color: C.textSecondary }]} numberOfLines={1}>
+                    <Text style={[sa.stepVal, { color: C.textSecondary, fontWeight: T.weights.bold }]} numberOfLines={1}>
                       {fmtN(amt)}
                     </Text>
                     <TouchableOpacity
                       style={sa.stepBtn}
                       onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt + 10, 10); }}
                     >
-                      <Text style={[sa.stepTxt, { color: C.income }]}>+</Text>
+                      <Ionicons name="add" size={18} color={C.income} />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -376,19 +349,19 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
             })}
           </View>
           <TouchableOpacity
-            style={[sa.commonBtn, { backgroundColor: C.bgCard, borderColor: C.border }]}
+            style={[sa.commonBtn, { backgroundColor: C.bgCard, borderColor: C.border, borderRadius: R.lg, padding: S.md, marginBottom: S.base }]}
             onPress={() => { setShowItems(false); setEditingItemId(null); }}
           >
-            <Text style={{ fontSize: 20 }}>💰</Text>
-            <Text style={[sa.commonTxt, { color: C.textSecondary }]}>{t('expense.commonItem')}</Text>
+            <Ionicons name="wallet-outline" size={18} color={C.textSecondary} style={{ marginRight: S.sm }} />
+            <Text style={[sa.commonTxt, { color: C.textSecondary, fontSize: T.sizes.sm, fontWeight: T.weights.semibold }]}>{t('expense.commonItem')}</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : (
         <>
-          <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary }]}>
-            <Text style={[s2.rupee, { color: C.primary }]}>₹</Text>
+          <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: R.lg, paddingHorizontal: S.base, marginBottom: S.base }]}>
+            <Text style={[s2.rupee, { color: C.primary, fontSize: T.sizes.xl, fontWeight: T.weights.black }]}>₹</Text>
             <TextInput
-              style={[s2.input, { color: C.textPrimary }]}
+              style={[s2.input, { color: C.textPrimary, fontSize: T.sizes.xxl, fontWeight: T.weights.black }]}
               value={val}
               onChangeText={setVal}
               keyboardType="numeric"
@@ -400,56 +373,50 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, Shadow, t, day
           </View>
           {items.length > 0 && (
             <TouchableOpacity
-              style={[sa.showItemsBtn, { backgroundColor: C.bgElevated, borderColor: C.border }]}
+              style={[sa.showItemsBtn, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.md, padding: S.sm, marginBottom: S.base }]}
               onPress={() => setShowItems(true)}
             >
-              <Text style={[sa.showItemsTxt, { color: C.textSecondary }]}>📦 {t('expense.showItems')}</Text>
+              <Ionicons name="cube-outline" size={16} color={C.textSecondary} style={{ marginRight: 6 }} />
+              <Text style={[sa.showItemsTxt, { color: C.textSecondary, fontSize: T.sizes.sm, fontWeight: T.weights.semibold }]}>{t('expense.showItems')}</Text>
             </TouchableOpacity>
           )}
         </>
       )}
 
-      <View style={s2.btnRow}>
-        <TouchableOpacity style={[s2.btn, { borderColor: C.border, borderWidth: 1 }]} onPress={onClose}>
-          <Text style={[s2.btnTxt, { color: C.textSecondary }]}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s2.btn, { backgroundColor: C.primary }]}
-          onPress={showItems ? saveItems : save}
-        >
-          <Text style={[s2.btnTxt, { color: '#fff' }]}>{t('common.save')}</Text>
-        </TouchableOpacity>
+      <View style={[s2.btnRow, { gap: S.sm }]}>
+        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
+        <Button label={t('common.save')} variant="primary" onPress={showItems ? saveItems : save} style={{ flex: 1 }} />
       </View>
     </Sheet>
   );
 };
+const s2b = StyleSheet.create({
+  title: { marginBottom: 4 },
+  sub: {},
+});
 const sa = StyleSheet.create({
-  emoji:     { fontSize: 46, textAlign: 'center', marginBottom: 6 },
-  toggle:    { flexDirection: 'row', borderRadius: Radius.lg, padding: 4, marginBottom: Spacing.base },
-  toggleBtn: { flex: 1, paddingVertical: Spacing.md, alignItems: 'center' },
-  toggleTxt: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.base },
-  itemCard:  { width: '48%', borderRadius: Radius.xl, padding: Spacing.sm, alignItems: 'center', position: 'relative' },
+  toggle:    { flexDirection: 'row', padding: 4 },
+  toggleBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
+  toggleTxt: {},
+  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  itemCard:  { width: '48%', alignItems: 'center', position: 'relative' },
   activeDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 },
-  itemIconBox: { width: 50, height: 50, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', marginBottom: 6, marginTop: 4 },
-  itemIconImg: { width: 32, height: 32, borderRadius: 8 },
-  itemName:  { fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold, textAlign: 'center', marginBottom: 2 },
-  itemAmt:   { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.black, marginBottom: 8 },
-  itemStepper: { flexDirection: 'row', alignItems: 'center', borderRadius: Radius.full, overflow: 'hidden', width: '100%', height: 32 },
+  itemName:  { textAlign: 'center', marginBottom: 2 },
+  itemAmt:   { marginBottom: 8 },
+  itemStepper: { flexDirection: 'row', alignItems: 'center', overflow: 'hidden', width: '100%', height: 32 },
   stepBtn:   { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  stepTxt:   { fontSize: 22, fontWeight: Typography.weights.black, lineHeight: 26 },
-  stepVal:   { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: Typography.weights.bold },
-  commonBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderStyle: 'dashed', marginBottom: Spacing.base },
-  commonTxt: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold },
-  showItemsBtn: { padding: Spacing.sm, borderRadius: Radius.md, alignItems: 'center', borderWidth: 1, marginBottom: Spacing.base },
-  showItemsTxt: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold },
+  stepVal:   { flex: 1, textAlign: 'center', fontSize: 10 },
+  commonBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  commonTxt: {},
+  showItemsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  showItemsTxt: {},
 });
 
 // ── Manage Categories Sheet ───────────────────────────────────────────────────
 // NOTE: Uses ScrollView + map instead of FlatList — FlatList inside Modal
 // crashes on Android Hermes in production builds.
 
-const ManageCatsSheet = ({ visible, onClose, onRefresh, C, Shadow, t }) => {
+const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
   const [cats, setCats] = useState([]);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -502,18 +469,11 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, Shadow, t }) => {
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} C={C} Shadow={Shadow}>
-      <View style={mc.hdr}>
-        <Text style={[mc.title, { color: C.textPrimary }]}>{t('expense.manageCategories')}</Text>
-        <TouchableOpacity style={[mc.closeBtn, { backgroundColor: C.bgElevated }]} onPress={onClose}>
-          <Text style={[mc.closeTxt, { color: C.textSecondary }]}>✕</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView 
-        style={{ maxHeight: 320 }} 
+    <Sheet visible={visible} onClose={onClose} title={t('expense.manageCategories')}>
+      <ScrollView
+        style={{ maxHeight: 320 }}
         contentContainerStyle={{ flexGrow: 0 }}
-        showsVerticalScrollIndicator={false} 
+        showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         scrollEnabled
         keyboardShouldPersistTaps="handled"
@@ -523,96 +483,77 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, Shadow, t }) => {
           <View key={item.id} style={[mc.row, { borderBottomColor: C.divider }]}>
             <View style={mc.reorderBtns}>
               <TouchableOpacity onPress={() => moveUp(index)} disabled={index === 0}>
-                <Text style={[mc.arrow, { opacity: index === 0 ? 0.3 : 1 }]}>▲</Text>
+                <Ionicons name="chevron-up" size={14} color={C.textMuted} style={{ opacity: index === 0 ? 0.3 : 1 }} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => moveDown(index)} disabled={index === cats.length - 1}>
-                <Text style={[mc.arrow, { opacity: index === cats.length - 1 ? 0.3 : 1 }]}>▼</Text>
+                <Ionicons name="chevron-down" size={14} color={C.textMuted} style={{ opacity: index === cats.length - 1 ? 0.3 : 1 }} />
               </TouchableOpacity>
             </View>
-            <Text style={mc.icon}>{item.icon}</Text>
-            <Text style={[mc.name, { color: C.textPrimary }]}>{item.name}</Text>
+            <IconBadge emoji={item.icon} color={C.primary} size={34} style={{ marginHorizontal: S.xs }} />
+            <Text style={[mc.name, { color: C.textPrimary, fontSize: T.sizes.base, fontWeight: T.weights.medium }]}>{item.name}</Text>
             <TouchableOpacity
               style={[mc.editBtn, { backgroundColor: C.primaryDim }]}
               onPress={() => { setEditing(item); setNewName(item.name); setNewIcon(item.icon); }}
             >
-              <Text style={{ fontSize: 14 }}>✏️</Text>
+              <Ionicons name="create-outline" size={16} color={C.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[mc.del, { backgroundColor: C.expenseLight }]}
               onPress={() => doDelete(item.id)}
             >
-              <Text style={[mc.delTxt, { color: C.expense }]}>✕</Text>
+              <Ionicons name="trash-outline" size={16} color={C.expense} />
             </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
 
       {(adding || editing) ? (
-        <View style={[mc.addForm, { backgroundColor: C.bgElevated, borderColor: C.border }]}>
-          <View style={mc.addRow}>
+        <View style={[mc.addForm, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.lg, padding: S.base, marginTop: S.base }]}>
+          <View style={[mc.addRow, { gap: S.sm, marginBottom: S.base }]}>
             <TextInput
-              style={[mc.iconInput, { color: C.textPrimary, borderColor: C.border, backgroundColor: C.bgInput }]}
+              style={[mc.iconInput, { color: C.textPrimary, borderColor: C.border, backgroundColor: C.bgInput, borderRadius: R.sm }]}
               value={newIcon}
               onChangeText={setNewIcon}
               maxLength={2}
             />
-            <TextInput
-              style={[mc.nameInput, { color: C.textPrimary, borderColor: C.border, backgroundColor: C.bgInput }]}
+            <Input
+              style={{ flex: 1 }}
               value={newName}
               onChangeText={setNewName}
               placeholder={t('expense.categoryName')}
-              placeholderTextColor={C.textMuted}
               autoFocus
             />
           </View>
-          <View style={s2.btnRow}>
-            <TouchableOpacity style={[s2.btn, { borderColor: C.border, borderWidth: 1 }]} onPress={() => { setAdding(false); setEditing(null); }}>
-              <Text style={[s2.btnTxt, { color: C.textSecondary }]}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s2.btn, { backgroundColor: C.primary }]} onPress={editing ? doEdit : doAdd}>
-              <Text style={[s2.btnTxt, { color: '#fff' }]}>{editing ? t('common.save') : t('common.add')}</Text>
-            </TouchableOpacity>
+          <View style={[s2.btnRow, { gap: S.sm }]}>
+            <Button label={t('common.cancel')} variant="secondary" onPress={() => { setAdding(false); setEditing(null); }} style={{ flex: 1 }} />
+            <Button label={editing ? t('common.save') : t('common.add')} variant="primary" onPress={editing ? doEdit : doAdd} style={{ flex: 1 }} />
           </View>
         </View>
       ) : (
         <TouchableOpacity
-          style={[mc.addBtn, { backgroundColor: C.primaryDim, borderColor: C.primary }]}
+          style={[mc.addBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, borderRadius: R.lg, padding: S.md, marginTop: S.base }]}
           onPress={() => setAdding(true)}
         >
-          <Text style={[mc.addBtnTxt, { color: C.primary }]}>{t('expense.addNewCategory')}</Text>
+          <Text style={[mc.addBtnTxt, { color: C.primary, fontSize: T.sizes.base, fontWeight: T.weights.bold }]}>{t('expense.addNewCategory')}</Text>
         </TouchableOpacity>
       )}
     </Sheet>
   );
 };
 const mc = StyleSheet.create({
-  hdr: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  title: { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { fontSize: 16, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm, borderBottomWidth: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, borderBottomWidth: 1 },
   reorderBtns: { flexDirection: 'column', gap: 2 },
-  arrow: { fontSize: 10, color: '#666' },
-  icon: { fontSize: 22, width: 34 },
-  name: { flex: 1, fontSize: Typography.sizes.base, fontWeight: Typography.weights.medium },
+  name: { flex: 1 },
   editBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   del: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  delTxt: { fontSize: 13, fontWeight: '700' },
-  addForm: { borderRadius: Radius.lg, padding: Spacing.base, marginTop: Spacing.base, borderWidth: 1 },
-  addRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
-  iconInput: { width: 52, borderRadius: Radius.sm, borderWidth: 1, textAlign: 'center', fontSize: 22, paddingVertical: 8 },
-  nameInput: { flex: 1, borderRadius: Radius.sm, borderWidth: 1, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: Typography.sizes.base },
-  addBtn: { marginTop: Spacing.base, padding: Spacing.md, borderRadius: Radius.lg, alignItems: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
-  addBtnTxt: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold },
+  addForm: { borderWidth: 1 },
+  addRow: { flexDirection: 'row' },
+  iconInput: { width: 52, borderWidth: 1, textAlign: 'center', fontSize: 22, paddingVertical: 8 },
+  addBtn: { alignItems: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
+  addBtnTxt: {},
 });
 
 // ── Category Card ─────────────────────────────────────────────────────────────
-
-const CARD_COLORS = [
-  '#5B5FEF','#F59E0B','#10B981','#EF4444','#8B5CF6',
-  '#3B82F6','#EC4899','#14B8A6','#F97316','#06B6D4',
-  '#84CC16','#6366F1',
-];
 
 const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, accentColor, C, T, S, R, Shadow, t }) => {
   const total  = (cashAmt || 0) + (onlineAmt || 0);
@@ -632,9 +573,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
       activeOpacity={0.82}
     >
       {active && <View style={[{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 }, { backgroundColor: accentColor }]} />}
-      <View style={[{ width: 50, height: 50, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center', marginBottom: 6, marginTop: 4 }, { backgroundColor: accentColor + (active ? '20' : '12') }]}>
-        <Text style={{ fontSize: 26 }}>{cat.icon}</Text>
-      </View>
+      <IconBadge emoji={cat.icon} color={accentColor} size={50} style={{ marginBottom: 6, marginTop: 4 }} />
       <Text style={[{ fontSize: T.sizes.xs, fontWeight: T.weights.semibold, textAlign: 'center', marginBottom: 2 }, { color: C.textPrimary }]} numberOfLines={1}>{displayName}</Text>
       <Text style={[{ fontSize: T.sizes.sm, fontWeight: T.weights.black, marginBottom: 8 }, { color: active ? accentColor : C.textMuted }]}>
         {active ? fmt(total) : '—'}
@@ -645,7 +584,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
           onPress={() => onStep(cat, Math.max(0, (cashAmt || 0) - 10), 'cash')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[{ fontSize: 22, fontWeight: T.weights.black, lineHeight: 26 }, { color: C.expense }]}>−</Text>
+          <Ionicons name="remove" size={18} color={C.expense} />
         </TouchableOpacity>
         <Text style={[{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: T.weights.bold }, { color: C.textSecondary }]} numberOfLines={1}>
           {fmtN(cashAmt || 0)}
@@ -655,12 +594,13 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
           onPress={() => onStep(cat, (cashAmt || 0) + 10, 'cash')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[{ fontSize: 22, fontWeight: T.weights.black, lineHeight: 26 }, { color: C.income }]}>+</Text>
+          <Ionicons name="add" size={18} color={C.income} />
         </TouchableOpacity>
       </View>
       {(onlineAmt || 0) > 0 && (
-        <View style={[{ marginTop: 5, paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full }, { backgroundColor: C.onlineBg }]}>
-          <Text style={[{ fontSize: 9, fontWeight: T.weights.bold }, { color: C.online }]}>🌐 {fmt(onlineAmt)}</Text>
+        <View style={[{ marginTop: 5, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full }, { backgroundColor: C.onlineBg }]}>
+          <Ionicons name="globe-outline" size={9} color={C.online} style={{ marginRight: 3 }} />
+          <Text style={[{ fontSize: 9, fontWeight: T.weights.bold }, { color: C.online }]}>{fmt(onlineAmt)}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -699,7 +639,7 @@ export default function ExpenseScreen({ navigation }) {
     }
   }, [dayData]);
 
-  useEffect(() => { 
+  useEffect(() => {
     refreshDayData(selectedDate);
   }, [selectedDate, refreshDayData]);
 
@@ -708,6 +648,7 @@ export default function ExpenseScreen({ navigation }) {
 
   const handleStep = (cat, newAmt, pType) => {
     if (!dayData?.id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       setExpenseAmount(dayData.id, cat.id, newAmt, pType);
       recalculateBalance(dayData.id, selectedDate);
@@ -756,7 +697,7 @@ export default function ExpenseScreen({ navigation }) {
 
   const categories = summary.map((r, idx) => ({
     id: r.category_id, name: r.name, icon: r.icon, sort_order: r.sort_order,
-    color: CARD_COLORS[idx % CARD_COLORS.length],
+    color: C.accents[idx % C.accents.length],
   }));
 
   const totalSpent = summary.reduce((s, r) => s + (r.total || 0), 0);
@@ -766,28 +707,26 @@ export default function ExpenseScreen({ navigation }) {
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
       <DayNavigator />
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { padding: S.lg, paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
 
         {/* Balance header */}
-        <BalanceHeader dayData={dayData} C={C} Shadow={Shadow} t={t} />
+        <BalanceHeader dayData={dayData} C={C} T={T} S={S} R={R} t={t} />
 
         {/* Deposit row */}
-        <DepositRow deposit={dayData?.deposit_today || 0} onPress={() => setShowDeposit(true)} C={C} Shadow={Shadow} t={t} />
+        <DepositRow deposit={dayData?.deposit_today || 0} onPress={() => setShowDeposit(true)} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
 
         {/* Expenses header */}
         <View style={s.secHdr}>
           <Text style={[s.secLbl, { color: C.textSecondary }]}>{t('expense.expensesByCategory').toUpperCase()}</Text>
           {totalSpent > 0 && (
-            <View style={[s.totalPill, { backgroundColor: C.primaryDim }]}>
-              <Text style={[s.totalTxt, { color: C.primary }]}>{t('expense.total')} {fmt(totalSpent)}</Text>
-            </View>
+            <Badge label={`${t('expense.total')} ${fmt(totalSpent)}`} color={C.primary} />
           )}
         </View>
 
         <Text style={[s.hint, { color: C.textMuted }]}>{t('expense.tapToEnter')}</Text>
 
-        {/* 3-column category grid */}
-        <View style={s.grid}>
+        {/* Category grid */}
+        <View style={[s.grid, { gap: S.sm }]}>
           {categories.map(cat => (
             <CatCard
               key={cat.id}
@@ -808,23 +747,22 @@ export default function ExpenseScreen({ navigation }) {
 
         {/* Manage button */}
         <TouchableOpacity
-          style={[s.manageBtn, { backgroundColor: C.bgCard, borderColor: C.border }]}
+          style={[s.manageBtn, { backgroundColor: C.bgCard, borderColor: C.border, borderRadius: R.lg, padding: S.base, marginTop: S.xs }]}
           onPress={() => setShowManage(true)}
         >
-          <Text style={{ fontSize: 16 }}>⚙️</Text>
+          <Ionicons name="settings-outline" size={16} color={C.textSecondary} style={{ marginRight: S.sm }} />
           <Text style={[s.manageTxt, { color: C.textSecondary }]}>{t('expense.manageCategories')}</Text>
         </TouchableOpacity>
 
         {/* Items button */}
         <TouchableOpacity
-          style={[s.manageBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, marginTop: S.sm }]}
+          style={[s.manageBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, borderRadius: R.lg, padding: S.base, marginTop: S.sm }]}
           onPress={() => navigation.navigate('ExpenseItems')}
         >
-          <Text style={{ fontSize: 16 }}>📦</Text>
+          <Ionicons name="cube-outline" size={16} color={C.primary} style={{ marginRight: S.sm }} />
           <Text style={[s.manageTxt, { color: C.primary }]}>{t('expenseItems.title')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       <DepositSheet
@@ -833,7 +771,7 @@ export default function ExpenseScreen({ navigation }) {
         onSave={handleDepositSave}
         onDelete={handleDepositDelete}
         onClose={() => setShowDeposit(false)}
-        C={C} Shadow={Shadow} t={t}
+        C={C} T={T} S={S} R={R} t={t}
       />
       <AmountSheet
         visible={amtSheet.visible}
@@ -844,13 +782,13 @@ export default function ExpenseScreen({ navigation }) {
         dayId={dayData?.id}
         selectedDate={selectedDate}
         onReload={reload}
-        C={C} Shadow={Shadow} t={t}
+        C={C} T={T} S={S} R={R} Shadow={Shadow} t={t}
       />
       <ManageCatsSheet
         visible={showManage}
         onClose={() => setShowManage(false)}
         onRefresh={reload}
-        C={C} Shadow={Shadow} t={t}
+        C={C} T={T} S={S} R={R} t={t}
       />
     </View>
   );
@@ -859,13 +797,11 @@ export default function ExpenseScreen({ navigation }) {
 const s = StyleSheet.create({
   root:      { flex: 1 },
   scroll:    { flex: 1 },
-  content:   { padding: Spacing.lg },
+  content:   {},
   secHdr:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  secLbl:    { fontSize: 11, fontWeight: Typography.weights.bold, letterSpacing: 1.5 },
-  totalPill: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
-  totalTxt:  { fontSize: Typography.sizes.xs, fontWeight: Typography.weights.bold },
-  hint:      { fontSize: 11, marginBottom: Spacing.md },
-  grid:      { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  manageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.base, borderRadius: Radius.lg, borderWidth: 1, borderStyle: 'dashed', marginTop: Spacing.xs },
-  manageTxt: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold },
+  secLbl:    { fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
+  hint:      { fontSize: 11, marginBottom: 12 },
+  grid:      { flexDirection: 'row', flexWrap: 'wrap' },
+  manageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  manageTxt: { fontSize: 13, fontWeight: '600' },
 });

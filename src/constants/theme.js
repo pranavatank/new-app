@@ -66,50 +66,69 @@ export const Radius = BASE_RADIUS;
 
 export const LightColors = {
   // Backgrounds - More colorful with subtle gradients
-  bg:          '#F0F4FF',  // Soft blue-white
+  bg:          '#F1F4FF',  // Soft blue-white
   bgCard:      '#FFFFFF',
-  bgElevated:  '#E8EFFF',  // Light blue tint
-  bgInput:     '#F5F8FF',
+  bgElevated:  '#E9EEFF',  // Light blue tint
+  bgInput:     '#F5F7FF',
 
   // Brand - Vibrant purple-blue gradient
-  primary:     '#6366F1',   // Vivid indigo
-  primaryDim:  '#6366F120',
-  primarySoft: '#818CF8',   // Lighter indigo
-  primaryDark: '#4F46E5',   // Deep indigo
+  primary:     '#5B5EF0',   // Vivid indigo
+  primaryDim:  '#5B5EF01F',
+  primarySoft: '#8B8EF7',   // Lighter indigo
+  primaryDark: '#4338CA',   // Deep indigo
 
   // Semantic - More saturated colors
-  income:       '#10B981',   // Emerald green
-  incomeLight:  '#10B98120',
-  incomeBg:     '#ECFDF5',   // Mint background
+  income:       '#0EA872',   // Emerald green
+  incomeSoft:   '#34D399',
+  incomeLight:  '#0EA87220',
+  incomeBg:     '#E7FBF3',   // Mint background
   expense:      '#EF4444',   // Bright red
+  expenseSoft:  '#F87171',
   expenseLight: '#EF444420',
-  expenseBg:    '#FEF2F2',
+  expenseBg:    '#FEF1F1',
   online:       '#8B5CF6',   // Rich purple
+  onlineSoft:   '#A78BFA',
   onlineLight:  '#8B5CF620',
-  onlineBg:     '#F5F3FF',
+  onlineBg:     '#F5F2FF',
 
   // Text - Higher contrast
-  textPrimary:   '#1E1B4B',  // Deep indigo
-  textSecondary: '#4C4B7F',  // Medium purple-gray
-  textMuted:     '#94A3B8',  // Slate gray
+  textPrimary:   '#1B1836',  // Deep indigo
+  textSecondary: '#5B5A82',  // Medium purple-gray
+  textMuted:     '#93949E',  // Slate gray
   textOnPrimary: '#FFFFFF',
 
   // UI chrome - Colorful borders
-  border:      '#E0E7FF',    // Light indigo
-  divider:     '#EEF2FF',
-  shadow:      '#6366F1',
-  overlay:     'rgba(30,27,75,0.5)',
+  border:      '#E2E6FB',    // Light indigo
+  divider:     '#EEF1FE',
+  shadow:      '#5B5EF0',
+  overlay:     'rgba(27,24,54,0.5)',
 
   // Status
-  success: '#10B981',
+  success: '#0EA872',
   warning: '#F59E0B',  // Amber
   danger:  '#EF4444',
 
-  // Section accents - Vibrant colors
+  // Section accents - Vibrant colors, one per tab/section
+  iconHome:    '#5B5EF0',   // Indigo
+  iconExpense: '#F97316',   // Orange
   iconTask:    '#F97316',   // Bright orange
-  iconBalance: '#6366F1',   // Indigo
-  iconPlaces:  '#14B8A6',   // Teal
-  iconNotes:   '#EC4899',   // Pink
+  iconBalance: '#5B5EF0',   // Indigo
+  iconPlaces:  '#0D9488',   // Teal
+  iconNotes:   '#DB2777',   // Pink
+  iconStats:   '#7C3AED',   // Violet
+  iconSettings:'#475569',   // Slate
+
+  // Extra category-chip accent set (cycled for chips/analytics bars)
+  accents: ['#5B5EF0', '#0D9488', '#DB2777', '#F97316', '#7C3AED', '#0EA872', '#EA580C', '#0891B2'],
+
+  gradients: {
+    primary: ['#4338CA', '#6366F1'],
+    income:  ['#0EA872', '#34D399'],
+    expense: ['#DC2626', '#F87171'],
+    online:  ['#7C3AED', '#A78BFA'],
+    card:    ['#FFFFFF', '#F1F4FF'],
+    header:  ['#4F46E5', '#6366F1', '#818CF8'],
+  },
 
   isDark: false,
 };
@@ -132,23 +151,26 @@ export const DarkColors = {
 
   // Semantic - Neon colors
   income:       '#34D399',   // Neon green
+  incomeSoft:   '#6EE7B7',
   incomeLight:  '#34D39920',
-  incomeBg:     '#064E3B',   // Dark green
+  incomeBg:     '#0B3B2C',   // Dark green
   expense:      '#FB7185',   // Neon pink-red
+  expenseSoft:  '#FDA4AF',
   expenseLight: '#FB718520',
   expenseBg:    '#3F1728',   // Dark red
   online:       '#A78BFA',   // Neon purple
+  onlineSoft:   '#C4B5FD',
   onlineLight:  '#A78BFA20',
   onlineBg:     '#2E1065',   // Dark purple
 
   // Text - High contrast neon
-  textPrimary:   '#F0F9FF',  // Bright white-cyan
-  textSecondary: '#94A3B8',  // Light gray
-  textMuted:     '#475569',  // Medium gray
+  textPrimary:   '#F3F8FF',  // Bright white-cyan
+  textSecondary: '#A3ACC2',  // Light gray
+  textMuted:     '#5B6479',  // Medium gray
   textOnPrimary: '#0F0A1F',  // Dark background
 
   // UI chrome - Glowing borders
-  border:      '#312E4F',    // Purple-gray
+  border:      '#332C56',    // Purple-gray
   divider:     '#251D3D',
   shadow:      '#000000',
   overlay:     'rgba(15,10,31,0.85)',
@@ -159,10 +181,25 @@ export const DarkColors = {
   danger:  '#FB7185',
 
   // Section accents - Neon rainbow
+  iconHome:    '#22D3EE',
+  iconExpense: '#FB923C',
   iconTask:    '#FB923C',   // Neon orange
   iconBalance: '#22D3EE',   // Cyan
-  iconPlaces:  '#34D399',   // Green
+  iconPlaces:  '#2DD4BF',   // Green
   iconNotes:   '#F472B6',   // Pink
+  iconStats:   '#C084FC',   // Violet
+  iconSettings:'#94A3B8',   // Slate
+
+  accents: ['#22D3EE', '#2DD4BF', '#F472B6', '#FB923C', '#C084FC', '#34D399', '#FBBF24', '#818CF8'],
+
+  gradients: {
+    primary: ['#06B6D4', '#22D3EE'],
+    income:  ['#059669', '#34D399'],
+    expense: ['#E11D48', '#FB7185'],
+    online:  ['#7C3AED', '#A78BFA'],
+    card:    ['#1A1333', '#251D3D'],
+    header:  ['#1A1333', '#2A2147', '#332C56'],
+  },
 
   isDark: true,
 };
@@ -173,21 +210,28 @@ export const makeShadow = (C) => ({
   sm: {
     shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: C.isDark ? 0.6 : 0.12,
+    shadowOpacity: C.isDark ? 0.6 : 0.1,
     shadowRadius: 6,
     elevation: 3,
   },
   md: {
     shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: C.isDark ? 0.7 : 0.15,
+    shadowOpacity: C.isDark ? 0.7 : 0.13,
     shadowRadius: 12,
     elevation: 6,
+  },
+  lg: {
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: C.isDark ? 0.75 : 0.16,
+    shadowRadius: 20,
+    elevation: 10,
   },
   primary: {
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: C.isDark ? 0.5 : 0.35,
+    shadowOpacity: C.isDark ? 0.5 : 0.32,
     shadowRadius: 14,
     elevation: 8,
   },

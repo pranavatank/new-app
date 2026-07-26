@@ -159,6 +159,9 @@ export const initializeDatabase = async () => {
   // Places — add icon column if missing (safe migration)
   try { database.execSync(`ALTER TABLE places ADD COLUMN icon TEXT NOT NULL DEFAULT '📍';`); } catch (_) {}
 
+  // Places — add icon_type column if missing (emoji vs custom photo, same pattern as categories/category_items)
+  try { database.execSync(`ALTER TABLE places ADD COLUMN icon_type TEXT NOT NULL DEFAULT 'emoji';`); } catch (_) {}
+
   // Notes — add mood column if missing (safe migration for existing DBs)
   try { database.execSync(`ALTER TABLE notes ADD COLUMN mood TEXT NOT NULL DEFAULT 'other';`); } catch (_) {}
 
@@ -206,6 +209,26 @@ export const initializeDatabase = async () => {
       amount          REAL    NOT NULL,
       payment_type    TEXT    NOT NULL DEFAULT 'online',
       created_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+  `);
+
+  // Recurring Expenses — user-defined rules auto-posted on cold start
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS recurring_expenses (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id    INTEGER NOT NULL,
+      item_id        INTEGER,
+      amount         REAL    NOT NULL DEFAULT 0,
+      payment_type   TEXT    NOT NULL DEFAULT 'cash',
+      note           TEXT,
+      frequency      TEXT    NOT NULL DEFAULT 'monthly',
+      day_of_month   INTEGER NOT NULL DEFAULT 1,
+      day_of_week    INTEGER NOT NULL DEFAULT 1,
+      next_due_date  TEXT    NOT NULL,
+      is_active      INTEGER NOT NULL DEFAULT 1,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (category_id) REFERENCES categories(id),
+      FOREIGN KEY (item_id)     REFERENCES category_items(id)
     );
   `);
 

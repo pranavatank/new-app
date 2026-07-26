@@ -1,139 +1,27 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Switch, StatusBar, Alert, ActivityIndicator, Modal, Image, Linking, Platform,
+  ScrollView, Switch, StatusBar, Alert, ActivityIndicator, Image, Linking, Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
-import { scaleTheme, Typography, Spacing, Radius, makeShadow } from '../constants/theme';
+import { useNavigation } from '@react-navigation/native';
+import { AntDesign, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { SUPPORTED_LANGUAGES } from '../i18n';
 import { exportToExcel, importFromExcel } from '../services/excelService';
 import { exportToJSON, importFromJSON } from '../services/backupService';
 import { exportToPDF } from '../services/pdfService';
 import { getDB } from '../db/schema';
-
-// ── Reusable Row ──────────────────────────────────────────────────────────────
-
-const Row = ({ icon, iconBg, label, sub, right, onPress, C, isFirst, isLast }) => (
-  <TouchableOpacity
-    style={[
-      sr.row,
-      { backgroundColor: C.bgCard, borderColor: C.border },
-      isFirst && sr.firstRow,
-      isLast  && sr.lastRow,
-      !isLast && { borderBottomWidth: 1, borderBottomColor: C.divider },
-    ]}
-    onPress={onPress}
-    activeOpacity={onPress ? 0.72 : 1}
-  >
-    <View style={[sr.iconBox, { backgroundColor: iconBg || C.primaryDim }]}>
-      <Text style={{ fontSize: 18 }}>{icon}</Text>
-    </View>
-    <View style={sr.body}>
-      <Text style={[sr.label, { color: C.textPrimary }]}>{label}</Text>
-      {sub ? <Text style={[sr.sub, { color: C.textMuted }]}>{sub}</Text> : null}
-    </View>
-    {right}
-  </TouchableOpacity>
-);
-const sr = StyleSheet.create({
-  row:      { flexDirection: 'row', alignItems: 'center', padding: Spacing.base, gap: Spacing.md, borderLeftWidth: 1, borderRightWidth: 1 },
-  firstRow: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1 },
-  lastRow:  { borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl, borderBottomWidth: 1 },
-  iconBox:  { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  body:     { flex: 1 },
-  label:    { fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold },
-  sub:      { fontSize: Typography.sizes.xs, marginTop: 2 },
-});
-
-const SectionLabel = ({ text, C }) => (
-  <Text style={[sl.t, { color: C.textSecondary }]}>{text.toUpperCase()}</Text>
-);
-const sl = StyleSheet.create({
-  t: { fontSize: 11, fontWeight: Typography.weights.bold, letterSpacing: 1.5, marginBottom: Spacing.xs, marginLeft: 4, marginTop: Spacing.xl },
-});
-
-const Chevron = ({ C }) => (
-  <Text style={{ color: C.textMuted, fontSize: 20 }}>›</Text>
-);
-
-// ── Language Picker ───────────────────────────────────────────────────────────
-
-const LanguagePicker = ({ current, onChange, C, Shadow }) => (
-  <View style={[lp.wrap, { backgroundColor: C.bgCard, borderColor: C.border }, Shadow.sm]}>
-    <Text style={[lp.title, { color: C.textSecondary }]}>App Language</Text>
-    <View style={lp.row}>
-      {Object.entries(SUPPORTED_LANGUAGES).map(([code, meta]) => {
-        const active = current === code;
-        return (
-          <TouchableOpacity
-            key={code}
-            style={[
-              lp.btn,
-              { borderColor: active ? C.primary : C.border },
-              active && { backgroundColor: C.primaryDim },
-            ]}
-            onPress={() => onChange(code)}
-            activeOpacity={0.8}
-          >
-            <Text style={lp.flag}>{meta.flag}</Text>
-            <Text style={[lp.lang, { color: active ? C.primary : C.textPrimary }]}>
-              {meta.nativeLabel}
-            </Text>
-            <Text style={[lp.sub, { color: active ? C.primary : C.textMuted }]}>
-              {meta.label}
-            </Text>
-            {active && (
-              <View style={[lp.check, { backgroundColor: C.primary }]}>
-                <Text style={lp.checkTxt}>✓</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  </View>
-);
-const lp = StyleSheet.create({
-  wrap:     { borderRadius: Radius.xl, padding: Spacing.base, borderWidth: 1, marginTop: Spacing.xs },
-  title:    { fontSize: 11, fontWeight: Typography.weights.bold, letterSpacing: 1.5, marginBottom: Spacing.md },
-  row:      { flexDirection: 'row', gap: Spacing.sm },
-  btn:      { flex: 1, alignItems: 'center', padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5, gap: Spacing.xs },
-  flag:     { fontSize: 28 },
-  lang:     { fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold },
-  sub:      { fontSize: Typography.sizes.xs },
-  check:    { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  checkTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
-});
-
-// ── Color Swatches Preview ────────────────────────────────────────────────────
-
-const ThemePreview = ({ C, isDark, t }) => (
-  <View style={[tp.wrap, { backgroundColor: C.bgCard, borderColor: C.border }]}>
-    <Text style={[tp.label, { color: C.textSecondary }]}>
-      {isDark ? `🌙  ${t('settings.darkMode')} — ${t('settings.darkModeSub')}` : `☀️  ${t('settings.lightMode')} — ${t('settings.lightModeSub')}`}
-    </Text>
-    <View style={tp.row}>
-      {[C.primary, C.income, C.expense, C.online, C.bgElevated, C.border].map((col, i) => (
-        <View key={i} style={[tp.dot, { backgroundColor: col, borderColor: C.border }]} />
-      ))}
-    </View>
-  </View>
-);
-const tp = StyleSheet.create({
-  wrap:  { borderRadius: Radius.xl, padding: Spacing.md, borderWidth: 1, marginTop: Spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold },
-  row:   { flexDirection: 'row', gap: Spacing.xs },
-  dot:   { width: 24, height: 24, borderRadius: 12, borderWidth: 1 },
-});
+import { Card, Button, Sheet, Row, SectionHeader, ScreenHeader } from '../components/common';
 
 // ── Main Settings Screen ──────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
   const { C, isDark, toggleTheme, language, changeLanguage, scale, changeScale, showMileage, toggleMileage } = useTheme();
-  const Shadow = makeShadow(C);
+  const { Typography, Spacing, Radius } = scaleTheme(scale);
   const { t } = useTranslation();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -241,50 +129,43 @@ export default function SettingsScreen() {
     changeScale(newScale);
   };
 
+  const Divider = () => <View style={{ height: 1, backgroundColor: C.divider }} />;
+
   return (
     <View style={[s.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
 
-      {/* Header */}
-      <View style={[s.header, { backgroundColor: C.bgCard, borderBottomColor: C.border }]}>
-        <Text style={[s.title, { color: C.textPrimary }]}>
-          {t('nav.settings') || 'Settings'}
-        </Text>
-        <Text style={[s.sub, { color: C.textSecondary }]}>Preferences &amp; App Info</Text>
-      </View>
+      <ScreenHeader title={t('nav.settings') || 'Settings'} subtitle="Preferences & App Info" />
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.content}
+        contentContainerStyle={{ padding: Spacing.base }}
         showsVerticalScrollIndicator={false}
       >
 
         {/* ── APPEARANCE ── */}
-        <SectionLabel text={t('settings.appearance')} C={C} />
-        <View style={Shadow.sm}>
+        <SectionHeader
+          title={t('settings.appearance')}
+          icon={isDark ? 'moon' : 'sunny'}
+          color={isDark ? C.primarySoft : C.warning}
+          style={{ marginTop: Spacing.md }}
+        />
+        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon={isDark ? '🌙' : '☀️'}
-            iconBg={isDark ? '#1E213A' : '#FFF7ED'}
+            icon={isDark ? 'moon' : 'sunny'}
+            iconColor={isDark ? C.primarySoft : C.warning}
             label={isDark ? t('settings.darkMode') : t('settings.lightMode')}
-            sub={isDark ? t('settings.darkModeSub') : t('settings.lightModeSub')}
-            isFirst isLast
+            subtitle={isDark ? t('settings.darkModeSub') : t('settings.lightModeSub')}
             onPress={toggleTheme}
-            C={C}
-            right={
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: C.bgElevated, true: C.primary }}
-                thumbColor={isDark ? C.primarySoft : '#ffffff'}
-              />
-            }
+            switchValue={isDark}
+            onSwitchChange={toggleTheme}
           />
-        </View>
+        </Card>
 
         {/* ── TEXT SIZE ── */}
-        <SectionLabel text={t('settings.textSize')} C={C} />
-        <View style={[ts.wrap, { backgroundColor: C.bgCard, borderColor: C.border }, Shadow.sm]}>
-          <View style={ts.row}>
+        <SectionHeader title={t('settings.textSize')} icon="text-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card style={{ marginTop: 0 }}>
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
             {[
               { value: 0.9, label: 'S' },
               { value: 1.0, label: 'M' },
@@ -295,141 +176,100 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   key={value}
                   style={[
-                    ts.btn,
-                    { borderColor: active ? C.primary : C.border, backgroundColor: active ? C.primaryDim : 'transparent' },
+                    st.segBtn,
+                    {
+                      borderColor: active ? C.primary : C.border,
+                      backgroundColor: active ? C.primaryDim : 'transparent',
+                      paddingVertical: Spacing.md,
+                      borderRadius: Radius.lg,
+                      gap: 4,
+                    },
                   ]}
                   onPress={() => handleScaleChange(value)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[ts.label, { color: active ? C.primary : C.textPrimary }]}>{label}</Text>
-                  {active && <View style={[ts.dot, { backgroundColor: C.primary }]} />}
+                  <Text style={{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold, color: active ? C.primary : C.textPrimary }}>
+                    {label}
+                  </Text>
+                  {active && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />}
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
+        </Card>
 
         {/* ── LANGUAGE ── */}
-        <SectionLabel text="Language / ભાષા" C={C} />
-        <View style={[ts.wrap, { backgroundColor: C.bgCard, borderColor: C.border }, Shadow.sm]}>
-          <View style={ts.row}>
+        <SectionHeader title="Language / ભાષા" icon="language-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card style={{ marginTop: 0 }}>
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
             {Object.entries(SUPPORTED_LANGUAGES).map(([code, meta]) => {
               const active = language === code;
               return (
                 <TouchableOpacity
                   key={code}
                   style={[
-                    ts.langBtn,
-                    { borderColor: active ? C.primary : C.border, backgroundColor: active ? C.primaryDim : 'transparent' },
+                    st.segBtn,
+                    {
+                      borderColor: active ? C.primary : C.border,
+                      backgroundColor: active ? C.primaryDim : 'transparent',
+                      paddingVertical: Spacing.sm,
+                      borderRadius: Radius.lg,
+                      gap: 4,
+                    },
                   ]}
                   onPress={() => handleLanguageChange(code)}
                   activeOpacity={0.8}
                 >
-                  <Text style={ts.flag}>{meta.flag}</Text>
-                  <Text style={[ts.langLabel, { color: active ? C.primary : C.textPrimary }]}>{meta.nativeLabel}</Text>
-                  {active && <View style={[ts.dot, { backgroundColor: C.primary }]} />}
+                  <Text style={{ fontSize: 24 }}>{meta.flag}</Text>
+                  <Text style={{ fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold, color: active ? C.primary : C.textPrimary }}>
+                    {meta.nativeLabel}
+                  </Text>
+                  {active && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />}
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
+        </Card>
 
         {/* ── DATA ── */}
-        <SectionLabel text={t('settings.data')} C={C} />
-        <View style={Shadow.sm}>
+        <SectionHeader title={t('settings.data')} icon="server-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon="📤" iconBg="#ECFDF5"
+            icon="cloud-upload-outline"
+            iconColor={C.income}
             label={t('settings.export')}
-            sub={t('settings.exportSub')}
-            isFirst C={C}
+            subtitle={t('settings.exportSub')}
             onPress={() => setShowExportModal(true)}
-            right={loading ? <ActivityIndicator color={C.primary} /> : <Chevron C={C} />}
+            right={loading ? <ActivityIndicator color={C.primary} /> : undefined}
           />
+          <Divider />
           <Row
-            icon="📥" iconBg="#EFF6FF"
+            icon="cloud-download-outline"
+            iconColor={C.online}
             label={t('settings.import')}
-            sub={t('settings.importSub')}
-            C={C}
+            subtitle={t('settings.importSub')}
             onPress={() => setShowImportModal(true)}
-            right={loading ? <ActivityIndicator color={C.primary} /> : <Chevron C={C} />}
+            right={loading ? <ActivityIndicator color={C.primary} /> : undefined}
           />
+          <Divider />
           <Row
-            icon="🗑️" iconBg="#FEE2E2"
+            icon="trash-outline"
+            danger
             label={t('settings.clearData')}
-            sub={t('settings.clearDataSub')}
-            isLast C={C}
+            subtitle={t('settings.clearDataSub')}
             onPress={handleClearAllData}
-            right={loading ? <ActivityIndicator color={C.primary} /> : <Chevron C={C} />}
+            right={loading ? <ActivityIndicator color={C.primary} /> : undefined}
           />
-        </View>
-
-        {/* Export Modal */}
-        <Modal visible={showExportModal} transparent animationType="fade">
-          <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={() => setShowExportModal(false)}>
-            <View style={[ms.modal, { backgroundColor: C.bgCard }]}>
-              <Text style={[ms.modalTitle, { color: C.textPrimary }]}>{t('settings.exportOptions')}</Text>
-              <TouchableOpacity style={[ms.option, { borderColor: C.border }]} onPress={() => handleExport('json')}>
-                <Text style={ms.optionIcon}>💾</Text>
-                <View style={ms.optionText}>
-                  <Text style={[ms.optionLabel, { color: C.textPrimary }]}>JSON</Text>
-                  <Text style={[ms.optionSub, { color: C.textMuted }]}>{t('settings.jsonBackupSub')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[ms.option, { borderColor: C.border }]} onPress={() => handleExport('excel')}>
-                <Text style={ms.optionIcon}>📊</Text>
-                <View style={ms.optionText}>
-                  <Text style={[ms.optionLabel, { color: C.textPrimary }]}>Excel</Text>
-                  <Text style={[ms.optionSub, { color: C.textMuted }]}>{t('settings.excelSub')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[ms.option, { borderColor: C.border }]} onPress={() => handleExport('pdf')}>
-                <Text style={ms.optionIcon}>📄</Text>
-                <View style={ms.optionText}>
-                  <Text style={[ms.optionLabel, { color: C.textPrimary }]}>PDF</Text>
-                  <Text style={[ms.optionSub, { color: C.textMuted }]}>{t('settings.exportPDFSub')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[ms.cancelBtn, { backgroundColor: C.bgElevated }]} onPress={() => setShowExportModal(false)}>
-                <Text style={[ms.cancelText, { color: C.textSecondary }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        {/* Import Modal */}
-        <Modal visible={showImportModal} transparent animationType="fade">
-          <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={() => setShowImportModal(false)}>
-            <View style={[ms.modal, { backgroundColor: C.bgCard }]}>
-              <Text style={[ms.modalTitle, { color: C.textPrimary }]}>{t('settings.importOptions')}</Text>
-              <TouchableOpacity style={[ms.option, { borderColor: C.border }]} onPress={() => handleImport('json')}>
-                <Text style={ms.optionIcon}>💾</Text>
-                <View style={ms.optionText}>
-                  <Text style={[ms.optionLabel, { color: C.textPrimary }]}>JSON</Text>
-                  <Text style={[ms.optionSub, { color: C.textMuted }]}>{t('settings.importJSONSub')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[ms.option, { borderColor: C.border }]} onPress={() => handleImport('excel')}>
-                <Text style={ms.optionIcon}>📊</Text>
-                <View style={ms.optionText}>
-                  <Text style={[ms.optionLabel, { color: C.textPrimary }]}>Excel</Text>
-                  <Text style={[ms.optionSub, { color: C.textMuted }]}>{t('settings.excelImportSub')}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[ms.cancelBtn, { backgroundColor: C.bgElevated }]} onPress={() => setShowImportModal(false)}>
-                <Text style={[ms.cancelText, { color: C.textSecondary }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+        </Card>
 
         {/* ── SECURITY ── */}
-        <SectionLabel text={t('settings.security')} C={C} />
-        <View style={Shadow.sm}>
+        <SectionHeader title={t('settings.security')} icon="shield-checkmark-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon="🔒" iconBg="#F5F3FF"
+            icon="lock-closed"
+            iconColor={C.online}
             label={t('settings.biometric')}
-            sub={t('settings.biometricSub')}
-            isFirst isLast C={C}
+            subtitle={t('settings.biometricSub')}
             right={
               <Switch
                 value={true}
@@ -439,158 +279,183 @@ export default function SettingsScreen() {
               />
             }
           />
-        </View>
+        </Card>
 
         {/* ── FEATURES ── */}
-        <SectionLabel text="Features" C={C} />
-        <View style={Shadow.sm}>
+        <SectionHeader title="Features" icon="options-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon="🏍️" iconBg="#FFF7ED"
-            label="Bike Mileage Tracking"
-            sub="Show bike mileage card on home screen"
-            isFirst isLast C={C}
-            onPress={toggleMileage}
-            right={
-              <Switch
-                value={showMileage}
-                onValueChange={toggleMileage}
-                trackColor={{ false: C.bgElevated, true: C.primary }}
-                thumbColor={showMileage ? C.primarySoft : '#ffffff'}
-              />
-            }
+            icon="repeat-outline"
+            iconColor={C.primary}
+            label={t('recurring.title')}
+            subtitle={t('recurring.settingsSub')}
+            onPress={() => navigation.navigate('Recurring')}
           />
-        </View>
+          <Divider />
+          <Row
+            mciIcon="motorbike"
+            iconColor={C.iconExpense}
+            label="Bike Mileage Tracking"
+            subtitle="Show bike mileage card on home screen"
+            onPress={toggleMileage}
+            switchValue={showMileage}
+            onSwitchChange={toggleMileage}
+          />
+        </Card>
 
         {/* ── ABOUT ── */}
-        <SectionLabel text={t('settings.about')} C={C} />
-        <View style={Shadow.sm}>
+        <SectionHeader title={t('settings.about')} icon="information-circle-outline" color={C.iconSettings} style={{ marginTop: Spacing.xl }} />
+        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon="📝" iconBg="#FFF7ED"
+            icon="document-text-outline"
+            iconColor={C.primary}
             label={t('settings.appName')}
-            sub={t('settings.version')}
-            isFirst C={C}
+            subtitle={t('settings.version')}
             onPress={() => setShowAboutModal(true)}
-            right={<Chevron C={C} />}
           />
+          <Divider />
           <Row
-            icon="👨💻" iconBg="#EFF6FF"
+            icon="person-circle-outline"
+            iconColor={C.online}
             label="Developer"
-            sub="Pranav Tank"
-            isLast C={C}
+            subtitle="Pranav Tank"
             onPress={() => setShowDeveloperModal(true)}
-            right={<Chevron C={C} />}
           />
-        </View>
+        </Card>
 
-        <View style={{ height: 52 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Developer Modal */}
-      <Modal visible={showDeveloperModal} transparent animationType="fade">
-        <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={() => setShowDeveloperModal(false)}>
-          <View style={[ms.devModal, { backgroundColor: C.bgCard }]}>
-            <Image source={require('../../assets/developer.jpg')} style={ms.devPhoto} />
-            <Text style={[ms.devName, { color: C.textPrimary }]}>Pranav Tank</Text>
-            <Text style={[ms.devRole, { color: C.textSecondary }]}>Developer</Text>
-            
-            <View style={ms.devLinks}>
-              <TouchableOpacity style={ms.linkBtn} onPress={() => Linking.openURL('https://www.linkedin.com/in/pranav-tank-1763b6242')}>
-                <AntDesign name="linkedin-square" size={20} color="#0A66C2" />
-                <Text style={[ms.linkText, { color: C.textPrimary }]}>LinkedIn</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={ms.linkBtn} onPress={() => Linking.openURL('https://github.com/Pranav-Tank')}>
-                <AntDesign name="github" size={20} color="#181717" />
-                <Text style={[ms.linkText, { color: C.textPrimary }]}>GitHub</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={ms.linkBtn} onPress={() => Linking.openURL('mailto:pranavatank@gmail.com')}>
-                <MaterialCommunityIcons name="gmail" size={20} color="#EA4335" />
-                <Text style={[ms.linkText, { color: C.textPrimary }]}>Mail</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={ms.thanksContainer}>
-              <Text style={ms.heartIcon}>❤️</Text>
-              <Text style={[ms.thanks, { color: C.textMuted }]}>Thank you for using this app!</Text>
-            </View>
-            
-            <TouchableOpacity style={[ms.closeBtn, { backgroundColor: C.primary }]} onPress={() => setShowDeveloperModal(false)}>
-              <Text style={ms.closeBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Export Sheet */}
+      <Sheet visible={showExportModal} onClose={() => setShowExportModal(false)} title={t('settings.exportOptions')}>
+        <Row
+          icon="save-outline"
+          iconColor={C.primary}
+          label="JSON"
+          subtitle={t('settings.jsonBackupSub')}
+          onPress={() => handleExport('json')}
+          chevron={false}
+        />
+        <Divider />
+        <Row
+          mciIcon="file-excel"
+          iconColor={C.income}
+          label="Excel"
+          subtitle={t('settings.excelSub')}
+          onPress={() => handleExport('excel')}
+          chevron={false}
+        />
+        <Divider />
+        <Row
+          icon="document-text-outline"
+          iconColor={C.expense}
+          label="PDF"
+          subtitle={t('settings.exportPDFSub')}
+          onPress={() => handleExport('pdf')}
+          chevron={false}
+        />
+        <Button
+          variant="ghost"
+          label={t('common.cancel')}
+          onPress={() => setShowExportModal(false)}
+          fullWidth
+          style={{ marginTop: Spacing.base }}
+        />
+      </Sheet>
 
-      {/* About Modal */}
-      <Modal visible={showAboutModal} transparent animationType="fade">
-        <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={() => setShowAboutModal(false)}>
-          <View style={[ms.aboutModal, { backgroundColor: C.bgCard }]}>
-            <Text style={ms.aboutIcon}>📝</Text>
-            <Text style={[ms.aboutTitle, { color: C.textPrimary }]}>Hisab</Text>
-            <Text style={[ms.aboutSub, { color: C.textSecondary }]}>Family Cash Ledger</Text>
-            <Text style={[ms.aboutVersion, { color: C.textMuted }]}>Version 1.0.0</Text>
-            
-            <Text style={[ms.aboutDesc, { color: C.textSecondary }]}>
-              A simple and elegant app to manage your daily expenses, tasks, and family activities. Track your cash flow, set reminders, and keep notes all in one place.
-            </Text>
-            
-            <TouchableOpacity style={[ms.closeBtn, { backgroundColor: C.primary }]} onPress={() => setShowAboutModal(false)}>
-              <Text style={ms.closeBtnText}>Close</Text>
+      {/* Import Sheet */}
+      <Sheet visible={showImportModal} onClose={() => setShowImportModal(false)} title={t('settings.importOptions')}>
+        <Row
+          icon="save-outline"
+          iconColor={C.primary}
+          label="JSON"
+          subtitle={t('settings.importJSONSub')}
+          onPress={() => handleImport('json')}
+          chevron={false}
+        />
+        <Divider />
+        <Row
+          mciIcon="file-excel"
+          iconColor={C.income}
+          label="Excel"
+          subtitle={t('settings.excelImportSub')}
+          onPress={() => handleImport('excel')}
+          chevron={false}
+        />
+        <Button
+          variant="ghost"
+          label={t('common.cancel')}
+          onPress={() => setShowImportModal(false)}
+          fullWidth
+          style={{ marginTop: Spacing.base }}
+        />
+      </Sheet>
+
+      {/* Developer Sheet */}
+      <Sheet visible={showDeveloperModal} onClose={() => setShowDeveloperModal(false)} title="Developer">
+        <View style={{ alignItems: 'center', gap: Spacing.sm }}>
+          <Image source={require('../../assets/developer.jpg')} style={{ width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.sm }} />
+          <Text style={{ fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold, color: C.textPrimary }}>Pranav Tank</Text>
+          <Text style={{ fontSize: Typography.sizes.sm, color: C.textSecondary, marginBottom: Spacing.base }}>Developer</Text>
+
+          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginVertical: Spacing.base }}>
+            <TouchableOpacity style={st.linkBtn} onPress={() => Linking.openURL('https://www.linkedin.com/in/pranav-tank-1763b6242')}>
+              <AntDesign name="linkedin-square" size={20} color="#0A66C2" />
+              <Text style={{ fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold, color: C.textPrimary }}>LinkedIn</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={st.linkBtn} onPress={() => Linking.openURL('https://github.com/Pranav-Tank')}>
+              <AntDesign name="github" size={20} color={C.textPrimary} />
+              <Text style={{ fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold, color: C.textPrimary }}>GitHub</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={st.linkBtn} onPress={() => Linking.openURL('mailto:pranavatank@gmail.com')}>
+              <MaterialCommunityIcons name="gmail" size={20} color="#EA4335" />
+              <Text style={{ fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold, color: C.textPrimary }}>Mail</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm }}>
+            <Ionicons name="heart" size={16} color={C.expense} />
+            <Text style={{ fontSize: Typography.sizes.sm, color: C.textMuted, textAlign: 'center' }}>Thank you for using this app!</Text>
+          </View>
+
+          <Button
+            variant="primary"
+            label="Close"
+            onPress={() => setShowDeveloperModal(false)}
+            style={{ marginTop: Spacing.base }}
+          />
+        </View>
+      </Sheet>
+
+      {/* About Sheet */}
+      <Sheet visible={showAboutModal} onClose={() => setShowAboutModal(false)}>
+        <View style={{ alignItems: 'center', paddingVertical: Spacing.md }}>
+          <Ionicons name="document-text" size={48} color={C.primary} style={{ marginBottom: Spacing.sm }} />
+          <Text style={{ fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black, color: C.textPrimary }}>Hisab</Text>
+          <Text style={{ fontSize: Typography.sizes.base, color: C.textSecondary, marginBottom: Spacing.xs }}>Family Cash Ledger</Text>
+          <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginBottom: Spacing.lg }}>Version 1.0.0</Text>
+
+          <Text style={{ fontSize: Typography.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.lg }}>
+            A simple and elegant app to manage your daily expenses, tasks, and family activities. Track your cash flow, set reminders, and keep notes all in one place.
+          </Text>
+
+          <Button
+            variant="primary"
+            label="Close"
+            onPress={() => setShowAboutModal(false)}
+          />
+        </View>
+      </Sheet>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.base, borderBottomWidth: 1 },
-  title:  { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.black },
-  sub:    { fontSize: Typography.sizes.sm, marginTop: 3 },
   scroll: { flex: 1 },
-  content:{ padding: Spacing.base },
 });
 
-const ts = StyleSheet.create({
-  wrap: { borderRadius: Radius.xl, padding: Spacing.base, borderWidth: 1, marginTop: Spacing.xs },
-  row: { flexDirection: 'row', gap: Spacing.sm },
-  btn: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, borderRadius: Radius.lg, borderWidth: 1.5, gap: 4 },
-  label: { fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  langBtn: { flex: 1, alignItems: 'center', paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1.5, gap: 4 },
-  flag: { fontSize: 24 },
-  langLabel: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold },
+const st = StyleSheet.create({
+  segBtn:  { flex: 1, alignItems: 'center', borderWidth: 1.5 },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', padding: 4, gap: 6 },
 });
-
-const ms = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modal: { width: '85%', borderRadius: Radius.xl, padding: Spacing.lg, gap: Spacing.sm },
-  modalTitle: { fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold, marginBottom: Spacing.sm },
-  option: { flexDirection: 'row', alignItems: 'center', padding: Spacing.base, borderRadius: Radius.lg, borderWidth: 1, gap: Spacing.md },
-  optionIcon: { fontSize: 28 },
-  optionText: { flex: 1 },
-  optionLabel: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold },
-  optionSub: { fontSize: Typography.sizes.xs, marginTop: 2 },
-  cancelBtn: { padding: Spacing.base, borderRadius: Radius.lg, alignItems: 'center', marginTop: Spacing.xs },
-  cancelText: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold },
-  devModal: { width: '80%', borderRadius: Radius.xl, padding: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
-  devPhoto: { width: 100, height: 100, borderRadius: 50, marginBottom: Spacing.sm },
-  devName: { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
-  devRole: { fontSize: Typography.sizes.sm, marginBottom: Spacing.base },
-  devLinks: { flexDirection: 'row', gap: Spacing.sm, marginVertical: Spacing.base },
-  linkBtn: { flexDirection: 'row', alignItems: 'center', padding: Spacing.xs, gap: 6 },
-  linkText: { fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold },
-  thanksContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm },
-  heartIcon: { fontSize: 18 },
-  thanks: { fontSize: Typography.sizes.sm, textAlign: 'center' },
-  closeBtn: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: Radius.full, marginTop: Spacing.base },
-  closeBtnText: { color: '#fff', fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold },
-  aboutModal: { width: '85%', borderRadius: Radius.xl, padding: Spacing.xl, alignItems: 'center' },
-  aboutIcon: { fontSize: 48, marginBottom: Spacing.sm },
-  aboutTitle: { fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black },
-  aboutSub: { fontSize: Typography.sizes.base, marginBottom: Spacing.xs },
-  aboutVersion: { fontSize: Typography.sizes.xs, marginBottom: Spacing.lg },
-  aboutDesc: { fontSize: Typography.sizes.sm, textAlign: 'center', lineHeight: 20, marginBottom: Spacing.lg },
-});
-

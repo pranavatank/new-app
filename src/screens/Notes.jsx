@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, Pressable, Alert, KeyboardAvoidingView,
-  Platform, StatusBar,
+  Alert, StatusBar, Platform,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { scaleTheme, makeShadow, Typography, Spacing, Radius } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
+import { Card, Sheet, Input, Chip, EmptyState, IconBadge, FAB, Button } from '../components/common';
 import {
   getNotesForDay,
   addNote,
@@ -28,27 +28,29 @@ const formatTime = (isoStr) => {
 };
 
 // ── Mood tags (optional note category) ───────────────────────────────────────
+// NOTE: keys/colors are stored data values — do not rename. `icon` is purely
+// visual (Ionicons name used in place of the old emoji prefix).
 
 const MOODS = [
-  {key:'memory', label:'🎉 Memory',  color:'#F59E0B'},
-  {key:'visitor',label:'👥 Visitor', color:'#8B5CF6'},
-  {key:'errand', label:'📋 Errand',  color:'#3B82F6'},
-  {key:'health', label:'💊 Health',  color:'#EF4444'},
-  {key:'other',  label:'📝 Other',   color:'#6B7280'},
+  {key:'memory', label:'🎉 Memory',  color:'#F59E0B', icon:'sparkles'},
+  {key:'visitor',label:'👥 Visitor', color:'#8B5CF6', icon:'people'},
+  {key:'errand', label:'📋 Errand',  color:'#3B82F6', icon:'clipboard'},
+  {key:'health', label:'💊 Health',  color:'#EF4444', icon:'medkit'},
+  {key:'other',  label:'📝 Other',   color:'#6B7280', icon:'document-text'},
 ];
 
 // ── Add / Edit Note Modal ─────────────────────────────────────────────────────
 
-const NoteModal = ({ visible, editNote, onSave, onClose, C, Shadow, t }) => {
+const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
+  const { scale } = useTheme();
+  const { Typography, Spacing } = scaleTheme(scale);
   const [text, setText] = useState('');
   const [mood, setMood] = useState('other');
-  const inputRef = React.useRef(null);
 
   React.useEffect(() => {
     if (visible) {
       setText(editNote?.text  || '');
       setMood(editNote?.mood  || 'other');
-      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [visible, editNote]);
 
@@ -58,159 +60,121 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, Shadow, t }) => {
     onClose();
   };
 
-  const MOODS_TRANSLATED = [
-    {key:'memory', label:t('notes.moods.memory'),  color:'#F59E0B'},
-    {key:'visitor',label:t('notes.moods.visitor'), color:'#8B5CF6'},
-    {key:'errand', label:t('notes.moods.errand'),  color:'#3B82F6'},
-    {key:'health', label:t('notes.moods.health'),  color:'#EF4444'},
-    {key:'other',  label:t('notes.moods.other'),   color:'#6B7280'},
-  ];
-
+  const MOODS_TRANSLATED = MOODS.map(m => ({...m, label: t(`notes.moods.${m.key}`)}));
   const selectedMood = MOODS_TRANSLATED.find(m=>m.key===mood) || MOODS_TRANSLATED[4];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{flex:1}}>
-        <Pressable style={[nm.overlay,{backgroundColor:C.overlay}]} onPress={onClose}>
-          <Pressable style={[nm.sheet,{backgroundColor:C.bgCard},Shadow.md]} onPress={e=>e.stopPropagation()}>
-            <View style={[nm.handle,{backgroundColor:C.border}]}/>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title={editNote ? t('notes.editNote') : t('notes.newNote')}
+    >
+      <Text style={[nm.label,{color:C.textSecondary, fontSize:Typography.sizes.xs, fontWeight:Typography.weights.bold, marginBottom:Spacing.xs}]}>
+        {t('notes.type')}
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:Spacing.base}} contentContainerStyle={{gap:Spacing.xs}}>
+        {MOODS_TRANSLATED.map(m=>(
+          <Chip
+            key={m.key}
+            label={m.label}
+            icon={m.icon}
+            color={m.color}
+            active={mood===m.key}
+            onPress={()=>setMood(m.key)}
+          />
+        ))}
+      </ScrollView>
 
-            <Text style={[nm.title,{color:C.textPrimary}]}>
-              {editNote ? t('notes.editNote') : t('notes.newNote')}
-            </Text>
+      <Input
+        value={text}
+        onChangeText={setText}
+        placeholder={t('notes.writeHere')}
+        multiline
+        textAlignVertical="top"
+        maxLength={1000}
+        inputStyle={{minHeight:120, borderColor:selectedMood.color}}
+      />
+      <Text style={[nm.charCount,{color:C.textMuted, fontSize:Typography.sizes.xs, marginTop:Spacing.xs, marginBottom:Spacing.base}]}>
+        {text.length}/1000
+      </Text>
 
-            {/* Mood selector */}
-            <Text style={[nm.label,{color:C.textSecondary}]}>{t('notes.type')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={nm.moodScroll} contentContainerStyle={nm.moodRow}>
-              {MOODS_TRANSLATED.map(m=>(
-                <TouchableOpacity
-                  key={m.key}
-                  style={[nm.moodChip,
-                    {borderColor:mood===m.key?m.color:C.border},
-                    mood===m.key && {backgroundColor:m.color+'18'},
-                  ]}
-                  onPress={()=>setMood(m.key)}
-                >
-                  <Text style={[nm.moodTxt,{color:mood===m.key?m.color:C.textSecondary}]}>{m.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Text area */}
-            <View style={[nm.inputWrap,{backgroundColor:C.bgInput,borderColor:selectedMood.color}]}>
-              <TextInput
-                ref={inputRef}
-                style={[nm.input,{color:C.textPrimary}]}
-                value={text}
-                onChangeText={setText}
-                placeholder={t('notes.writeHere')}
-                placeholderTextColor={C.textMuted}
-                multiline
-                textAlignVertical="top"
-                maxLength={1000}
-              />
-              <Text style={[nm.charCount,{color:C.textMuted}]}>{text.length}/1000</Text>
-            </View>
-
-            {/* Buttons */}
-            <View style={nm.btnRow}>
-              <TouchableOpacity style={[nm.btn,nm.cancelBtn,{borderColor:C.border}]} onPress={onClose}>
-                <Text style={[nm.btnTxt,{color:C.textSecondary}]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[nm.btn,{backgroundColor:selectedMood.color}]}
-                onPress={handleSave}
-              >
-                <Text style={[nm.btnTxt,{color:'#fff'}]}>{editNote?t('notes.update'):t('notes.saveNote')}</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+      <View style={{flexDirection:'row', gap:Spacing.sm}}>
+        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{flex:1}} />
+        <Button
+          label={editNote?t('notes.update'):t('notes.saveNote')}
+          variant="primary"
+          onPress={handleSave}
+          style={{flex:1}}
+        />
+      </View>
+    </Sheet>
   );
 };
 
 const nm = StyleSheet.create({
-  overlay:    {flex:1,justifyContent:'flex-end'},
-  sheet:      {borderTopLeftRadius:24,borderTopRightRadius:24,padding:Spacing.xl,paddingBottom:36},
-  handle:     {width:40,height:4,borderRadius:2,alignSelf:'center',marginBottom:Spacing.base},
-  title:      {fontSize:Typography.sizes.xl,fontWeight:Typography.weights.bold,marginBottom:Spacing.base},
-  label:      {fontSize:Typography.sizes.xs,fontWeight:Typography.weights.semibold,letterSpacing:0.8,textTransform:'uppercase',marginBottom:Spacing.xs},
-  moodScroll: {marginBottom:Spacing.base},
-  moodRow:    {gap:Spacing.xs,paddingBottom:4},
-  moodChip:   {paddingHorizontal:Spacing.sm,paddingVertical:7,borderRadius:Radius.full,borderWidth:1.5},
-  moodTxt:    {fontSize:Typography.sizes.sm,fontWeight:Typography.weights.semibold},
-  inputWrap:  {borderRadius:Radius.lg,borderWidth:2,padding:Spacing.md,marginBottom:Spacing.sm,minHeight:140},
-  input:      {fontSize:Typography.sizes.base,lineHeight:24,flex:1,minHeight:100},
-  charCount:  {textAlign:'right',fontSize:Typography.sizes.xs,marginTop:Spacing.xs},
-  btnRow:     {flexDirection:'row',gap:Spacing.sm,marginTop:Spacing.xs},
-  btn:        {flex:1,paddingVertical:Spacing.md,borderRadius:Radius.lg,alignItems:'center'},
-  cancelBtn:  {borderWidth:1},
-  btnTxt:     {fontSize:Typography.sizes.base,fontWeight:Typography.weights.semibold},
+  label:      {letterSpacing:0.8,textTransform:'uppercase'},
+  charCount:  {textAlign:'right'},
 });
 
 // ── Note Card ─────────────────────────────────────────────────────────────────
 
-const NoteCard = ({ note, onEdit, onDelete, C, Shadow, t }) => {
-  const MOODS_TRANSLATED = [
-    {key:'memory', label:t('notes.moods.memory'),  color:'#F59E0B'},
-    {key:'visitor',label:t('notes.moods.visitor'), color:'#8B5CF6'},
-    {key:'errand', label:t('notes.moods.errand'),  color:'#3B82F6'},
-    {key:'health', label:t('notes.moods.health'),  color:'#EF4444'},
-    {key:'other',  label:t('notes.moods.other'),   color:'#6B7280'},
-  ];
+const NoteCard = ({ note, onEdit, onDelete, C, t }) => {
+  const { scale } = useTheme();
+  const { Typography, Spacing, Radius } = scaleTheme(scale);
+  const MOODS_TRANSLATED = MOODS.map(m => ({...m, label: t(`notes.moods.${m.key}`)}));
   const mood = MOODS_TRANSLATED.find(m=>m.key===note.mood) || MOODS_TRANSLATED[4];
   const [expanded, setExpanded] = useState(false);
   const isLong = note.text.length > 120;
 
   return (
-    <View style={[nc.card,{backgroundColor:C.bgCard,borderColor:C.border,borderLeftColor:mood.color,borderLeftWidth:3},Shadow.sm]}>
-      {/* Header */}
-      <View style={nc.header}>
-        <View style={[nc.moodPill,{backgroundColor:mood.color+'18'}]}>
-          <Text style={[nc.moodTxt,{color:mood.color}]}>{mood.label}</Text>
-        </View>
-        <Text style={[nc.time,{color:C.textMuted}]}>{formatTime(note.created_at)}</Text>
-        <View style={nc.actions}>
-          <TouchableOpacity style={[nc.actionBtn,{backgroundColor:C.bgElevated}]} onPress={()=>onEdit(note)}>
-            <Text style={{fontSize:13}}>✏️</Text>
+    <Card
+      style={[nc.card, {borderLeftColor:mood.color, borderLeftWidth:3, marginBottom:Spacing.sm}]}
+    >
+      <View style={[nc.header, {gap:Spacing.xs, marginBottom:Spacing.sm}]}>
+        <IconBadge icon={mood.icon} color={mood.color} size={30} />
+        <Text style={[nc.moodTxt,{color:mood.color, fontSize:Typography.sizes.xs, fontWeight:Typography.weights.bold}]}>
+          {mood.label}
+        </Text>
+        <Text style={[nc.time,{color:C.textMuted, fontSize:Typography.sizes.xs, marginLeft:Spacing.xs}]}>
+          {formatTime(note.created_at)}
+        </Text>
+        <View style={[nc.actions, {gap:Spacing.xs}]}>
+          <TouchableOpacity style={[nc.actionBtn,{backgroundColor:C.bgElevated, borderRadius:Radius.sm}]} onPress={()=>onEdit(note)}>
+            <Ionicons name="create-outline" size={16} color={C.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[nc.actionBtn,{backgroundColor:C.expenseLight}]} onPress={()=>onDelete(note.id)}>
-            <Text style={{fontSize:13}}>🗑️</Text>
+          <TouchableOpacity style={[nc.actionBtn,{backgroundColor:C.expenseLight, borderRadius:Radius.sm}]} onPress={()=>onDelete(note.id)}>
+            <Ionicons name="trash-outline" size={16} color="#EF4444" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Text */}
       <Text
-        style={[nc.text,{color:C.textPrimary}]}
+        style={[nc.text,{color:C.textPrimary, fontSize:Typography.sizes.base}]}
         numberOfLines={expanded ? undefined : 4}
       >
         {note.text}
       </Text>
 
-      {/* Expand toggle */}
       {isLong && (
-        <TouchableOpacity onPress={()=>setExpanded(v=>!v)} style={nc.expandBtn}>
-          <Text style={[nc.expandTxt,{color:C.primary}]}>{expanded?t('notes.showLess'):t('notes.readMore')}</Text>
+        <TouchableOpacity onPress={()=>setExpanded(v=>!v)} style={{marginTop:Spacing.xs}}>
+          <Text style={[nc.expandTxt,{color:C.primary, fontSize:Typography.sizes.xs, fontWeight:Typography.weights.semibold}]}>
+            {expanded?t('notes.showLess'):t('notes.readMore')}
+          </Text>
         </TouchableOpacity>
       )}
-    </View>
+    </Card>
   );
 };
 
 const nc = StyleSheet.create({
-  card:      {borderRadius:Radius.xl,borderWidth:1,padding:Spacing.base,marginBottom:Spacing.sm},
-  header:    {flexDirection:'row',alignItems:'center',gap:Spacing.xs,marginBottom:Spacing.sm},
-  moodPill:  {paddingHorizontal:Spacing.sm,paddingVertical:3,borderRadius:Radius.full},
-  moodTxt:   {fontSize:Typography.sizes.xs,fontWeight:Typography.weights.bold},
-  time:      {flex:1,fontSize:Typography.sizes.xs,marginLeft:Spacing.xs},
-  actions:   {flexDirection:'row',gap:Spacing.xs},
-  actionBtn: {width:30,height:30,borderRadius:Radius.sm,alignItems:'center',justifyContent:'center'},
-  text:      {fontSize:Typography.sizes.base,lineHeight:24},
-  expandBtn: {marginTop:Spacing.xs},
-  expandTxt: {fontSize:Typography.sizes.xs,fontWeight:Typography.weights.semibold},
+  card:      {},
+  header:    {flexDirection:'row',alignItems:'center'},
+  moodTxt:   {},
+  time:      {flex:1},
+  actions:   {flexDirection:'row'},
+  actionBtn: {width:30,height:30,alignItems:'center',justifyContent:'center'},
+  text:      {lineHeight:24},
+  expandTxt: {},
 });
 
 // ── Main Notes Screen ─────────────────────────────────────────────────────────
@@ -218,8 +182,7 @@ const nc = StyleSheet.create({
 export default function NotesScreen({ route }) {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
-  const { Typography, Spacing, Radius } = scaleTheme(scale);
-  const Shadow = makeShadow(C);
+  const { Typography, Spacing } = scaleTheme(scale);
   const { selectedDate, dayData } = useAppStore();
 
   const [notes,    setNotes]    = useState([]);
@@ -230,7 +193,7 @@ export default function NotesScreen({ route }) {
     if (dayData) setNotes(getNotesForDay(dayData.id));
   }, [dayData, selectedDate]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (dayData) setNotes(getNotesForDay(dayData.id));
   }, [selectedDate, dayData]);
 
@@ -260,57 +223,41 @@ export default function NotesScreen({ route }) {
     setModal(true);
   };
 
-  // Group notes by type for display
-  const grouped = MOODS.reduce((acc,m)=>{
-    const list = notes.filter(n=>(n.mood||'other')===m.key);
-    if (list.length>0) acc.push({mood:m,notes:list});
-    return acc;
-  },{} instanceof Array ? {} : []);
-
   return (
     <View style={[s.root,{backgroundColor:C.bg}]}>
       <StatusBar barStyle={C.isDark?'light-content':'dark-content'} backgroundColor={C.bgCard}/>
       <DayNavigator/>
 
       {/* Header */}
-      <View style={[s.header,{backgroundColor:C.bgCard,borderBottomColor:C.border}]}>
+      <View style={[s.header,{backgroundColor:C.bgCard,borderBottomColor:C.border, paddingHorizontal:Spacing.base, paddingVertical:Spacing.md}]}>
         <View>
-          <Text style={[s.headerTitle,{color:C.textPrimary}]}>{t('notes.title')}</Text>
-          <Text style={[s.headerSub,{color:C.textSecondary}]}>
+          <Text style={[s.headerTitle,{color:C.textPrimary, fontSize:Typography.sizes.xl, fontWeight:Typography.weights.bold}]}>
+            {t('notes.title')}
+          </Text>
+          <Text style={[s.headerSub,{color:C.textSecondary, fontSize:Typography.sizes.xs, marginTop:2}]}>
             {notes.length>0?`${notes.length} ${notes.length===1?t('notes.memoryCount'):t('notes.memoriesCount')}`:t('notes.captureDay')}
           </Text>
         </View>
-        <TouchableOpacity
-          style={[s.addBtn,{backgroundColor:C.iconNotes},Shadow.primary]}
-          onPress={()=>{setEditNote(null);setModal(true);}}
-          activeOpacity={0.85}
-        >
-          <Text style={s.addBtnTxt}>{t('notes.addNote')}</Text>
-        </TouchableOpacity>
+        <IconBadge icon="reader-outline" color={C.iconNotes} size={40} />
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, {padding:Spacing.base, paddingBottom:100}]} showsVerticalScrollIndicator={false}>
 
         {notes.length === 0 ? (
-          <View style={[s.emptyCard,{backgroundColor:C.bgCard,borderColor:C.border}]}>
-            <Text style={s.emptyIcon}>📝</Text>
-            <Text style={[s.emptyTitle,{color:C.textPrimary}]}>{t('notes.noNotes')}</Text>
-            <Text style={[s.emptySub,{color:C.textSecondary}]}>
-              {t('notes.noNotesSub')}
-            </Text>
-            {/* Mood chips as suggestions */}
-            <View style={s.moodSuggest}>
+          <Card style={{alignItems:'center'}}>
+            <EmptyState icon="document-text-outline" title={t('notes.noNotes')} subtitle={t('notes.noNotesSub')} />
+            <View style={[s.moodSuggest, {gap:Spacing.xs, marginTop:Spacing.xs}]}>
               {MOODS.slice(0,4).map(m=>(
-                <TouchableOpacity
+                <Chip
                   key={m.key}
-                  style={[s.moodBtn,{backgroundColor:m.color+'18',borderColor:m.color+'40'}]}
+                  label={t(`notes.moods.${m.key}`)}
+                  icon={m.icon}
+                  color={m.color}
                   onPress={()=>{setEditNote({mood:m.key,text:''});setModal(true);}}
-                >
-                  <Text style={[s.moodBtnTxt,{color:m.color}]}>{t(`notes.moods.${m.key}`)}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
-          </View>
+          </Card>
         ) : (
           notes.map(note => (
             <NoteCard
@@ -318,20 +265,24 @@ export default function NotesScreen({ route }) {
               note={note}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              C={C} Shadow={Shadow} t={t}
+              C={C} t={t}
             />
           ))
         )}
-
-        <View style={{height:32}}/>
       </ScrollView>
+
+      <FAB
+        icon="add"
+        onPress={()=>{setEditNote(null);setModal(true);}}
+        style={s.fab}
+      />
 
       <NoteModal
         visible={modal}
         editNote={editNote}
         onSave={handleSave}
         onClose={()=>{setModal(false);setEditNote(null);}}
-        C={C} Shadow={Shadow} t={t}
+        C={C} t={t}
       />
     </View>
   );
@@ -339,18 +290,11 @@ export default function NotesScreen({ route }) {
 
 const s = StyleSheet.create({
   root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingVertical: Spacing.md, borderBottomWidth: 1 },
-  headerTitle: { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
-  headerSub:   { fontSize: Typography.sizes.xs, marginTop: 2 },
-  addBtn:      { paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm, borderRadius: Radius.full },
-  addBtnTxt:   { color: '#fff', fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
+  headerTitle: {},
+  headerSub:   {},
   scroll:  { flex: 1 },
-  content: { padding: Spacing.base },
-  emptyCard:    { borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.xl, alignItems: 'center', gap: Spacing.sm },
-  emptyIcon:    { fontSize: 52 },
-  emptyTitle:   { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
-  emptySub:     { fontSize: Typography.sizes.sm, textAlign: 'center', lineHeight: 20 },
-  moodSuggest:  { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, justifyContent: 'center', marginTop: Spacing.xs },
-  moodBtn:      { paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1 },
-  moodBtnTxt:   { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold },
+  content: {},
+  moodSuggest:  { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  fab: { position: 'absolute', right: 20, bottom: 110 },
 });

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import useAppStore from '../store/useAppStore';
@@ -52,18 +53,18 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
             <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>Select Date</Text>
             <TouchableOpacity style={[{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={onClose}>
-              <Text style={[{ fontSize: 18, fontWeight: '700', lineHeight: 20 }, { color: C.textSecondary }]}>✕</Text>
+              <Ionicons name="close" size={18} color={C.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Month nav */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
             <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={prev}>
-              <Text style={[{ fontSize: 24, fontWeight: '700', lineHeight: 28 }, { color: C.primary }]}>‹</Text>
+              <Ionicons name="chevron-back" size={20} color={C.primary} />
             </TouchableOpacity>
             <Text style={[{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{MONTHS[mo]} {yr}</Text>
             <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={next}>
-              <Text style={[{ fontSize: 24, fontWeight: '700', lineHeight: 28 }, { color: C.primary }]}>›</Text>
+              <Ionicons name="chevron-forward" size={20} color={C.primary} />
             </TouchableOpacity>
           </View>
 
@@ -159,8 +160,8 @@ export default function DayNavigator() {
     <>
       <View style={[{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: topInset + Spacing.xs, paddingBottom: Spacing.sm, borderBottomWidth: 1 }, { backgroundColor: C.bgCard, borderBottomColor: C.border }, Shadow.sm]}>
         {/* Prev */}
-        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={handlePrev} activeOpacity={0.7}>
-          <Text style={[{ fontSize: 26, fontWeight: '700', lineHeight: 30 }, { color: C.primary }]}>‹</Text>
+        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.primaryDim }]} onPress={handlePrev} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color={C.primary} />
         </TouchableOpacity>
 
         {/* Date tap */}
@@ -172,15 +173,15 @@ export default function DayNavigator() {
             </View>
           )}
           <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, letterSpacing: 0.2 }, { color: C.textPrimary }]}>{label}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
             <Text style={[{ fontSize: Typography.sizes.xs, marginTop: 2, letterSpacing: 0.3 }, { color: C.textSecondary }]}>{sub}</Text>
-            <Text style={[{ fontSize: 11, marginTop: 2 }, { color: C.textMuted }]}>  ▾</Text>
+            <Ionicons name="chevron-down" size={12} color={C.textMuted} style={{ marginTop: 2 }} />
           </View>
         </TouchableOpacity>
 
         {/* Next */}
-        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={handleNext} activeOpacity={0.7}>
-          <Text style={[{ fontSize: 26, fontWeight: '700', lineHeight: 30 }, { color: C.primary }]}>›</Text>
+        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.primaryDim }]} onPress={handleNext} activeOpacity={0.7}>
+          <Ionicons name="chevron-forward" size={22} color={C.primary} />
         </TouchableOpacity>
       </View>
 
