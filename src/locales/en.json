@@ -9,7 +9,7 @@
     "notes": "Notes"
   },
   "auth": {
-    "unlockPrompt": "Unlock Hisab",
+    "unlockPrompt": "Unlock Rojnishi",
     "familyLedger": "Family Ledger",
     "authFailed": "Authentication failed",
     "touchFingerprint": "Touch fingerprint to unlock",
@@ -192,7 +192,7 @@
     "biometric": "Biometric Lock",
     "biometricSub": "Fingerprint/Face ID on app open",
     "about": "About",
-    "appName": "Hisab — Family Cash Ledger",
+    "appName": "Rojnishi — Family Cash Ledger",
     "version": "Version 1.0.0",
     "allDone": "All Screens Implemented",
     "allScreens": "Home · Expense · Tasks · Places · Notes · Analytics"
@@ -217,7 +217,7 @@
     "activeSection": "Active",
     "pausedSection": "Paused",
     "emptyTitle": "No recurring expenses",
-    "emptySubtitle": "Add rent, subscriptions or any bill that repeats and Hisab will post it for you automatically.",
+    "emptySubtitle": "Add rent, subscriptions or any bill that repeats and Rojnishi will post it for you automatically.",
     "category": "Category",
     "item": "Sub-item",
     "noItem": "None",

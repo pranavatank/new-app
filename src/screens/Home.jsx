@@ -214,6 +214,8 @@ export default function HomeScreen({ navigation }) {
   const pendingCount = tasks.filter(t => t.status === 'pending').length;
   const topCats       = expSummary.filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 5);
 
+  const s = sStyles(Typography, Spacing, Radius);
+
   return (
     <View style={[s.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
@@ -275,7 +277,7 @@ export default function HomeScreen({ navigation }) {
         )}
 
         {/* ── TASKS ──────────────────────────────────────────────── */}
-        <Card>
+        <Card style={{ marginBottom: Spacing.lg }}>
           <SectionHeader
             icon="checkmark-circle"
             color={C.iconTask}
@@ -296,7 +298,7 @@ export default function HomeScreen({ navigation }) {
         </Card>
 
         {/* ── VISITED PLACES ─────────────────────────────────────── */}
-        <Card>
+        <Card style={{ marginBottom: Spacing.lg }}>
           <SectionHeader icon="location" color={C.iconPlaces} title={t('home.visitedPlaces')} badge={places.length > 0 ? places.length : undefined} onSeeAll={() => navigation.navigate('Places')} />
           {places.length === 0
             ? <EmptyState icon="map-outline" title={t('home.noPlaces')} />
@@ -320,7 +322,7 @@ export default function HomeScreen({ navigation }) {
         </Card>
 
         {/* ── NOTES ──────────────────────────────────────────────── */}
-        <Card>
+        <Card style={{ marginBottom: Spacing.lg }}>
           <SectionHeader icon="document-text" color={C.iconNotes} title={t('home.notes')} badge={notes.length > 0 ? notes.length : undefined} onSeeAll={() => navigation.navigate('Notes')} />
           {notes.length === 0
             ? <EmptyState icon="create-outline" title={t('home.noNotes')} />
@@ -336,7 +338,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* ── VEHICLE MILEAGE ────────────────────────────────────── */}
         {showMileage && (
-          <Card>
+          <Card style={{ marginBottom: Spacing.lg }}>
             <SectionHeader mciIcon="motorbike" color={C.primary} title="Bike Mileage" onSeeAll={() => navigation.navigate('Vehicle')} />
             <TouchableOpacity
               style={[s.vehicleBox, { backgroundColor: C.isDark ? C.bgElevated : C.primary + '10', borderColor: C.primary }]}
@@ -367,7 +369,7 @@ export default function HomeScreen({ navigation }) {
       </ScrollView>
 
       {/* ── Quick Deposit FAB ──────────────────────────────────── */}
-      {fabOpen ? (
+      {/* {fabOpen ? (
         <View style={[s.fabBar, { backgroundColor: C.bgCard, borderColor: C.border }, Shadow.md]}>
           <Text style={[s.fabRupee, { color: C.income }]}>₹</Text>
           <TextInput
@@ -390,12 +392,12 @@ export default function HomeScreen({ navigation }) {
         </View>
       ) : (
         <FAB icon="cash-outline" gradient={C.gradients.income} onPress={() => setFabOpen(true)} style={s.fab} />
-      )}
+      )} */}
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const sStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   root:    { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
   scroll:  { flex: 1 },
   content: { padding: Spacing.lg },

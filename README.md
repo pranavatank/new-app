@@ -1,20 +1,20 @@
-# Hisab — Family Cash & Expense Ledger
+# Rojnishi — Family Cash & Expense Ledger
 
 A React Native (Expo) app for tracking daily cash/online expenses, deposits, tasks, visited places, notes, and bike fuel mileage — fully offline, backed by a local SQLite database.
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Expo SDK 51, React Native 0.74 |
-| Navigation | React Navigation (bottom tabs, custom floating tab bar) |
-| Database | `expo-sqlite` (native), `sql.js` fallback on web |
-| State | Zustand (`useAppStore`) for the selected day/date; React Context (`ThemeContext`) for theme/language/text-scale/settings |
-| i18n | `react-i18next`, English + Gujarati (`src/locales/`) |
-| Icons | `@expo/vector-icons` (`Ionicons` primary, `MaterialCommunityIcons` fallback) |
-| Styling | Plain `StyleSheet.create`, no CSS-in-JS library |
-| Export/Import | `xlsx` (Excel), `expo-print` (PDF), `expo-file-system` (JSON backup) |
-| Auth | `expo-local-authentication` (biometric app-lock) |
+| Layer         | Choice                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Framework     | Expo SDK 51, React Native 0.74                                                                                           |
+| Navigation    | React Navigation (bottom tabs, custom floating tab bar)                                                                  |
+| Database      | `expo-sqlite` (native), `sql.js` fallback on web                                                                         |
+| State         | Zustand (`useAppStore`) for the selected day/date; React Context (`ThemeContext`) for theme/language/text-scale/settings |
+| i18n          | `react-i18next`, English + Gujarati (`src/locales/`)                                                                     |
+| Icons         | `@expo/vector-icons` (`Ionicons` primary, `MaterialCommunityIcons` fallback)                                             |
+| Styling       | Plain `StyleSheet.create`, no CSS-in-JS library                                                                          |
+| Export/Import | `xlsx` (Excel), `expo-print` (PDF), `expo-file-system` (JSON backup)                                                     |
+| Auth          | `expo-local-authentication` (biometric app-lock)                                                                         |
 
 ## Getting started
 
@@ -56,17 +56,17 @@ src/
 
 ## Screens
 
-| Screen | Purpose |
-|---|---|
-| **Home** | Dashboard: gradient balance card, top expense categories, tasks/places/notes previews, optional bike-mileage card, quick-deposit FAB |
-| **Expense** | Category grid for entering cash/online spend (tap for exact amount, +/- stepper for quick adjustments, long-press to clear), deposit entry, category management |
-| **ExpenseItems** | Per-category sub-items (e.g. "Rice" under "Grains") with custom emoji-or-photo icons |
-| **Tasks** | Pending/completed task list with overdue tracking |
-| **Places** | Saved places, mark visited for the day, favorites, custom emoji-or-photo icons |
-| **Notes** | Daily journal entries with a mood tag |
-| **Analytics** | Monthly summary — category breakdown, daily trend chart, top spending days, deposit/spend/savings donut |
-| **Vehicle** | Bike fuel-up log and mileage tracking (only shown if enabled in Settings) |
-| **Settings** | Theme, language, text size, biometric toggle, bike-mileage toggle, JSON/Excel/PDF export & import, clear data |
+| Screen           | Purpose                                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**         | Dashboard: gradient balance card, top expense categories, tasks/places/notes previews, optional bike-mileage card, quick-deposit FAB                            |
+| **Expense**      | Category grid for entering cash/online spend (tap for exact amount, +/- stepper for quick adjustments, long-press to clear), deposit entry, category management |
+| **ExpenseItems** | Per-category sub-items (e.g. "Rice" under "Grains") with custom emoji-or-photo icons                                                                            |
+| **Tasks**        | Pending/completed task list with overdue tracking                                                                                                               |
+| **Places**       | Saved places, mark visited for the day, favorites, custom emoji-or-photo icons                                                                                  |
+| **Notes**        | Daily journal entries with a mood tag                                                                                                                           |
+| **Analytics**    | Monthly summary — category breakdown, daily trend chart, top spending days, deposit/spend/savings donut                                                         |
+| **Vehicle**      | Bike fuel-up log and mileage tracking (only shown if enabled in Settings)                                                                                       |
+| **Settings**     | Theme, language, text size, biometric toggle, bike-mileage toggle, JSON/Excel/PDF export & import, clear data                                                   |
 
 Nine tabs total: 6 are visible in the floating bottom nav (Home, Expense, Tasks, Places, Analytics, Settings); Notes, ExpenseItems, and Vehicle are reached via in-app navigation from other screens.
 
@@ -85,6 +85,7 @@ All of them read `useTheme()` internally and call `scaleTheme(scale)` themselves
 ## Theming & text size
 
 `src/constants/theme.js` exports:
+
 - `LightColors` / `DarkColors` — full palettes (background, brand, semantic income/expense/online colors, text, borders, per-section accents, an `accents` array used to cycle colors across categories/charts, and `gradients`)
 - `scaleTheme(scale)` — returns `Typography` / `Spacing` / `Radius` scaled by the user's text-size preference (`0.9` small / `1.0` medium / `1.1` large, set in Settings)
 - `makeShadow(C)` — theme-aware shadow presets (`sm`, `md`, `lg`, `primary`)
@@ -111,7 +112,7 @@ A day's `closing_balance = opening_balance + deposit_today − cash_spent` (onli
 
 Mileage is attributed to **legs between fill-ups**, not to the fill-up itself:
 
-> The distance ridden between fill-up *N−1* and fill-up *N* was powered by the fuel put in **at fill-up N−1** — the fuel added at fill-up *N* hasn't been ridden on yet; it pays for the *next* leg.
+> The distance ridden between fill-up _N−1_ and fill-up _N_ was powered by the fuel put in **at fill-up N−1** — the fuel added at fill-up _N_ hasn't been ridden on yet; it pays for the _next_ leg.
 
 So for consecutive fill-ups (oldest → newest), `mileage = (readingN − readingN−1) / litersN−1`, and the same rule applies to the running "Overall Avg" and "Last 10 Fills Avg" stats (`getVehicleStats` in `queries.js`) and to the live estimate shown while adding a new fill-up record (`Vehicle.jsx`). The very latest fill-up's liters are always excluded from the completed-legs total, since no leg after it exists yet.
 
