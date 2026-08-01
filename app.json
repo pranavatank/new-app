@@ -1,24 +1,26 @@
 {
   "expo": {
     "name": "Rojnishi",
-    "slug": "rojnishi",
+    "slug": "hisab",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/logo_icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rojnishi.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/logo_icon.png",
         "backgroundColor": "#00000000"
       },
       "package": "com.rojnishi.app",
@@ -49,6 +51,7 @@
       "eas": {
         "projectId": "151777e6-7663-4cf7-a45a-963de6e1e1c0"
       }
-    }
+    },
+    "owner": "pranav.tank"
   }
 }

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
@@ -29,12 +30,14 @@ export default function RecurringScreen() {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const { t } = useTranslation();
+  const s = styles(scale);
 
   const [rules, setRules]           = useState([]);
   const [categories, setCategories] = useState([]);
   const [items, setItems]           = useState([]);
   const [sheetOpen, setSheetOpen]   = useState(false);
   const [editingId, setEditingId]   = useState(null);
+  const [saving, setSaving]         = useState(false);
 
   const [categoryId, setCategoryId]   = useState(null);
   const [itemId, setItemId]           = useState(null);
@@ -99,8 +102,8 @@ export default function RecurringScreen() {
 
   const handleSave = () => {
     const amt = parseFloat(amount);
-    if (!categoryId)             { Alert.alert(t('recurring.title'), t('recurring.errNoCategory')); return; }
-    if (!amt || amt <= 0)        { Alert.alert(t('recurring.title'), t('recurring.errNoAmount')); return; }
+    if (!categoryId)      { Alert.alert(t('recurring.title'), t('recurring.errNoCategory')); return; }
+    if (!amt || amt <= 0) { Alert.alert(t('recurring.title'), t('recurring.errNoAmount')); return; }
 
     const payload = {
       categoryId,
@@ -113,6 +116,7 @@ export default function RecurringScreen() {
       dayOfWeek,
     };
 
+    setSaving(true);
     try {
       if (editingId) updateRecurringExpense(editingId, payload);
       else           addRecurringExpense(payload);
@@ -121,6 +125,8 @@ export default function RecurringScreen() {
       load();
     } catch (e) {
       Alert.alert(t('recurring.title'), String(e?.message || e));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -161,11 +167,11 @@ export default function RecurringScreen() {
     const paused  = rule.is_active !== 1;
     const isPhoto = rule.category_icon_type === 'photo';
     return (
-      <Card key={rule.id} style={{ marginTop: Spacing.sm, opacity: paused ? 0.55 : 1 }}>
+      <Card key={rule.id} style={[s.ruleCard, paused && s.ruleCardPaused]}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => openEdit(rule)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
+          style={s.ruleRow}
         >
           <IconBadge
             emoji={isPhoto ? undefined : rule.category_icon}
@@ -173,40 +179,46 @@ export default function RecurringScreen() {
             color={C.iconExpense}
             size={44}
           />
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, marginLeft: Spacing.md }}>
             <Text
               numberOfLines={1}
               style={{ fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, color: C.textPrimary }}
             >
               {rule.item_name ? `${rule.category_name} · ${rule.item_name}` : rule.category_name}
             </Text>
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: Typography.sizes.xs, color: C.textSecondary, marginTop: 2 }}
-            >
-              {freqLabel(rule)}
-            </Text>
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginTop: 2 }}
-            >
-              {t('recurring.nextDue')}: {rule.next_due_date}
-            </Text>
+            <View style={s.metaRow}>
+              <Ionicons name="repeat" size={12} color={C.textSecondary} style={{ marginRight: 4 }} />
+              <Text numberOfLines={1} style={{ fontSize: Typography.sizes.xs, color: C.textSecondary, flexShrink: 1 }}>
+                {freqLabel(rule)}
+              </Text>
+            </View>
+            <View style={s.metaRow}>
+              <Ionicons name="time-outline" size={12} color={C.textMuted} style={{ marginRight: 4 }} />
+              <Text numberOfLines={1} style={{ fontSize: Typography.sizes.xs, color: C.textMuted, flexShrink: 1 }}>
+                {t('recurring.nextDue')}: {rule.next_due_date}
+              </Text>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, color: C.expense }}>
+          <View style={{ alignItems: 'flex-end', gap: 4, marginLeft: Spacing.sm }}>
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, color: C.expense }}
+            >
               ₹{rule.amount}
             </Text>
             <Badge
               label={rule.payment_type === 'online' ? t('recurring.online') : t('recurring.cash')}
               color={rule.payment_type === 'online' ? C.online : C.income}
             />
+            {paused && (
+              <Badge label={t('recurring.pausedSection')} color={C.textMuted} />
+            )}
           </View>
         </TouchableOpacity>
 
-        <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md }}>
+        <View style={s.actionRow}>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             icon={paused ? 'play' : 'pause'}
             label={paused ? t('recurring.resume') : t('recurring.pause')}
@@ -214,7 +226,7 @@ export default function RecurringScreen() {
             style={{ flex: 1 }}
           />
           <Button
-            variant="ghost"
+            variant="danger"
             size="sm"
             icon="trash-outline"
             label={t('common.delete')}
@@ -278,7 +290,7 @@ export default function RecurringScreen() {
         )}
       </ScrollView>
 
-      <FAB icon="add" onPress={openAdd} />
+      <FAB icon="add" onPress={openAdd} style={s.fab} />
 
       <Sheet
         visible={sheetOpen}
@@ -289,7 +301,7 @@ export default function RecurringScreen() {
         <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs }]}>
           {t('recurring.category')}
         </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        <View style={s.wrapRow}>
           {categories.map(cat => (
             <Chip
               key={cat.id}
@@ -307,7 +319,7 @@ export default function RecurringScreen() {
             <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs, marginTop: Spacing.base }]}>
               {t('recurring.item')}
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+            <View style={s.wrapRow}>
               <Chip
                 label={t('recurring.noItem')}
                 color={C.textMuted}
@@ -331,8 +343,8 @@ export default function RecurringScreen() {
         <Input
           label={t('recurring.amount')}
           value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
+          onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
+          keyboardType="decimal-pad"
           placeholder="0"
           placeholderTextColor={C.textMuted}
           style={{ marginTop: Spacing.base }}
@@ -341,7 +353,7 @@ export default function RecurringScreen() {
         <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs, marginTop: Spacing.base }]}>
           {t('recurring.paymentType')}
         </Text>
-        <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+        <View style={s.wrapRow}>
           <Chip
             label={t('recurring.cash')}
             icon="cash-outline"
@@ -361,7 +373,7 @@ export default function RecurringScreen() {
         <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs, marginTop: Spacing.base }]}>
           {t('recurring.frequency')}
         </Text>
-        <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+        <View style={s.wrapRow}>
           <Chip
             label={t('recurring.monthly')}
             icon="calendar-outline"
@@ -383,41 +395,44 @@ export default function RecurringScreen() {
             <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs, marginTop: Spacing.base }]}>
               {t('recurring.dayOfMonth')}
             </Text>
-            <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginBottom: Spacing.xs }}>
+            <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginBottom: Spacing.sm }}>
               {t('recurring.dayOfMonthHint')}
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
-              {DAYS_OF_MONTH.map(d => {
-                const active = dayOfMonth === d;
-                return (
-                  <TouchableOpacity
-                    key={d}
-                    onPress={() => setDayOfMonth(d)}
-                    activeOpacity={0.8}
-                    style={{
-                      width: 40, height: 40, borderRadius: Radius.md,
-                      alignItems: 'center', justifyContent: 'center',
-                      borderWidth: 1.5,
-                      borderColor: active ? C.primary : C.border,
-                      backgroundColor: active ? C.primaryDim : 'transparent',
-                    }}
-                  >
-                    <Text style={{
-                      fontSize: Typography.sizes.sm,
-                      fontWeight: Typography.weights.bold,
-                      color: active ? C.primary : C.textPrimary,
-                    }}>{d}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <Card padding="sm" elevation="none" style={{ backgroundColor: C.bgElevated, borderColor: C.border }}>
+              <View style={s.dayGrid}>
+                {DAYS_OF_MONTH.map(d => {
+                  const active = dayOfMonth === d;
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      onPress={() => setDayOfMonth(d)}
+                      activeOpacity={0.8}
+                      style={[
+                        s.dayCell,
+                        {
+                          borderRadius: Radius.md,
+                          borderColor: active ? C.primary : C.border,
+                          backgroundColor: active ? C.primary : C.bgCard,
+                        },
+                      ]}
+                    >
+                      <Text style={{
+                        fontSize: Typography.sizes.sm,
+                        fontWeight: Typography.weights.bold,
+                        color: active ? C.textOnPrimary : C.textPrimary,
+                      }}>{d}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Card>
           </>
         ) : (
           <>
             <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs, marginTop: Spacing.base }]}>
               {t('recurring.dayOfWeek')}
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+            <View style={s.wrapRow}>
               {WEEKDAY_KEYS.map((key, idx) => (
                 <Chip
                   key={key}
@@ -451,6 +466,7 @@ export default function RecurringScreen() {
             variant="primary"
             label={t('common.save')}
             onPress={handleSave}
+            loading={saving}
             style={{ flex: 1 }}
           />
         </View>
@@ -459,8 +475,27 @@ export default function RecurringScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
-  scroll: { flex: 1 },
-  lbl:    { fontWeight: '700', marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
-});
+const styles = (scale) => {
+  const { Spacing, Radius } = scaleTheme(scale);
+  return StyleSheet.create({
+    root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
+    scroll: { flex: 1 },
+    lbl:    { fontWeight: '700', marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
+
+    fab: { position: 'absolute', right: Spacing.lg, bottom: 110 },
+
+    ruleCard:       { marginTop: Spacing.sm },
+    ruleCardPaused: { opacity: 0.6 },
+    ruleRow:        { flexDirection: 'row', alignItems: 'center' },
+    metaRow:        { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    actionRow:      { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
+
+    wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+
+    dayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+    dayCell: {
+      width: 38, height: 38, borderWidth: 1.5,
+      alignItems: 'center', justifyContent: 'center',
+    },
+  });
+};
