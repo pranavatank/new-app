@@ -40,6 +40,10 @@ import AnalyticsScreen from "./src/screens/Analytics";
 import VehicleScreen from "./src/screens/Vehicle";
 import SearchScreen from "./src/screens/Search";
 import RecurringScreen from "./src/screens/Recurring";
+import DailyBookScreen from "./src/screens/DailyBook";
+import MonthlyLedgerScreen from "./src/screens/MonthlyLedger";
+import FamilyToolsScreen from "./src/screens/FamilyTools";
+import PurchasesScreen from "./src/screens/Purchases";
 
 SplashScreen.preventAutoHideAsync();
 const Tab = createBottomTabNavigator();
@@ -47,121 +51,32 @@ const Tab = createBottomTabNavigator();
 // Check if biometric is available (not on web)
 const isBiometricAvailable = Platform.OS !== "web";
 
-// ─── Tab config (static labels as fallback, used for accessibility only —
-// the floating bar is icon-only per design) ────────────────────────────────
+// Daily entry and the monthly book stay visible; all original tools remain available.
 const TABS = [
-  {
-    name: "Home",
-    icon: "home-outline",
-    iconActive: "home",
-    accent: "iconHome",
-    en: "Home",
-    gu: "હોમ",
-  },
-  {
-    name: "Expense",
-    icon: "wallet-outline",
-    iconActive: "wallet",
-    accent: "iconExpense",
-    en: "Expense",
-    gu: "ખર્ચ",
-  },
-  {
-    name: "Tasks",
-    icon: "checkmark-circle-outline",
-    iconActive: "checkmark-circle",
-    accent: "iconTask",
-    en: "Tasks",
-    gu: "કાર્યો",
-  },
-  {
-    name: "Places",
-    icon: "location-outline",
-    iconActive: "location",
-    accent: "iconPlaces",
-    en: "Places",
-    gu: "સ્થળો",
-  },
-  {
-    name: "Analytics",
-    icon: "stats-chart-outline",
-    iconActive: "stats-chart",
-    accent: "iconStats",
-    en: "Stats",
-    gu: "આંકડા",
-  },
-  {
-    name: "Settings",
-    icon: "settings-outline",
-    iconActive: "settings",
-    accent: "iconSettings",
-    en: "Settings",
-    gu: "સેટિંગ્સ",
-  },
+  { name: 'DailyBook', icon: 'today-outline', active: 'today', en: 'Today', gu: 'આજનો હિસાબ' },
+  { name: 'MonthlyLedger', icon: 'book-outline', active: 'book', en: 'Month book', gu: 'મહિનાનો હિસાબ' },
+  { name: 'Notes', icon: 'document-text-outline', active: 'document-text', en: 'Notes', gu: 'નોંધો' },
+  { name: 'FamilyTools', icon: 'grid-outline', active: 'grid', en: 'All tools', gu: 'બધાં સાધનો' },
 ];
 
-// ─── Custom Tab Bar (floating, icon-only pill) ────────────────────────────────
 function CustomTabBar({ state, navigation }) {
-  const { C, language } = useTheme();
-  const Shadow = makeShadow(C);
+  const { C, language, scale } = useTheme();
+  const { Typography, Spacing, Radius } = scaleTheme(scale);
   const insets = useSafeAreaInsets();
-  const bottomInset = Platform.OS === "ios" ? insets?.bottom || 0 : 0;
-  const bottomMargin = (Platform.OS === "web" ? 16 : 14) + bottomInset;
-
-  const getLabel = (name) => {
-    const tab = TABS.find((t) => t.name === name);
-    if (!tab) return name;
-    return language === "gu" ? tab.gu : tab.en;
-  };
-
-  const visibleRoutes = state.routes.filter((r) =>
-    TABS.find((t) => t.name === r.name),
-  );
-
+  const selectedName = state.routes[state.index]?.name;
+  const currentTab = TABS.some(tab => tab.name === selectedName) ? selectedName : 'FamilyTools';
   return (
-    <View style={[tb.wrap, { bottom: bottomMargin }]} pointerEvents="box-none">
-      <View
-        style={[
-          tb.bar,
-          { backgroundColor: C.bgCard, borderColor: C.border },
-          Shadow.lg,
-        ]}
-      >
-        {visibleRoutes.map((route) => {
-          const idx = state.routes.findIndex((r) => r.key === route.key);
-          const focused = state.index === idx;
-          const tab = TABS.find((t) => t.name === route.name) || {};
-          const accent = C[tab.accent] || C.primary;
-
+    <View style={[tb.wrap, { backgroundColor: C.bgCard, borderTopColor: C.border, paddingTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingBottom: Math.max(insets.bottom || 0, Spacing.sm) }]}>
+      <View style={tb.bar}>
+        {TABS.map(tab => {
+          const focused = tab.name === currentTab;
+          const label = language === 'gu' ? tab.gu : tab.en;
           return (
-            <TouchableOpacity
-              key={route.key}
-              style={tb.item}
-              onPress={() => navigation.navigate(route.name)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 6, left: 6, right: 6 }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={getLabel(route.name)}
-            >
-              {focused ? (
-                <LinearGradient
-                  colors={[accent, accent + "CC"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={tb.activePill}
-                >
-                  <Ionicons
-                    name={tab.iconActive}
-                    size={22}
-                    color={C.textOnPrimary}
-                  />
-                </LinearGradient>
-              ) : (
-                <View style={tb.inactivePill}>
-                  <Ionicons name={tab.icon} size={22} color={C.textMuted} />
-                </View>
-              )}
+            <TouchableOpacity key={tab.name} onPress={() => navigation.navigate(tab.name)}
+              style={[tb.item, { borderRadius: Radius.md, paddingVertical: Spacing.xs }, focused && { backgroundColor: C.primaryDim }]}
+              accessibilityRole="tab" accessibilityState={{ selected: focused }} accessibilityLabel={label}>
+              <Ionicons name={focused ? tab.active : tab.icon} size={23} color={focused ? C.primary : C.textSecondary} />
+              <Text style={{ color: focused ? C.primary : C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: focused ? Typography.weights.bold : Typography.weights.medium, textAlign: 'center' }}>{label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -170,34 +85,11 @@ function CustomTabBar({ state, navigation }) {
   );
 }
 const tb = StyleSheet.create({
-  wrap: { position: "absolute", left: 16, right: 16, alignItems: "center" },
-  bar: {
-    flexDirection: "row",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    width: "100%",
-    maxWidth: 480,
-  },
-  item: { flex: 1, alignItems: "center", justifyContent: "center" },
-  activePill: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  inactivePill: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  wrap: { borderTopWidth: 1, paddingTop: 6, paddingHorizontal: 8, alignItems: 'center' },
+  bar: { flexDirection: 'row', width: '100%', maxWidth: 620, gap: 4 },
+  item: { flex: 1, minHeight: 58, paddingHorizontal: 3, paddingVertical: 6, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4 },
 });
 
-// ─── Biometric Lock Screen ────────────────────────────────────────────────────
 function BiometricGate({ onUnlocked }) {
   const { C, language, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
@@ -331,7 +223,7 @@ function BiometricGate({ onUnlocked }) {
         onPress={authenticate}
         activeOpacity={0.85}
       >
-        <Text style={ls.btnTxt}>{failed ? L.tryAgain : L.unlock}</Text>
+        <Text style={[ls.btnTxt, { color: C.textOnPrimary }]}>{failed ? L.tryAgain : L.unlock}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -390,7 +282,6 @@ const lsStyles = (Typography, Spacing, Radius) =>
       alignItems: "center",
     },
     btnTxt: {
-      color: "#fff",
       fontSize: Typography.sizes.lg,
       fontWeight: Typography.weights.black,
       letterSpacing: 0.8,
@@ -444,9 +335,15 @@ function AppInner() {
     <View style={{ flex: 1 }} onLayout={onLayout}>
       <NavigationContainer>
         <Tab.Navigator
+          initialRouteName="DailyBook"
+          backBehavior="history"
           tabBar={(props) => <CustomTabBar {...props} />}
           screenOptions={{ headerShown: false }}
         >
+          <Tab.Screen name="DailyBook" component={DailyBookScreen} />
+          <Tab.Screen name="MonthlyLedger" component={MonthlyLedgerScreen} />
+          <Tab.Screen name="FamilyTools" component={FamilyToolsScreen} />
+          <Tab.Screen name="Purchases" component={PurchasesScreen} />
           <Tab.Screen name="Home" component={HomeScreen} />
           <Tab.Screen name="Expense" component={ExpenseScreen} />
           <Tab.Screen name="Tasks" component={TasksScreen} />

@@ -81,15 +81,15 @@ const ms = StyleSheet.create({
 // ── Summary Cards Row ─────────────────────────────────────────────────────────
 
 const SummaryCards = ({ totals, C, T, S, R, Shadow, t }) => {
-  const savings = totals.deposited - totals.cash_spent;
+  const savings = totals.deposited - totals.cash_spent - totals.online_spent;
   const savingsPct = totals.deposited > 0 ? Math.round((savings / totals.deposited) * 100) : 0;
 
   const cards = [
     { label: t('analytics.deposited'),    value: fmt(totals.deposited),   color: C.income,  bg: C.incomeBg,   icon: 'cash-outline' },
     { label: t('analytics.cashSpent'),   value: fmt(totals.cash_spent),  color: C.expense, bg: C.expenseBg,  icon: 'trending-down' },
     { label: t('analytics.onlineSpent'), value: fmt(totals.online_spent),color: C.online,  bg: C.onlineBg,   icon: 'globe-outline' },
-    { label: t('analytics.saved'),        value: fmt(Math.max(0,savings)), color: savings >= 0 ? C.income : C.expense,
-      bg: savings >= 0 ? C.incomeBg : C.expenseBg, icon: savings >= 0 ? 'trophy-outline' : 'warning-outline',
+    { label: t('analytics.saved'),        value: fmt(savings), color: savings >= 0 ? C.income : C.expense,
+      bg: savings >= 0 ? C.incomeBg : C.expenseBg, icon: savings >= 0 ? 'cash-outline' : 'warning-outline',
       sub: savings >= 0 ? `${savingsPct}${t('analytics.pctSaved')}` : t('analytics.overBudget') },
   ];
 
@@ -315,7 +315,7 @@ const SpendingDonut = ({ cashSpent, onlineSpent, deposited, C, T, S, R, Shadow, 
   // left of the deposit) so their percentages always sum to exactly 100 —
   // computing cashPct/onlinePct against `deposited` independently let the
   // bar overflow past 100% whenever there was online spending or overspend.
-  const saved = Math.max(0, deposited - cashSpent);
+  const saved = Math.max(0, deposited - cashSpent - onlineSpent);
   const pool = cashSpent + onlineSpent + saved || 1;
   const cashPct   = (cashSpent / pool) * 100;
   const onlinePct = (onlineSpent / pool) * 100;
@@ -521,14 +521,7 @@ export default function AnalyticsScreen() {
             <View style={[s.insightCard, { gap: S.sm, padding: S.base, borderRadius: R.xl, marginTop: S.xs, backgroundColor: C.primaryDim, borderColor: C.primary + '40' }]}>
               <Ionicons name="bulb-outline" size={18} color={C.primary} />
               <Text style={[s.insightTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.medium, color: C.primary }]}>
-                {totals.deposited > 0
-                  ? totals.cash_spent > totals.deposited
-                    ? `You overspent by ${fmt(totals.cash_spent - totals.deposited)} this month`
-                    : topDays[0]
-                      ? `Highest spending day was ${(() => { const [,m,d]=topDays[0].date.split('-'); return `${parseInt(d)} ${MONTHS[parseInt(m)-1]}`; })()} with ${fmt(topDays[0].total)}`
-                      : `You saved ${fmt(totals.deposited - totals.cash_spent)} this month — great job!`
-                  : 'Add deposits and expenses to see insights here'
-                }
+                {t('analytics.saved')}: {fmt(totals.deposited - totalSpent)}
               </Text>
             </View>
           </>

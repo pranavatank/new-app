@@ -18,6 +18,7 @@ export default function Button({
   loading = false,
   disabled = false,
   fullWidth = false,
+  wrap = true,
   style,
 }) {
   const { C, scale } = useTheme();
@@ -51,6 +52,9 @@ export default function Button({
               style={{
                 fontSize: sz.font,
                 fontWeight: Typography.weights.bold,
+                flexShrink: 1,
+                flexWrap: 'wrap',
+                textAlign: 'center',
                 color:
                   variant === 'primary' || variant === 'danger'
                     ? C.textOnPrimary
@@ -58,7 +62,7 @@ export default function Button({
                     ? C.primary
                     : C.primary,
               }}
-              numberOfLines={1}
+              numberOfLines={wrap ? undefined : 1}
             >
               {label}
             </Text>

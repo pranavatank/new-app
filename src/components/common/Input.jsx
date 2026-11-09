@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
-export default function Input({ label, style, inputStyle, ...rest }) {
+export default function Input({ label, style, inputStyle, labelStyle, ...rest }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const [focused, setFocused] = useState(false);
@@ -12,13 +12,13 @@ export default function Input({ label, style, inputStyle, ...rest }) {
     <View style={style}>
       {!!label && (
         <Text
-          style={{
-            fontSize: Typography.sizes.xs,
+          style={[{
             fontWeight: Typography.weights.bold,
             color: C.textSecondary,
             marginBottom: Spacing.xs,
             letterSpacing: 0.3,
-          }}
+            fontSize: Typography.sizes.sm,
+          }, labelStyle]}
         >
           {label}
         </Text>

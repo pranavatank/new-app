@@ -10,3 +10,5 @@ export { default as Row } from './Row';
 export { default as SectionHeader } from './SectionHeader';
 export { default as ScreenHeader } from './ScreenHeader';
 export { default as FAB } from './FAB';
+export { default as ActionTile } from './ActionTile';
+export { default as SummaryRow } from './SummaryRow';

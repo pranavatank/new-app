@@ -1,193 +1,115 @@
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import * as DocumentPicker from "expo-document-picker";
-import { getDB } from "../db/schema";
+﻿import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
+import { getDB } from '../db/schema';
 
-// ── Export to JSON ────────────────────────────────────────────────────────────
+const TABLES = ['categories','places','days','category_items','day_places','expenses','notes','tasks','vehicle_records','recurring_expenses','ledger_movements','purchases','ledger_settings'];
+const ASSET_COLUMNS = ['icon','image_uri'];
+const tableExists = (db,name) => !!db.getFirstSync("SELECT name FROM sqlite_master WHERE type='table' AND name=?;",[name]);
+const safeRows = (db,table) => tableExists(db,table) ? db.getAllSync(`SELECT * FROM "${table}";`) : [];
+const localUri = (value) => typeof value==='string' && /^(file:|content:|ph:)/i.test(value);
+const extensionOf = (uri) => {
+  const ext=String(uri).split(/[?#]/)[0].split('.').pop();
+  return /^[a-zA-Z0-9]{1,8}$/.test(ext||'') ? ext : 'jpg';
+};
+
 export const exportToJSON = async () => {
-  const db = getDB();
-
-  const backup = {
-    version: "1.0.0",
-    exportDate: new Date().toISOString(),
-    data: {
-      days: db.getAllSync("SELECT * FROM days ORDER BY date;"),
-      expenses: db.getAllSync("SELECT * FROM expenses ORDER BY day_id;"),
-      tasks: db.getAllSync("SELECT * FROM tasks ORDER BY start_date;"),
-      notes: db.getAllSync("SELECT * FROM notes ORDER BY day_id, created_at;"),
-      places: db.getAllSync("SELECT * FROM places ORDER BY name;"),
-      day_places: db.getAllSync("SELECT * FROM day_places ORDER BY day_id;"),
-      categories: db.getAllSync(
-        "SELECT * FROM categories ORDER BY sort_order;",
-      ),
-    },
-  };
-
-  const timestamp = new Date().toISOString().split("T")[0];
-  const fileName = `hisab_backup_${timestamp}.json`;
-  const fileUri = FileSystem.documentDirectory + fileName;
-
-  await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(backup, null, 2));
-  await Sharing.shareAsync(fileUri, {
-    mimeType: "application/json",
-    dialogTitle: "Export Rojnishi Backup",
-  });
-
+  const db=getDB(), data=Object.fromEntries(TABLES.map(t=>[t,safeRows(db,t)])), assets={};
+  for (const table of TABLES) for (const row of data[table]||[]) for (const key of ASSET_COLUMNS) {
+    const uri=row[key];
+    if (!uri || !localUri(uri) || assets[uri]) continue;
+    try {
+      assets[uri]={base64:await FileSystem.readAsStringAsync(uri,{encoding:FileSystem.EncodingType.Base64}),extension:extensionOf(uri)};
+    } catch (error) {
+      throw new Error(`Cannot include local image asset in backup (${table}.${key}): ${error?.message||error}`);
+    }
+  }
+  const backup={format:'rojnishi-backup',version:2,exportDate:new Date().toISOString(),data,assets};
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  const fileName=`hisab_backup_${stamp}_${Math.random().toString(16).slice(2,8)}.json`;
+  const fileUri=FileSystem.documentDirectory+fileName;
+  await FileSystem.writeAsStringAsync(fileUri,JSON.stringify(backup));
+  await Sharing.shareAsync(fileUri,{mimeType:'application/json',dialogTitle:'Export Rojnishi Backup'});
   return fileName;
 };
 
-// ── Import from JSON ──────────────────────────────────────────────────────────
-export const importFromJSON = async () => {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: "application/json",
-    copyToCacheDirectory: true,
-  });
-
-  if (result.canceled) return null;
-
-  const fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
-  const backup = JSON.parse(fileContent);
-
-  if (!backup.data) throw new Error("Invalid backup file format");
-
-  const db = getDB();
-  let imported = {
-    days: 0,
-    expenses: 0,
-    tasks: 0,
-    notes: 0,
-    places: 0,
-    categories: 0,
-  };
-
-  // Import Categories (skip duplicates by name)
-  backup.data.categories?.forEach((row) => {
-    const exists = db.getFirstSync(
-      "SELECT id FROM categories WHERE name = ?;",
-      [row.name],
-    );
-    if (!exists) {
-      db.runSync(
-        "INSERT INTO categories (name, icon, sort_order, is_active) VALUES (?, ?, ?, ?);",
-        [row.name, row.icon || "💰", row.sort_order || 99, row.is_active ?? 1],
-      );
-      imported.categories++;
-    }
-  });
-
-  // Import Days (skip duplicates by date)
-  backup.data.days?.forEach((row) => {
-    const exists = db.getFirstSync("SELECT id FROM days WHERE date = ?;", [
-      row.date,
-    ]);
-    if (!exists) {
-      db.runSync(
-        "INSERT INTO days (date, deposit_today, closing_balance) VALUES (?, ?, ?);",
-        [row.date, row.deposit_today || 0, row.closing_balance || 0],
-      );
-      imported.days++;
-    }
-  });
-
-  // Import Places (skip duplicates by name)
-  backup.data.places?.forEach((row) => {
-    const exists = db.getFirstSync("SELECT id FROM places WHERE name = ?;", [
-      row.name,
-    ]);
-    if (!exists) {
-      db.runSync(
-        "INSERT INTO places (name, is_favorite, icon) VALUES (?, ?, ?);",
-        [row.name, row.is_favorite || 0, row.icon || "📍"],
-      );
-      imported.places++;
-    }
-  });
-
-  // Import Tasks (skip duplicates by title + start_date)
-  backup.data.tasks?.forEach((row) => {
-    const exists = db.getFirstSync(
-      "SELECT id FROM tasks WHERE title = ? AND start_date = ?;",
-      [row.title, row.start_date],
-    );
-    if (!exists) {
-      db.runSync(
-        "INSERT INTO tasks (title, start_date, completed_date, status) VALUES (?, ?, ?, ?);",
-        [
-          row.title,
-          row.start_date,
-          row.completed_date || null,
-          row.status || "pending",
-        ],
-      );
-      imported.tasks++;
-    }
-  });
-
-  // Import Expenses (always import if day and category exist)
-  backup.data.expenses?.forEach((row) => {
-    const dayExists = db.getFirstSync("SELECT id FROM days WHERE id = ?;", [
-      row.day_id,
-    ]);
-    const catExists = db.getFirstSync(
-      "SELECT id FROM categories WHERE id = ?;",
-      [row.category_id],
-    );
-    if (dayExists && catExists) {
-      db.runSync(
-        "INSERT INTO expenses (day_id, category_id, amount, payment_type, place_id, note) VALUES (?, ?, ?, ?, ?, ?);",
-        [
-          row.day_id,
-          row.category_id,
-          row.amount || 0,
-          row.payment_type || "cash",
-          row.place_id || null,
-          row.note || null,
-        ],
-      );
-      imported.expenses++;
-    }
-  });
-
-  // Import Notes (always import if day exists)
-  backup.data.notes?.forEach((row) => {
-    const dayExists = db.getFirstSync("SELECT id FROM days WHERE id = ?;", [
-      row.day_id,
-    ]);
-    if (dayExists) {
-      db.runSync(
-        "INSERT INTO notes (day_id, text, mood, created_at) VALUES (?, ?, ?, ?);",
-        [
-          row.day_id,
-          row.text,
-          row.mood || "other",
-          row.created_at || new Date().toISOString(),
-        ],
-      );
-      imported.notes++;
-    }
-  });
-
-  // Import Day Places (always import if both exist)
-  backup.data.day_places?.forEach((row) => {
-    const dayExists = db.getFirstSync("SELECT id FROM days WHERE id = ?;", [
-      row.day_id,
-    ]);
-    const placeExists = db.getFirstSync("SELECT id FROM places WHERE id = ?;", [
-      row.place_id,
-    ]);
-    if (dayExists && placeExists) {
-      const exists = db.getFirstSync(
-        "SELECT id FROM day_places WHERE day_id = ? AND place_id = ?;",
-        [row.day_id, row.place_id],
-      );
-      if (!exists) {
-        db.runSync("INSERT INTO day_places (day_id, place_id) VALUES (?, ?);", [
-          row.day_id,
-          row.place_id,
-        ]);
-      }
-    }
-  });
-
-  return imported;
+const writeAsset = async (asset) => {
+  if (!asset?.base64) throw new Error('Backup image asset is incomplete');
+  const dir=FileSystem.documentDirectory+'hisab_assets/';
+  await FileSystem.makeDirectoryAsync(dir,{intermediates:true});
+  const ext=/^[a-zA-Z0-9]{1,8}$/.test(asset.extension||'')?asset.extension:'jpg';
+  const uri=dir+`asset_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+  await FileSystem.writeAsStringAsync(uri,asset.base64,{encoding:FileSystem.EncodingType.Base64});
+  return uri;
 };
+
+const validateBackup = (db,backup) => {
+  if (!backup || !backup.data || typeof backup.data!=='object' || Array.isArray(backup.data)) throw new Error('Invalid backup file format');
+  if (backup.format && backup.format!=='rojnishi-backup') throw new Error('Unsupported backup format');
+  if (![1,2,'1.0.0'].includes(backup.version)) throw new Error('Unsupported backup version');
+  const source=backup.data;
+  if (!Array.isArray(source.categories)||!Array.isArray(source.days)) throw new Error('Backup must include categories and days');
+  for (const table of TABLES) {
+    if (!tableExists(db,table)) throw new Error(`Database table is unavailable: ${table}`);
+    if (source[table]!==undefined && !Array.isArray(source[table])) throw new Error(`Invalid backup table: ${table}`);
+    const allowed=new Set(db.getAllSync(`PRAGMA table_info("${table}");`).map(row=>row.name));
+    for (const row of source[table]||[]) {
+      if (!row || typeof row!=='object' || Array.isArray(row)) throw new Error(`Invalid row in backup table: ${table}`);
+      for (const column of Object.keys(row)) if (!allowed.has(column)) throw new Error(`Unsupported column in backup table ${table}: ${column}`);
+    }
+  }
+};
+
+const recalculateRestoredBalances = (db) => {
+  let previous=0;
+  const days=db.getAllSync('SELECT id,date,deposit_today FROM days ORDER BY date;');
+  for (const day of days) {
+    const cash=db.getFirstSync("SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';",[day.id]).total;
+    const receipts=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[day.id]).total;
+    const transfers=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[day.id]).total;
+    previous += day.deposit_today + receipts + transfers - cash;
+    db.runSync('UPDATE days SET closing_balance=? WHERE id=?;',[previous,day.id]);
+  }
+};
+
+const restoreAll = async (db,backup) => {
+  validateBackup(db,backup);
+  const source=backup.data;
+  const rows=Object.fromEntries(TABLES.map(t=>[t,(source[t]||[]).map(row=>({...row}))]));
+  for (const table of TABLES) for (const row of rows[table]) for (const key of ASSET_COLUMNS) {
+    const uri=row[key];
+    if (uri && backup.assets?.[uri]) row[key]=await writeAsset(backup.assets[uri]);
+  }
+
+  try {
+    db.execSync('PRAGMA foreign_keys=OFF;');
+    db.execSync('BEGIN TRANSACTION;');
+    for (const table of [...TABLES].reverse()) db.runSync(`DELETE FROM "${table}";`);
+    for (const table of TABLES) for (const row of rows[table]) {
+      const columns=Object.keys(row);
+      if (!columns.length) continue;
+      const quoted=columns.map(c=>`"${c.replaceAll('"','""')}"`).join(',');
+      const slots=columns.map(()=>'?').join(',');
+      db.runSync(`INSERT INTO "${table}" (${quoted}) VALUES (${slots});`,columns.map(c=>row[c]));
+    }
+    recalculateRestoredBalances(db);
+    const violations=db.getAllSync('PRAGMA foreign_key_check;');
+    if (violations.length) throw new Error('Backup contains broken references; restore was rolled back');
+    db.execSync('COMMIT;');
+    db.execSync('PRAGMA foreign_keys=ON;');
+  } catch (error) {
+    try { db.execSync('ROLLBACK;'); } catch (_) {}
+    try { db.execSync('PRAGMA foreign_keys=ON;'); } catch (_) {}
+    throw error;
+  }
+  return Object.fromEntries(TABLES.map(t=>[t,rows[t].length]));
+};
+
+export const importFromJSON = async () => {
+  const result=await DocumentPicker.getDocumentAsync({type:'application/json',copyToCacheDirectory:true});
+  if (result.canceled) return null;
+  const content=await FileSystem.readAsStringAsync(result.assets[0].uri);
+  return restoreAll(getDB(),JSON.parse(content));
+};
+
+export const restoreFromJSONData = (backup) => restoreAll(getDB(),backup);

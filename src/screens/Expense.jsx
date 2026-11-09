@@ -4,6 +4,7 @@ import {
   TextInput, Alert, StatusBar, useWindowDimensions, Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { scaleTheme, makeShadow } from '../constants/theme';
@@ -38,7 +39,8 @@ const fmtN = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigi
 
 const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
   const bal  = dayData?.closing_balance ?? 0;
-  const dep  = dayData?.deposit_today   ?? 0;
+  const dep  = (dayData?.deposit_today ?? 0) + (dayData?.receipt_total ?? 0);
+  const transfer = dayData?.transfer_net ?? 0;
   const cash = dayData?.cash_spent      ?? 0;
   const onl  = dayData?.online_spent    ?? 0;
   const pos  = bal >= 0;
@@ -59,7 +61,7 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
 
       <View style={bh.statsRow}>
         {[
-          { l: t('analytics.deposited'),  v: '+' + fmt(dep),  c: '#A7F3D0' },
+          { l: t('ledger.receipts'),  v: '+' + fmt(dep),  c: '#A7F3D0' },
           { l: t('analytics.cashSpent'), v: '−' + fmt(cash), c: '#FCA5A5' },
           { l: t('analytics.onlineSpent'),     v: fmt(onl),         c: '#C4B5FD' },
         ].map((x, i) => (
@@ -72,6 +74,7 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
           </React.Fragment>
         ))}
       </View>
+      {transfer !== 0 && <Text style={{ color: '#FFFFFF', marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.locker_out')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
     </Card>
   );
 };
@@ -127,9 +130,9 @@ const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, T, S, R,
   }, [visible]);
 
   const save = () => {
-    const n = parseFloat(val);
-    if (isNaN(n) || n < 0) { Alert.alert('Invalid', 'Please enter a valid amount'); return; }
-    onSave(n); onClose();
+    const n = Number(val);
+    if (!/^\d+(\.\d{1,2})?$/.test(val.trim()) || !Number.isFinite(n) || n < 0) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
+    if (onSave(n) !== false) onClose();
   };
 
   const handleDelete = () => {
@@ -226,18 +229,33 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
     }
   }, [visible, cat, dayId]);
 
+  // Cash and online are independent editable records; switching must reload the
+  // selected mode rather than saving a cash draft into the online amount.
+  React.useEffect(() => {
+    if (!visible || !cat || !dayId) return;
+    try {
+      const records = getItemExpenses(dayId, cat.id, pType);
+      const common = records.filter(row => !row.item_id).reduce((sum, row) => sum + row.amount, 0);
+      setVal(common > 0 ? String(common) : '');
+      setItemAmounts(Object.fromEntries(records.filter(row => row.item_id).map(row => [row.item_id, row.amount])));
+      setEditingItemId(null);
+    } catch (e) {
+      Alert.alert(t('ledger.error'), t('book.saveError'));
+    }
+  }, [visible, cat?.id, dayId, pType]);
+
   if (!cat) return null;
 
   const save = () => {
-    const n = parseFloat(val);
+    const n = Number(val);
+    if (!/^\d+(\.\d{1,2})?$/.test(val.trim()) || !Number.isFinite(n) || n < 0) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
     if (editingItemId) {
       setItemAmounts(prev => ({ ...prev, [editingItemId]: isNaN(n) ? 0 : Math.max(0, n) }));
       setEditingItemId(null);
       setShowItems(true);
       setVal('');
     } else {
-      onSave(isNaN(n) ? 0 : Math.max(0, n), pType);
-      onClose();
+      if (onSave(n, pType) !== false) onClose();
     }
   };
 
@@ -330,7 +348,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
                   <View style={[sa.itemStepper, { backgroundColor: C.bgElevated, borderRadius: R.full }]}>
                     <TouchableOpacity
                       style={sa.stepBtn}
-                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, Math.max(0, amt - 10), -10); }}
+                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt, -10); }}
                     >
                       <Ionicons name="remove" size={18} color={C.expense} />
                     </TouchableOpacity>
@@ -339,7 +357,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
                     </Text>
                     <TouchableOpacity
                       style={sa.stepBtn}
-                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt + 10, 10); }}
+                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt, 10); }}
                     >
                       <Ionicons name="add" size={18} color={C.income} />
                     </TouchableOpacity>
@@ -556,7 +574,7 @@ const mc = StyleSheet.create({
 // ── Category Card ─────────────────────────────────────────────────────────────
 
 const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, accentColor, C, T, S, R, Shadow, t }) => {
-  const total  = (cashAmt || 0) + (onlineAmt || 0);
+  const total  = cat.total ?? ((cashAmt || 0) + (onlineAmt || 0));
   const active = total > 0;
   const displayName = translateCategoryName(cat.name, t);
 
@@ -628,6 +646,7 @@ export default function ExpenseScreen({ navigation }) {
   const reload = useCallback(() => {
     try { refreshDayData(selectedDate); } catch (e) { console.error('reload:', e); }
   }, [refreshDayData, selectedDate]);
+  useFocusEffect(reload);
 
   React.useEffect(() => {
     try {
@@ -643,8 +662,10 @@ export default function ExpenseScreen({ navigation }) {
     refreshDayData(selectedDate);
   }, [selectedDate, refreshDayData]);
 
-  const cashFor   = (id) => summary.find(r => r.category_id === id)?.cash_total   || 0;
-  const onlineFor = (id) => summary.find(r => r.category_id === id)?.online_total || 0;
+  // The grid edits only its own common amounts. Daily-book entries and item rows
+  // are displayed in the ledger and must never be copied into a common amount.
+  const cashFor   = (id) => summary.find(r => r.category_id === id)?.editable_cash_total || 0;
+  const onlineFor = (id) => summary.find(r => r.category_id === id)?.editable_online_total || 0;
 
   const handleStep = (cat, newAmt, pType) => {
     if (!dayData?.id) return;
@@ -677,17 +698,18 @@ export default function ExpenseScreen({ navigation }) {
   };
 
   const handleAmtSave = (amount, pType) => {
-    if (!dayData?.id || !amtSheet.cat) return;
+    if (!dayData?.id || !amtSheet.cat) return false;
     try {
       setExpenseAmount(dayData.id, amtSheet.cat.id, amount, pType);
       recalculateBalance(dayData.id, selectedDate);
       reload();
-    } catch (e) { console.error('amtSave:', e); }
+      return true;
+    } catch (e) { Alert.alert(t('ledger.error'), t('book.saveError')); return false; }
   };
 
   const handleDepositSave = (amount) => {
-    try { updateDeposit(selectedDate, amount); reload(); }
-    catch (e) { console.error('deposit:', e); }
+    try { updateDeposit(selectedDate, amount); reload(); return true; }
+    catch (e) { Alert.alert(t('ledger.error'), t('book.saveError')); return false; }
   };
 
   const handleDepositDelete = () => {
@@ -697,6 +719,7 @@ export default function ExpenseScreen({ navigation }) {
 
   const categories = summary.map((r, idx) => ({
     id: r.category_id, name: r.name, icon: r.icon, sort_order: r.sort_order,
+    total: r.total,
     color: C.accents[idx % C.accents.length],
   }));
 
@@ -724,6 +747,8 @@ export default function ExpenseScreen({ navigation }) {
         </View>
 
         <Text style={[s.hint, { color: C.textMuted }]}>{t('expense.tapToEnter')}</Text>
+        <Text style={[s.hint, { color: C.textSecondary }]}>{t('book.gridScope')}</Text>
+        <Button label={t('book.openDaily')} variant="secondary" onPress={() => navigation.navigate('DailyBook')} style={{ marginBottom: S.base }} />
 
         {/* Category grid */}
         <View style={[s.grid, { gap: S.sm }]}>

@@ -85,22 +85,24 @@ export default function SettingsScreen() {
   const handleImport = async (type) => {
     setShowImportModal(false);
     Alert.alert(
-      "⚠️ Import Data",
-      "Existing data will be preserved. Duplicates will be skipped.",
+      t(type === 'json' ? 'book.restoreTitle' : 'book.mergeTitle'),
+      t(type === 'json' ? 'book.restoreWarning' : 'book.mergeWarning'),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Import",
+          text: t(type === 'json' ? 'book.restoreAction' : 'book.mergeAction'),
           onPress: async () => {
             try {
               setLoading(true);
+              // Keep a recovery copy before replacing IDs/relationships from a backup.
+              await exportToJSON();
               const result =
                 type === "json"
                   ? await importFromJSON()
                   : await importFromExcel();
               if (result) {
                 Alert.alert(
-                  "✅ Import Complete",
+                  t(type === 'json' ? 'book.restoreDone' : 'book.mergeDone'),
                   `Imported:\n• ${result.days} days\n• ${result.expenses} expenses\n• ${result.tasks} tasks\n• ${result.notes} notes\n• ${result.places} places\n• ${result.categories || 0} categories`,
                 );
               }
@@ -129,11 +131,23 @@ export default function SettingsScreen() {
               setLoading(true);
               const fileName = await exportToJSON();
               const db = getDB();
-              db.execSync("DELETE FROM expenses;");
-              db.execSync("DELETE FROM notes;");
-              db.execSync("DELETE FROM day_places;");
-              db.execSync("DELETE FROM tasks;");
-              db.execSync("DELETE FROM days;");
+              try {
+                db.execSync(`BEGIN TRANSACTION;
+                  DELETE FROM expenses;
+                  DELETE FROM notes;
+                  DELETE FROM day_places;
+                  DELETE FROM tasks;
+                  DELETE FROM ledger_movements;
+                  DELETE FROM purchases;
+                  DELETE FROM ledger_settings;
+                  DELETE FROM recurring_expenses;
+                  DELETE FROM vehicle_records;
+                  DELETE FROM days;
+                  COMMIT;`);
+              } catch (error) {
+                try { db.execSync('ROLLBACK;'); } catch (_) {}
+                throw error;
+              }
               Alert.alert(
                 "✅ Complete",
                 `Backup saved: ${fileName}\n\nAll data cleared.`,

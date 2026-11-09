@@ -24,7 +24,7 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable style={[styles.overlay, { backgroundColor: C.overlay }]} onPress={onClose}>
           <Pressable
@@ -41,14 +41,14 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: C.textMuted }]} />
             {!!title && (
               <View style={[styles.header, { marginBottom: Spacing.md }]}>
-                <Text style={{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, color: C.textPrimary }}>
+                <Text style={{ flex: 1, minWidth: 0, flexShrink: 1, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, color: C.textPrimary }}>
                   {title}
                 </Text>
                 <TouchableOpacity
-                  style={[styles.closeBtn, { backgroundColor: C.bgElevated }]}
+                  style={[styles.closeBtn, { backgroundColor: C.bgElevated, minWidth: 44, minHeight: 44 }]}
                   onPress={onClose}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -67,7 +67,7 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: { maxHeight: '90%', paddingTop: 10 },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#00000022', marginBottom: 12 },
+  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   closeBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 });

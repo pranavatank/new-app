@@ -8,7 +8,7 @@ import { useTheme } from '../../store/ThemeContext';
  * Small filter/tag pill. Used for category chips, mood tags, overdue/pending
  * task tags, etc.
  */
-export default function Chip({ label, icon, emoji, color, active = false, onPress, style }) {
+export default function Chip({ label, icon, emoji, color, active = false, onPress, style, wrap = true, size = 'sm' }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const tint = color || C.primary;
@@ -38,11 +38,12 @@ export default function Chip({ label, icon, emoji, color, active = false, onPres
       ) : null}
       <Text
         style={{
-          fontSize: Typography.sizes.xs,
+          fontSize: size === 'lg' ? Typography.sizes.base : size === 'md' ? Typography.sizes.sm : Typography.sizes.xs,
           fontWeight: Typography.weights.bold,
           color: active ? C.textOnPrimary : tint,
+          flexShrink: 1,
         }}
-        numberOfLines={1}
+        numberOfLines={wrap ? undefined : 1}
       >
         {label}
       </Text>
@@ -51,5 +52,5 @@ export default function Chip({ label, icon, emoji, color, active = false, onPres
 }
 
 const styles = StyleSheet.create({
-  base: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  base: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', flexWrap: 'wrap' },
 });

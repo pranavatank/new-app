@@ -4,6 +4,7 @@ import {
   Alert, StatusBar, Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
@@ -46,18 +47,24 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
   const { Typography, Spacing } = scaleTheme(scale);
   const [text, setText] = useState('');
   const [mood, setMood] = useState('other');
+  const [showTypes, setShowTypes] = useState(false);
+  const [error, setError] = useState('');
 
   React.useEffect(() => {
     if (visible) {
       setText(editNote?.text  || '');
       setMood(editNote?.mood  || 'other');
+      setShowTypes(false);
+      setError('');
     }
   }, [visible, editNote]);
 
   const handleSave = () => {
-    if (!text.trim()) { Alert.alert('Empty', t('notes.writeHere')); return; }
-    onSave(text.trim(), mood, editNote?.id);
-    onClose();
+    if (!text.trim()) { setError(t('ledger.note_required')); return; }
+    try {
+      onSave(text.trim(), mood, editNote?.id);
+      onClose();
+    } catch (e) { setError(t('ledger.save_failed')); }
   };
 
   const MOODS_TRANSLATED = MOODS.map(m => ({...m, label: t(`notes.moods.${m.key}`)}));
@@ -69,10 +76,10 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
       onClose={onClose}
       title={editNote ? t('notes.editNote') : t('notes.newNote')}
     >
-      <Text style={[nm.label,{color:C.textSecondary, fontSize:Typography.sizes.xs, fontWeight:Typography.weights.bold, marginBottom:Spacing.xs}]}>
-        {t('notes.type')}
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:Spacing.base}} contentContainerStyle={{gap:Spacing.xs}}>
+      <TouchableOpacity onPress={() => setShowTypes(v => !v)} style={{ minHeight: 48, justifyContent: 'center', marginBottom: Spacing.sm }}>
+        <Text style={{ color: C.primary, fontSize: Typography.sizes.base }}>{t('notes.type')} · {showTypes ? '−' : '+'}</Text>
+      </TouchableOpacity>
+      {showTypes && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom:Spacing.base}} contentContainerStyle={{gap:Spacing.xs}}>
         {MOODS_TRANSLATED.map(m=>(
           <Chip
             key={m.key}
@@ -83,7 +90,7 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
             onPress={()=>setMood(m.key)}
           />
         ))}
-      </ScrollView>
+      </ScrollView>}
 
       <Input
         value={text}
@@ -107,6 +114,7 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
           style={{flex:1}}
         />
       </View>
+      {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginTop: Spacing.sm }}>{error}</Text>}
     </Sheet>
   );
 };
@@ -183,11 +191,12 @@ export default function NotesScreen({ route }) {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing } = scaleTheme(scale);
-  const { selectedDate, dayData } = useAppStore();
+  const { selectedDate, dayData, refreshDayData } = useAppStore();
 
   const [notes,    setNotes]    = useState([]);
   const [modal,    setModal]    = useState(false);
   const [editNote, setEditNote] = useState(null);
+  useFocusEffect(useCallback(() => { refreshDayData(selectedDate); }, [selectedDate, refreshDayData]));
 
   const load = useCallback(() => {
     if (dayData) setNotes(getNotesForDay(dayData.id));
@@ -205,7 +214,7 @@ export default function NotesScreen({ route }) {
   }, [route?.params?.autoAdd]);
 
   const handleSave = (text, mood, id) => {
-    if (!dayData) return;
+    if (!dayData) throw new Error('Day is not ready');
     if (id) updateNote(id, text, mood);
     else    addNote(dayData.id, text, mood);
     load();
@@ -242,6 +251,7 @@ export default function NotesScreen({ route }) {
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={[s.content, {padding:Spacing.base, paddingBottom:100}]} showsVerticalScrollIndicator={false}>
+        <Button label={t('ledger.add_note')} icon="add" size="lg" fullWidth onPress={() => { setEditNote(null); setModal(true); }} style={{ marginBottom: Spacing.base }} />
 
         {notes.length === 0 ? (
           <Card style={{alignItems:'center'}}>

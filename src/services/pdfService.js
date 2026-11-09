@@ -1,30 +1,19 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { getDB } from "../db/schema";
+import { getMonthTotals } from "../db/queries";
 
 // ── Generate PDF Analytics Report ────────────────────────────────────────────
 export const exportToPDF = async (year, month) => {
   const db = getDB();
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
 
-  // Get monthly totals
-  const totals = db.getFirstSync(
-    `
-    SELECT
-      COALESCE(SUM(d.deposit_today), 0) as deposited,
-      COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END), 0) as cash_spent,
-      COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_spent
-    FROM days d
-    LEFT JOIN expenses e ON e.day_id = d.id
-    WHERE d.date LIKE ?;
-  `,
-    [`${prefix}%`],
-  );
-
-  const savings = totals.deposited - totals.cash_spent;
+  const totals = getMonthTotals(year,month);
+  const savings = totals.deposited - totals.cash_spent - totals.online_spent;
+  const totalReceipts = totals.deposited;
   const totalSpent = totals.cash_spent + totals.online_spent;
   const savingsPercent =
-    totals.deposited > 0 ? ((savings / totals.deposited) * 100).toFixed(1) : 0;
+    totalReceipts > 0 ? ((savings / totalReceipts) * 100).toFixed(1) : 0;
 
   // Get category breakdown (descending)
   const categories = db.getAllSync(
@@ -36,7 +25,7 @@ export const exportToPDF = async (year, month) => {
       COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total
     FROM categories c
     LEFT JOIN expenses e ON e.category_id = c.id
-    LEFT JOIN days d ON e.day_id = d.id AND d.date LIKE ?
+      AND e.day_id IN (SELECT id FROM days WHERE date LIKE ?)
     WHERE c.is_active = 1
     GROUP BY c.id
     HAVING total > 0
@@ -53,7 +42,9 @@ export const exportToPDF = async (year, month) => {
       COALESCE(SUM(e.amount), 0) as total,
       COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END), 0) as cash_total,
       COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
-      d.deposit_today
+      d.deposit_today,
+      COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='receipt'),0) as receipts,
+      COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='transfer'),0) as transfer_net
     FROM days d
     LEFT JOIN expenses e ON e.day_id = d.id
     WHERE d.date LIKE ?
@@ -246,7 +237,7 @@ export const exportToPDF = async (year, month) => {
   </div>
 
   <div class="card ${savings >= 0 ? "green" : "red"}" style="margin-bottom: 40px;">
-    <div class="card-label">${savings >= 0 ? "✅ Savings" : "⚠️ Over Budget"}</div>
+    <div class="card-label">${savings >= 0 ? "Receipts less spending" : "Spending exceeds receipts"}</div>
     <div class="card-value">₹${Math.abs(savings).toFixed(0)} (${savingsPercent}%)</div>
   </div>
 

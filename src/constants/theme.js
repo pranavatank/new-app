@@ -96,6 +96,14 @@ export const LightColors = {
   textSecondary: '#5B5A82',  // Medium purple-gray
   textMuted:     '#93949E',  // Slate gray
   textOnPrimary: '#FFFFFF',
+  textOnGradient: '#FFFFFF',
+  incomeOnGradient: '#A7F3D0',
+  expenseOnGradient: '#FCA5A5',
+  onlineOnGradient: '#C4B5FD',
+  gradientMuted: '#E9EEFF',
+  gradientSubtle: '#FFFFFF26',
+  gradientBorder: '#FFFFFF4D',
+  subtle: '#E9EEFF',
 
   // UI chrome - Colorful borders
   border:      '#E2E6FB',    // Light indigo
@@ -168,6 +176,14 @@ export const DarkColors = {
   textSecondary: '#A3ACC2',  // Light gray
   textMuted:     '#5B6479',  // Medium gray
   textOnPrimary: '#0F0A1F',  // Dark background
+  textOnGradient: '#0F0A1F',
+  incomeOnGradient: '#0F0A1F',
+  expenseOnGradient: '#0F0A1F',
+  onlineOnGradient: '#0F0A1F',
+  gradientMuted: '#251D3D',
+  gradientSubtle: '#0F0A1F26',
+  gradientBorder: '#0F0A1F4D',
+  subtle: '#251D3D',
 
   // UI chrome - Glowing borders
   border:      '#332C56',    // Purple-gray

@@ -4,6 +4,7 @@ import { DEFAULT_CATEGORIES } from '../constants/defaultCategories';
 
 let db = null;
 let webDB = null;
+let webTransactionOpen = false;
 
 // Web SQL.js wrapper
 const initWebDB = async () => {
@@ -31,8 +32,14 @@ const initWebDB = async () => {
     };
     
     return {
-      execSync: (sql) => { webDB.run(sql); saveDB(); },
-      runSync: (sql, params) => { webDB.run(sql, params); saveDB(); },
+      execSync: (sql) => {
+        webDB.run(sql);
+        const upper = String(sql).toUpperCase();
+        if (/\bBEGIN\b/.test(upper)) webTransactionOpen = true;
+        if (/\b(COMMIT|ROLLBACK)\b/.test(upper)) { webTransactionOpen = false; saveDB(); }
+        else if (!webTransactionOpen) saveDB();
+      },
+      runSync: (sql, params) => { webDB.run(sql, params); if (!webTransactionOpen) saveDB(); },
       getFirstSync: (sql, params) => {
         const result = webDB.exec(sql, params);
         if (!result[0]) return null;
@@ -116,10 +123,41 @@ export const initializeDatabase = async () => {
       payment_type  TEXT    NOT NULL DEFAULT 'cash',
       place_id      INTEGER,
       note          TEXT,
+      created_at    TEXT,
       FOREIGN KEY (day_id)      REFERENCES days(id)       ON DELETE CASCADE,
       FOREIGN KEY (category_id) REFERENCES categories(id),
       FOREIGN KEY (item_id)     REFERENCES category_items(id),
       FOREIGN KEY (place_id)    REFERENCES places(id)
+    );
+  `);
+  // Legacy aggregate rows remain editable separately from individually entered expenses.
+  try { database.execSync(`ALTER TABLE expenses ADD COLUMN origin TEXT NOT NULL DEFAULT 'legacy';`); } catch (_) {}
+  try { database.execSync(`ALTER TABLE expenses ADD COLUMN created_at TEXT;`); } catch (_) {}
+
+  database.execSync(`
+    CREATE TABLE IF NOT EXISTS ledger_movements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      day_id INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('receipt','transfer')),
+      amount REAL NOT NULL,
+      direction TEXT NOT NULL CHECK(direction IN ('in','out')),
+      note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY(day_id) REFERENCES days(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      date TEXT NOT NULL,
+      amount REAL,
+      shop TEXT NOT NULL DEFAULT '',
+      details TEXT NOT NULL DEFAULT '',
+      image_uri TEXT,
+      category TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS ledger_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
     );
   `);
 

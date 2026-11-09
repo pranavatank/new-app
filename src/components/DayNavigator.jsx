@@ -9,9 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTHS_SHORT= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DAYS_SHORT  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const WEEKDAY_INDICES = Array.from({ length: 7 }, (_, index) => index);
 
 const toDStr = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -22,6 +20,7 @@ const parseD = (s) => { const [y,m,d] = s.split('-').map(Number); return new Dat
 
 const CalModal = ({ visible, selected, onSelect, onClose }) => {
   const { C, scale } = useTheme();
+  const { t, i18n } = useTranslation();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
   const pd   = parseD(selected);
@@ -51,7 +50,7 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
 
           {/* Header with close button */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
-            <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>Select Date</Text>
+            <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{t('ledger.select_date')}</Text>
             <TouchableOpacity style={[{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={onClose}>
               <Ionicons name="close" size={18} color={C.textSecondary} />
             </TouchableOpacity>
@@ -62,7 +61,7 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
             <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={prev}>
               <Ionicons name="chevron-back" size={20} color={C.primary} />
             </TouchableOpacity>
-            <Text style={[{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{MONTHS[mo]} {yr}</Text>
+            <Text style={[{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{new Date(yr,mo,1).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { month:'long', year:'numeric' })}</Text>
             <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={next}>
               <Ionicons name="chevron-forward" size={20} color={C.primary} />
             </TouchableOpacity>
@@ -70,9 +69,10 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
 
           {/* Day headers */}
           <View style={{ flexDirection: 'row', marginBottom: Spacing.xs }}>
-            {DAYS_SHORT.map(d => (
-              <Text key={d} style={[{ flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600', letterSpacing: 0.5 }, { color: C.textMuted }]}>{d}</Text>
-            ))}
+            {WEEKDAY_INDICES.map(i => {
+              const d = new Date(2023, 0, 1 + i).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { weekday: 'short' });
+              return <Text key={i} style={[{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: '600', letterSpacing: 0.5 }, { color: C.textMuted }]}>{d}</Text>;
+            })}
           </View>
 
           {/* Grid */}
@@ -94,12 +94,12 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
                   onPress={() => { onSelect(ds); onClose(); }}
                 >
                   <Text style={[
-                    { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.medium },
+                    { fontSize: Math.max(16, Typography.sizes.sm), fontWeight: Typography.weights.medium },
                     { color: C.textSecondary },
                     isSel && { color: '#fff', fontWeight: '700' },
                     isT && !isSel && { color: C.primary, fontWeight: '700' },
                     isSun && !isSel && { color: C.expense },
-                  ]}>{day}</Text>
+                  ]}>{new Date(yr, mo, day).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { day: 'numeric' })}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -124,7 +124,7 @@ export default function DayNavigator() {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === 'ios' ? (insets?.top || 0) : 0;
   const [calOpen, setCalOpen] = useState(false);
@@ -133,9 +133,9 @@ export default function DayNavigator() {
 
   const display = (dateStr) => {
     const d = parseD(dateStr);
-    const dayKeys = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-    const dayName = t(`days.${dayKeys[d.getDay()]}`);
-    const dateOnly = `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    const locale = i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN';
+    const dayName = d.toLocaleDateString(locale, { weekday: 'long' });
+    const dateOnly = d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
     return { label: dayName, sub: dateOnly };
   };
 
@@ -169,7 +169,7 @@ export default function DayNavigator() {
           {isToday && (
             <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.full, marginBottom: 3 }, { backgroundColor: C.primaryDim }]}>
               <View style={[{ width: 5, height: 5, borderRadius: 3 }, { backgroundColor: C.primary }]} />
-              <Text style={[{ fontSize: 9, fontWeight: '800', letterSpacing: 1.5 }, { color: C.primary }]}>TODAY</Text>
+              <Text style={[{ fontSize: 9, fontWeight: '800', letterSpacing: 1.5 }, { color: C.primary }]}>{t('ledger.today').toUpperCase()}</Text>
             </View>
           )}
           <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, letterSpacing: 0.2 }, { color: C.textPrimary }]}>{label}</Text>

@@ -65,7 +65,7 @@ export default function Row({
           value={!!switchValue}
           onValueChange={onSwitchChange}
           trackColor={{ false: C.border, true: C.primarySoft }}
-          thumbColor={switchValue ? C.primary : '#f4f3f4'}
+          thumbColor={switchValue ? C.primary : C.bgCard}
         />
       ) : chevron ? (
         <Ionicons name="chevron-forward" size={18} color={C.textMuted} />

@@ -9,18 +9,12 @@ import { scaleTheme, makeShadow } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Button, IconBadge, Chip, EmptyState, SectionHeader, FAB } from '../components/common';
+import DayOverview from '../components/DayOverview';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
-import { translateCategoryName } from '../constants/defaultCategories';
 import {
-  getTasksForDay,
-  getPlacesForDay,
-  getNotesForDay,
-  getExpenseSummaryForDay,
-  completeTask,
   updateDeposit,        // ← static import, NOT dynamic require()
-  getVehicleStats,
 } from '../db/queries';
 
 const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -34,7 +28,8 @@ const BalanceCard = ({ dayData, onPress, t }) => {
 
   const bal  = dayData?.closing_balance ?? 0;
   const open = dayData?.opening_balance ?? 0;
-  const dep  = dayData?.deposit_today   ?? 0;
+  const dep  = (dayData?.deposit_today ?? 0) + (dayData?.receipt_total ?? 0);
+  const transfer = dayData?.transfer_net ?? 0;
   const cash = dayData?.cash_spent      ?? 0;
   const onl  = dayData?.online_spent    ?? 0;
   const pos  = bal >= 0;
@@ -42,18 +37,18 @@ const BalanceCard = ({ dayData, onPress, t }) => {
   const bc = StyleSheet.create({
     card:   { borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.lg, overflow: 'hidden' },
     top:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    lbl:    { fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 2, fontWeight: '700', marginBottom: 6 },
+    lbl:    { fontSize: 10, color: C.gradientMuted, letterSpacing: 2, fontWeight: '700', marginBottom: 6 },
     bal:    { fontSize: Typography.sizes.hero, fontWeight: Typography.weights.black, letterSpacing: -1.5 },
-    circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-    hr:     { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: Spacing.lg },
+    circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.gradientSubtle, alignItems: 'center', justifyContent: 'center' },
+    hr:     { height: 1, backgroundColor: C.gradientBorder, marginVertical: Spacing.lg },
     row:    { flexDirection: 'row', alignItems: 'center' },
     col:    { flex: 1, alignItems: 'center' },
-    colLbl: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
+    colLbl: { fontSize: 10, color: C.gradientMuted, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
     colVal: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold },
-    pipe:   { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)' },
-    chip:   { marginTop: Spacing.md, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.full },
-    chipTxt:{ fontSize: Typography.sizes.sm, color: '#E0E7FF', fontWeight: Typography.weights.semibold },
-    hint:   { fontSize: Typography.sizes.xs, color: 'rgba(255,255,255,0.45)', marginTop: Spacing.md, textAlign: 'right', fontWeight: Typography.weights.semibold },
+    pipe:   { width: 1, height: 28, backgroundColor: C.gradientBorder },
+    chip:   { marginTop: Spacing.md, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.gradientSubtle, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.full },
+    chipTxt:{ fontSize: Typography.sizes.sm, color: C.textOnGradient, fontWeight: Typography.weights.semibold },
+    hint:   { fontSize: Typography.sizes.xs, color: C.gradientMuted, marginTop: Spacing.md, textAlign: 'right', fontWeight: Typography.weights.semibold },
   });
 
   return (
@@ -63,10 +58,10 @@ const BalanceCard = ({ dayData, onPress, t }) => {
         <View style={bc.top}>
           <View>
             <Text style={bc.lbl}>{t('home.cashBalance').toUpperCase()}</Text>
-            <Text style={[bc.bal, { color: pos ? '#A7F3D0' : '#FCA5A5' }]}>{fmt(bal)}</Text>
+            <Text style={[bc.bal, { color: pos ? C.incomeOnGradient : C.expenseOnGradient }]}>{fmt(bal)}</Text>
           </View>
           <View style={bc.circle}>
-            <Ionicons name="wallet" size={28} color="#fff" />
+            <Ionicons name="wallet" size={28} color={C.textOnGradient} />
           </View>
         </View>
 
@@ -75,9 +70,9 @@ const BalanceCard = ({ dayData, onPress, t }) => {
         {/* 3-col breakdown */}
         <View style={bc.row}>
           {[
-            { l: t('home.opening'),   v: fmt(open),       c: 'rgba(255,255,255,0.8)' },
-            { l: t('home.deposited'), v: '+'+fmt(dep),     c: '#A7F3D0' },
-            { l: t('home.cashSpent'),v: '−'+fmt(cash),    c: '#FCA5A5' },
+            { l: t('home.opening'),   v: fmt(open),       c: C.gradientMuted },
+            { l: t('ledger.receipts'), v: '+'+fmt(dep),     c: C.incomeOnGradient },
+            { l: t('home.cashSpent'),v: '−'+fmt(cash),    c: C.expenseOnGradient },
           ].map((x, i) => (
             <React.Fragment key={x.l}>
               {i > 0 && <View style={bc.pipe} />}
@@ -89,9 +84,14 @@ const BalanceCard = ({ dayData, onPress, t }) => {
           ))}
         </View>
 
+        {transfer !== 0 && (
+          <View style={bc.chip}>
+            <Text style={bc.chipTxt}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.locker_out')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>
+          </View>
+        )}
         {onl > 0 && (
           <View style={bc.chip}>
-            <Ionicons name="globe-outline" size={13} color="#E0E7FF" />
+            <Ionicons name="globe-outline" size={13} color={C.onlineOnGradient} />
             <Text style={bc.chipTxt}>{t('home.online')}: {fmt(onl)}</Text>
           </View>
         )}
@@ -104,46 +104,6 @@ const BalanceCard = ({ dayData, onPress, t }) => {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-const TaskRow = ({ task, onComplete, translate }) => {
-  const { C, scale } = useTheme();
-  const { Typography, Spacing } = scaleTheme(scale);
-  const [localCompleted, setLocalCompleted] = useState(false);
-  const isCompleted = task.status === 'completed' || localCompleted;
-
-  const handleComplete = () => {
-    if (task.status === 'completed') return;
-    setLocalCompleted(true);
-    setTimeout(() => {
-      onComplete(task.id);
-    }, 2000);
-  };
-
-  const tr = StyleSheet.create({
-    row:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1 },
-    check: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-    body:  { flex: 1 },
-    title: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold },
-    from:  { fontSize: Typography.sizes.xs, marginTop: 3 },
-  });
-
-  return (
-    <View style={[tr.row, { borderBottomColor: C.divider }]}>
-      <TouchableOpacity
-        style={[tr.check, { borderColor: isCompleted ? C.income : C.iconTask, backgroundColor: isCompleted ? C.income : 'transparent' }]}
-        onPress={handleComplete}
-        activeOpacity={isCompleted ? 1 : 0.7}
-        disabled={isCompleted}
-      >
-        {isCompleted && <Ionicons name="checkmark" size={14} color="#fff" />}
-      </TouchableOpacity>
-      <View style={tr.body}>
-        <Text style={[tr.title, { color: isCompleted ? C.textMuted : C.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }]} numberOfLines={1}>{task.title}</Text>
-        <Text style={[tr.from, { color: C.textMuted }]}>{translate('common.from')} {task.start_date}</Text>
-      </View>
-    </View>
-  );
-};
-
 // ── Main HomeScreen ───────────────────────────────────────────────────────────
 
 export default function HomeScreen({ navigation }) {
@@ -153,11 +113,6 @@ export default function HomeScreen({ navigation }) {
   const Shadow = makeShadow(C);
   const { selectedDate, dayData, refreshDayData } = useAppStore();
 
-  const [tasks,      setTasks]      = useState([]);
-  const [expSummary, setExpSummary] = useState([]);
-  const [places,     setPlaces]     = useState([]);
-  const [notes,      setNotes]      = useState([]);
-  const [vehicleStats, setVehicleStats] = useState({ totalAvg: 0, last10Avg: 0, totalDistance: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
   // FAB deposit state
@@ -166,24 +121,11 @@ export default function HomeScreen({ navigation }) {
 
   const loadData = useCallback(() => {
     refreshDayData(selectedDate);
-    setVehicleStats(getVehicleStats());
   }, [refreshDayData, selectedDate]);
-
-  const loadSections = useCallback(() => {
-    if (!dayData) return;
-    const allTasks = getTasksForDay(selectedDate);
-    const completedToday = allTasks.filter(t => t.status === 'completed' && t.completed_date === selectedDate);
-    const pending = allTasks.filter(t => t.status === 'pending');
-    setTasks([...pending, ...completedToday]);
-    setExpSummary(getExpenseSummaryForDay(dayData.id));
-    setPlaces(getPlacesForDay(dayData.id));
-    setNotes(getNotesForDay(dayData.id));
-  }, [dayData, selectedDate]);
 
   useEffect(() => {
     refreshDayData(selectedDate);
   }, [selectedDate, refreshDayData]);
-  useEffect(() => { loadSections(); }, [dayData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -197,7 +139,6 @@ export default function HomeScreen({ navigation }) {
     setTimeout(() => setRefreshing(false), 700);
   };
 
-  const handleComplete = (id) => { completeTask(id); loadData(); loadSections(); };
 
   // Quick deposit via FAB — uses static import, not dynamic require
   const handleFabDeposit = () => {
@@ -209,10 +150,6 @@ export default function HomeScreen({ navigation }) {
     setFabOpen(false);
     setFabAmount('');
   };
-
-  const visibleTasks  = tasks.slice(0, 3);
-  const pendingCount = tasks.filter(t => t.status === 'pending').length;
-  const topCats       = expSummary.filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 5);
 
   const s = sStyles(Typography, Spacing, Radius);
 
