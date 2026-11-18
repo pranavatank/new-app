@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, Platform, StatusBar,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
@@ -15,7 +16,7 @@ import {
 } from '../components/common';
 import {
   getAllPlaces,
-  getPlacesForDay,
+  getPlacesForDate,
   addPlace,
   updatePlace,
   deletePlace,
@@ -106,7 +107,7 @@ const PlaceModal = ({ visible, editPlace, onSave, onClose, C, scale, Shadow, t }
           <TouchableOpacity
             key={ic}
             style={[
-              pm.iconBtn,
+              pm.iconBtn, { borderColor: C.transparent },
               ic === icon && iconType !== 'image' && { borderColor: C.primary, borderWidth: 2, backgroundColor: C.primaryDim },
             ]}
             onPress={() => { setIcon(ic); setIconType('emoji'); }}
@@ -160,7 +161,7 @@ const pmStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   photoRemoveBtn: { width: 44, borderRadius: Radius.lg, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   iconScroll:{ marginBottom: Spacing.base },
   iconRow:   { gap: Spacing.xs, paddingBottom: 4 },
-  iconBtn:   { borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent', padding: 2 },
+  iconBtn:   { borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 2, padding: 2 },
   inputSpacing: { marginBottom: Spacing.base },
   favRow:    { borderRadius: Radius.lg, borderWidth: 1, paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
   btnRow:    { flexDirection: 'row', gap: Spacing.sm },
@@ -186,7 +187,7 @@ const PlaceTile = ({ place, isVisited, onToggle, onEdit, onFavToggle, C, scale, 
     {/* Visited check */}
     {isVisited && (
       <View style={[pt.visitedBadge, { backgroundColor: C.primary }]}>
-        <Ionicons name="checkmark" size={12} color="#fff" />
+        <Ionicons name="checkmark" size={12} color={C.textOnPrimary} />
       </View>
     )}
 
@@ -251,7 +252,7 @@ export default function PlacesScreen() {
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
   const s = sStyles(Typography, Spacing, Radius);
-  const { selectedDate, dayData } = useAppStore();
+  const selectedDate = useAppStore(state => state.selectedDate);
 
   const [allPlaces,   setAllPlaces]   = useState([]);
   const [visited,     setVisited]     = useState([]);
@@ -261,21 +262,13 @@ export default function PlacesScreen() {
 
   const load = useCallback(() => {
     setAllPlaces(getAllPlaces());
-    if (dayData) setVisited(getPlacesForDay(dayData.id));
-  }, [dayData, selectedDate]);
+    setVisited(getPlacesForDate(selectedDate));
+  }, [selectedDate]);
 
-  useEffect(() => {
-    setAllPlaces(getAllPlaces());
-    if (dayData) setVisited(getPlacesForDay(dayData.id));
-  }, [selectedDate, dayData]);
-
-  const getDayId = () => {
-    if (dayData) return dayData.id;
-    return getOrCreateDay(selectedDate).id;
-  };
+  useFocusEffect(load);
 
   const handleToggle = (place) => {
-    const dayId = getDayId();
+    const dayId = getOrCreateDay(selectedDate).id;
     togglePlaceForDay(dayId, place.id);
     load();
   };
@@ -406,7 +399,7 @@ export default function PlacesScreen() {
       </ScrollView>
 
       <FAB
-        icon="add"
+        label={t('places.addPlaceTitle')}
         onPress={()=>{setEditPlace(null);setShowModal(true);}}
         style={s.fab}
       />
@@ -428,7 +421,7 @@ const sStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   headerTitle:  { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
   headerSub:    { fontSize: Typography.sizes.xs, marginTop: 2 },
   scroll:       { flex: 1 },
-  content:      { padding: Spacing.base, paddingBottom: 100 },
+  content:      { padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl },
   visitedCard:  { borderWidth: 1.5, marginBottom: Spacing.base },
   filterRow:    { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
   filterChip:   { flex: 1, justifyContent: 'center' },
@@ -436,5 +429,5 @@ const sStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   grid:         { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: Spacing.xs },
   emptyCard:    { borderRadius: Radius.xl, borderWidth: 1, alignItems: 'center', paddingVertical: Spacing.md },
   emptyBtn:     { marginTop: Spacing.sm },
-  fab:          { position: 'absolute', right: Spacing.lg, bottom: 110 },
+  fab:          { position: 'absolute', right: Spacing.lg, bottom: Spacing.base },
 });

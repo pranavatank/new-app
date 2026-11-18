@@ -63,11 +63,11 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         const done = task.status === 'completed';
         return <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: C.divider }}>
           <TouchableOpacity onPress={() => complete(task.id)} disabled={done} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: done ? C.income : C.iconTask, backgroundColor: done ? C.income : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{done && <Ionicons name="checkmark" size={14} color={C.textOnPrimary} />}</View>
+            <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: done ? C.income : C.iconTask, backgroundColor: done ? C.income : C.transparent, alignItems: 'center', justifyContent: 'center' }}>{done && <Ionicons name="checkmark" size={14} color={C.textOnPrimary} />}</View>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold, color: done ? C.textMuted : C.textPrimary, textDecorationLine: done ? 'line-through' : 'none' }}>{task.title}</Text>
-            <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginTop: 3 }}>{t('common.from')} {task.start_date}</Text>
+            <Text style={{ fontSize: Typography.sizes.xs, color: C.textSecondary, marginTop: 3 }}>{t('common.from')} {task.start_date}</Text>
           </View>
         </View>;
       })}
@@ -98,17 +98,17 @@ export default function DayOverview({ date, navigation, refreshKey }) {
     {showMileage && <>
       <Card style={{ marginBottom: Spacing.lg }}>
         <SectionHeader icon="water" color={C.online} title={`${t('ledger.overview_daily_fuel')} · ${date}`} onSeeAll={() => nav('Vehicle')} />
-        {data.fuel.length === 0 ? <Text style={{ color: C.textMuted, paddingVertical: Spacing.sm }}>{t('ledger.overview_fuel_empty')}</Text> : data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+        {data.fuel.length === 0 ? <Text style={{ color: C.textSecondary, paddingVertical: Spacing.sm }}>{t('ledger.overview_fuel_empty')}</Text> : data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
           <Text style={{ color: C.textSecondary }}>{Number(record.liters || 0).toLocaleString(numberLocale(i18n.language))} L · {Number(record.reading || 0).toLocaleString(numberLocale(i18n.language))} km</Text>
           <Text style={{ color: C.textPrimary, fontWeight: Typography.weights.bold }}>{money(record.amount, i18n.language)}</Text>
         </View>)}
-        <Button variant="ghost" size="sm" icon="add" label={t('ledger.tool_vehicle')} onPress={() => nav('Vehicle')} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
+        <Button variant="ghost" size="sm" icon="add" label={t('ledger.add_fuel')} onPress={() => navigation.navigate('Vehicle', { addDate: date })} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
       </Card>
       <Card style={{ marginBottom: Spacing.lg }}>
         <SectionHeader mciIcon="motorbike" color={C.primary} title={t('ledger.overview_mileage_all_time')} onSeeAll={() => nav('Vehicle')} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md }}>
           {[[t('ledger.overview_average'), `${data.vehicleStats.totalAvg.toFixed(2)} km/L`], [t('ledger.overview_last_10'), data.vehicleStats.last10Avg.toFixed(2)], [t('ledger.overview_total_km'), Number(data.vehicleStats.totalDistance).toLocaleString(numberLocale(i18n.language))]].map(([label, value]) => <View key={label} style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted }}>{label}</Text>
+            <Text style={{ fontSize: Typography.sizes.xs, color: C.textSecondary }}>{label}</Text>
             <Text style={{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold, color: C.primary }}>{value}</Text>
           </View>)}
         </View>

@@ -10,6 +10,7 @@ import { scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { getOrCreateDay, setExpenseAmount, recalculateBalance, getAllCategories, getAllVehicleRecords, addVehicleRecord, updateVehicleRecord, deleteVehicleRecord, getVehicleStats } from '../db/queries';
 import { Card, Button, IconBadge, Sheet, Input, Badge, Chip, EmptyState } from '../components/common';
+import { getOdometerNeighbors } from '../utils/vehicleRecords';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS_SHORT  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
@@ -99,7 +100,7 @@ const DatePickerModal = ({ visible, selected, onSelect, onClose }) => {
               key={dateStr}
               style={[
                 dp.cell,
-                dp.dayCell,
+                dp.dayCell, { borderColor: C.transparent },
                 { borderRadius: Radius.full },
                 isSel && { backgroundColor: C.primary },
                 !isSel && isToday && { borderColor: C.primary },
@@ -109,7 +110,7 @@ const DatePickerModal = ({ visible, selected, onSelect, onClose }) => {
               <Text
                 style={[
                   dp.dayTxt,
-                  { color: isSel ? '#fff' : C.textPrimary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.medium },
+                  { color: isSel ? C.textOnPrimary : C.textPrimary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.medium },
                   !isSel && isToday && { color: C.primary },
                 ]}
               >
@@ -138,36 +139,31 @@ const dp = StyleSheet.create({
   weekTxt: { width: 36, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  dayCell: { borderWidth: 1, borderColor: 'transparent' },
+  dayCell: { borderWidth: 1 },
   dayTxt: {},
   todayBtn: { alignItems: 'center' },
   todayTxt: {},
 });
 
 // ── Add Record Modal ──────────────────────────────────────────────────────────
-const AddRecordModal = ({ visible, onClose, lastRecord, editingRecord, onSave }) => {
+const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate, onSave }) => {
   const { C, scale } = useTheme();
+  const { t } = useTranslation();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
 
-  const lastReading = editingRecord ? editingRecord.prevReading : (lastRecord?.reading || 0);
-  // The distance being entered now was ridden on the fuel from the PREVIOUS
-  // fill-up, not the fuel being entered in this form (that fuel powers the
-  // next leg, calculated next time). See getVehicleStats/loadData for the
-  // same rule applied to historical records.
-  const previousLiters = editingRecord ? (editingRecord.prevLiters || 0) : (lastRecord?.liters || 0);
-  const estimatedReading = editingRecord ? editingRecord.reading : lastReading + 100;
-  const baseReading = Math.floor(Number(estimatedReading) || 0);
-  const digits = String(baseReading).padStart(5, '0').split('').map(Number);
-
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [odometerDigits, setOdometerDigits] = useState(digits);
+  const [odometerDigits, setOdometerDigits] = useState([0, 0, 0, 0, 0]);
   const [odometerDecimal, setOdometerDecimal] = useState('0');
   const [liters, setLiters] = useState('2');
-  const [pricePerLiter, setPricePerLiter] = useState(lastRecord ? String((lastRecord.amount / lastRecord.liters).toFixed(2)) : '100');
+  const [pricePerLiter, setPricePerLiter] = useState('100');
   const [totalAmount, setTotalAmount] = useState('');
   const [editMode, setEditMode] = useState('liters');
   const [paymentType, setPaymentType] = useState('online');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const isoDate = toISODate(selectedDate);
+  const { previous, next } = getOdometerNeighbors(records, isoDate, editingRecord?.id);
+  const lastReading = previous?.reading || 0;
+  const previousLiters = previous?.liters || 0;
 
   React.useEffect(() => {
     if (visible) {
@@ -196,21 +192,24 @@ const AddRecordModal = ({ visible, onClose, lastRecord, editingRecord, onSave })
         setEditMode('liters');
         setPaymentType(editingRecord.payment_type || 'online');
       } else {
-        const now = new Date();
-        setSelectedDate(now);
+        const date = initialDate ? parseISODate(initialDate) : new Date();
+        setSelectedDate(date);
+        const adjacent = getOdometerNeighbors(records, toISODate(date));
+        const earlierReading = adjacent.previous?.reading || 0;
+        const step = adjacent.next ? Math.min(100, (adjacent.next.reading - earlierReading) / 2) : 100;
+        const [whole, decimal] = (earlierReading + Math.max(0, step)).toFixed(1).split('.');
 
-        const newDigits = String(Math.floor(estimatedReading)).padStart(5, '0').split('').map(Number);
-        setOdometerDigits(newDigits);
-        setOdometerDecimal('0');
+        setOdometerDigits(whole.padStart(5, '0').split('').map(Number));
+        setOdometerDecimal(decimal);
         setLiters('2');
-        setPricePerLiter(lastRecord ? String((lastRecord.amount / lastRecord.liters).toFixed(2)) : '100');
+        setPricePerLiter(adjacent.previous?.liters ? (adjacent.previous.amount / adjacent.previous.liters).toFixed(2) : '100');
         setTotalAmount('');
         setEditMode('liters');
         setPaymentType('online');
       }
       setShowDatePicker(false);
     }
-  }, [visible, editingRecord]);
+  }, [visible, editingRecord, initialDate, records]);
 
   const updateDigit = (index, value) => {
     const newDigits = [...odometerDigits];
@@ -284,17 +283,15 @@ const AddRecordModal = ({ visible, onClose, lastRecord, editingRecord, onSave })
   };
 
   const handleSave = () => {
-    if (!editingRecord && currentReading <= lastReading) {
-      Alert.alert('Invalid Reading', 'New reading must be greater than last reading');
+    const readingChanged = !editingRecord || isoDate !== editingRecord.rawDate || currentReading !== editingRecord.reading;
+    if (readingChanged && (currentReading <= lastReading || (next && currentReading >= next.reading))) {
+      Alert.alert(t('ledger.error'), t('ledger.vehicle_reading_bounds'));
       return;
     }
     if (literNum <= 0) {
       Alert.alert('Invalid Fuel', 'Please enter valid fuel amount');
       return;
     }
-
-    const d = new Date(selectedDate);
-    const isoDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
     try {
       if (editingRecord) {
@@ -456,8 +453,8 @@ const AddRecordModal = ({ visible, onClose, lastRecord, editingRecord, onSave })
               }]}
               onPress={() => setPaymentType('online')}
             >
-              <Ionicons name="card-outline" size={16} color={paymentType === 'online' ? '#fff' : C.primary} />
-              <Text style={[am.typeBtnText, { color: paymentType === 'online' ? '#fff' : C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
+              <Ionicons name="card-outline" size={16} color={paymentType === 'online' ? C.textOnPrimary : C.primary} />
+              <Text style={[am.typeBtnText, { color: paymentType === 'online' ? C.textOnPrimary : C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
                 Online
               </Text>
             </TouchableOpacity>
@@ -471,8 +468,8 @@ const AddRecordModal = ({ visible, onClose, lastRecord, editingRecord, onSave })
               }]}
               onPress={() => setPaymentType('cash')}
             >
-              <Ionicons name="cash-outline" size={16} color={paymentType === 'cash' ? '#fff' : C.income} />
-              <Text style={[am.typeBtnText, { color: paymentType === 'cash' ? '#fff' : C.income, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
+              <Ionicons name="cash-outline" size={16} color={paymentType === 'cash' ? C.textOnPrimary : C.income} />
+              <Text style={[am.typeBtnText, { color: paymentType === 'cash' ? C.textOnPrimary : C.income, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
                 Cash
               </Text>
             </TouchableOpacity>
@@ -544,12 +541,13 @@ const am = StyleSheet.create({
   btnRow: { flexDirection: 'row' },
 });
 
-const Vehicle = () => {
+const Vehicle = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [draftDate, setDraftDate] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
   const [vehicleData, setVehicleData] = useState([]);
   const [stats, setStats] = useState({ totalAvg: 0, last10Avg: 0, totalDistance: 0, totalAmount: 0, totalFuel: 0 });
@@ -612,7 +610,15 @@ const Vehicle = () => {
     loadData();
   }, []);
 
-  const latestData = vehicleData[0] || { reading: 0, amount: 0, liters: 2 };
+  const suggestedDate = route?.params?.addDate;
+  useEffect(() => {
+    if (!suggestedDate) return;
+    setDraftDate(suggestedDate);
+    setEditingRecord(null);
+    setShowAddModal(true);
+    navigation.setParams({ addDate: null });
+  }, [navigation, suggestedDate]);
+
   const totalDistance = stats.totalDistance;
   const totalDistanceDisplay = Number.isFinite(totalDistance) ? totalDistance.toFixed(1) : totalDistance;
   const totalFuel = stats.totalFuel;
@@ -636,16 +642,16 @@ const Vehicle = () => {
         end={{ x: 1, y: 1 }}
         style={[s.header, { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xxl, paddingBottom: Spacing.xl, gap: Spacing.md }, Shadow.primary]}
       >
-        <IconBadge mciIcon="motorbike" color="#fff" size={52} style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
+        <IconBadge mciIcon="motorbike" color={C.headerForeground} size={52} style={{ backgroundColor: C.headerSubtle }} />
         <View style={{ flex: 1 }}>
-          <Text style={[s.headerTitle, { fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }]}>Bike Mileage</Text>
-          <Text style={[s.headerSub, { fontSize: Typography.sizes.sm, marginTop: 2 }]}>Track your petrol efficiency</Text>
+          <Text style={[s.headerTitle, { color: C.headerForeground, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }]}>{t('ledger.tool_vehicle')}</Text>
+          <Text style={{ color: C.headerMuted, fontSize: Typography.sizes.sm, marginTop: Spacing.xs }}>{t('ledger.overview_mileage_all_time')}</Text>
         </View>
       </LinearGradient>
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ padding: Spacing.base, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: Spacing.base, paddingBottom: Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
         {/* Summary Cards */}
@@ -662,7 +668,7 @@ const Vehicle = () => {
         {/* Records Title */}
         <View style={[s.sectionHeader, { marginBottom: Spacing.md, marginTop: Spacing.sm }]}>
           <Text style={[s.sectionTitle, { color: C.textPrimary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }]}>Fuel Records</Text>
-          <Button label="Add" icon="add" size="sm" onPress={() => setShowAddModal(true)} />
+          <Button label={t('ledger.add_fuel')} icon="add" size="sm" onPress={() => setShowAddModal(true)} />
         </View>
 
         {/* Records List */}
@@ -727,8 +733,10 @@ const Vehicle = () => {
         onClose={() => {
           setShowAddModal(false);
           setEditingRecord(null);
+          setDraftDate(null);
         }}
-        lastRecord={latestData}
+        initialDate={draftDate}
+        records={vehicleData}
         editingRecord={editingRecord}
         onSave={loadData}
       />
@@ -739,8 +747,7 @@ const Vehicle = () => {
 const s = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { color: '#fff', letterSpacing: -0.5 },
-  headerSub: { color: 'rgba(255,255,255,0.8)' },
+  headerTitle: { letterSpacing: -0.5 },
 
   scroll: { flex: 1 },
 

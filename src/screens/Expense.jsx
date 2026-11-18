@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { scaleTheme, makeShadow } from '../constants/theme';
+import { Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
@@ -44,16 +44,17 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
   const cash = dayData?.cash_spent      ?? 0;
   const onl  = dayData?.online_spent    ?? 0;
   const pos  = bal >= 0;
+  const bh = balanceStyles(C);
 
   return (
     <Card gradient={C.gradients.primary} elevation="primary" style={{ borderRadius: R.xl, padding: S.xl, marginBottom: S.md, borderWidth: 0 }}>
       <View style={bh.topRow}>
         <View>
           <Text style={[bh.lbl]}>{t('expense.cashBalance').toUpperCase()}</Text>
-          <Text style={[bh.bal, { fontSize: T.sizes.hero, fontWeight: T.weights.black }, { color: pos ? '#A7F3D0' : '#FCA5A5' }]}>{fmt(bal)}</Text>
+          <Text style={[bh.bal, { fontSize: T.sizes.hero, fontWeight: T.weights.black }, { color: pos ? C.incomeOnGradient : C.expenseOnGradient }]}>{fmt(bal)}</Text>
         </View>
         <View style={bh.circle}>
-          <Ionicons name="wallet" size={28} color="#fff" />
+          <Ionicons name="wallet" size={28} color={C.textOnGradient} />
         </View>
       </View>
 
@@ -61,9 +62,9 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
 
       <View style={bh.statsRow}>
         {[
-          { l: t('ledger.receipts'),  v: '+' + fmt(dep),  c: '#A7F3D0' },
-          { l: t('analytics.cashSpent'), v: '−' + fmt(cash), c: '#FCA5A5' },
-          { l: t('analytics.onlineSpent'),     v: fmt(onl),         c: '#C4B5FD' },
+          { l: t('ledger.receipts'),  v: '+' + fmt(dep),  c: C.incomeOnGradient },
+          { l: t('analytics.cashSpent'), v: '−' + fmt(cash), c: C.expenseOnGradient },
+          { l: t('analytics.onlineSpent'),     v: fmt(onl),         c: C.onlineOnGradient },
         ].map((x, i) => (
           <React.Fragment key={x.l}>
             {i > 0 && <View style={bh.pipe} />}
@@ -74,21 +75,21 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
           </React.Fragment>
         ))}
       </View>
-      {transfer !== 0 && <Text style={{ color: '#FFFFFF', marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.locker_out')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
+      {transfer !== 0 && <Text style={{ color: C.textOnGradient, marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.locker_out')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
     </Card>
   );
 };
-const bh = StyleSheet.create({
+const balanceStyles = C => StyleSheet.create({
   topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  lbl:      { fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 2, fontWeight: '700', marginBottom: 6 },
+  lbl:      { fontSize: BaseTypography.sizes.caption, color: C.gradientMuted, letterSpacing: 2, fontWeight: BaseTypography.weights.bold, marginBottom: 6 },
   bal:      { letterSpacing: -1.5 },
-  circle:   { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  hr:       { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 20 },
+  circle:   { width: 58, height: 58, borderRadius: 29, backgroundColor: C.gradientSubtle, alignItems: 'center', justifyContent: 'center' },
+  hr:       { height: 1, backgroundColor: C.gradientBorder, marginVertical: 20 },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   stat:     { flex: 1, alignItems: 'center' },
-  statLbl:  { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
+  statLbl:  { fontSize: BaseTypography.sizes.caption, color: C.gradientMuted, fontWeight: BaseTypography.weights.semibold, letterSpacing: 0.5, marginBottom: 4 },
   statVal:  {},
-  pipe:     { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)' },
+  pipe:     { width: 1, height: 28, backgroundColor: C.gradientBorder },
 });
 
 // ── Deposit Row ───────────────────────────────────────────────────────────────
@@ -107,16 +108,15 @@ const DepositRow = ({ deposit, onPress, C, T, S, R, Shadow, t }) => (
       </Text>
     </View>
     <View style={[dr.pill, { backgroundColor: C.income, borderRadius: R.full, paddingHorizontal: S.md }]}>
-      <Text style={[dr.pillTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold }]}>{deposit > 0 ? t('common.edit') : t('common.add')}</Text>
+      <Text style={[{ color: C.textOnPrimary, fontSize: T.sizes.sm, fontWeight: T.weights.bold }]}>{deposit > 0 ? t('common.edit') : t('common.add')}</Text>
     </View>
   </TouchableOpacity>
 );
 const dr = StyleSheet.create({
   wrap:    { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5 },
-  lbl:     { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
+  lbl:     { fontSize: BaseTypography.sizes.xs, fontWeight: BaseTypography.weights.bold, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
   val:     {},
   pill:    { paddingVertical: 8 },
-  pillTxt: { color: '#fff' },
 });
 
 // ── Deposit Sheet ─────────────────────────────────────────────────────────────
@@ -297,8 +297,8 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
             style={[sa.toggleBtn, pType === k && { backgroundColor: C.primary, borderRadius: R.md }]}
             onPress={() => setPType(k)}
           >
-            <Ionicons name={icon} size={16} color={pType === k ? '#fff' : C.textSecondary} style={{ marginRight: 6 }} />
-            <Text style={[sa.toggleTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold, color: pType === k ? '#fff' : C.textSecondary }]}>{lbl}</Text>
+            <Ionicons name={icon} size={16} color={pType === k ? C.textOnPrimary : C.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[sa.toggleTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold, color: pType === k ? C.textOnPrimary : C.textSecondary }]}>{lbl}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -423,7 +423,7 @@ const sa = StyleSheet.create({
   itemAmt:   { marginBottom: 8 },
   itemStepper: { flexDirection: 'row', alignItems: 'center', overflow: 'hidden', width: '100%', height: 32 },
   stepBtn:   { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  stepVal:   { flex: 1, textAlign: 'center', fontSize: 10 },
+  stepVal:   { flex: 1, textAlign: 'center', fontSize: BaseTypography.sizes.caption },
   commonBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
   commonTxt: {},
   showItemsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
@@ -566,7 +566,7 @@ const mc = StyleSheet.create({
   del: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   addForm: { borderWidth: 1 },
   addRow: { flexDirection: 'row' },
-  iconInput: { width: 52, borderWidth: 1, textAlign: 'center', fontSize: 22, paddingVertical: 8 },
+  iconInput: { width: 52, borderWidth: 1, textAlign: 'center', fontSize: BaseTypography.sizes.xl, paddingVertical: 8 },
   addBtn: { alignItems: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
   addBtnTxt: {},
 });
@@ -604,7 +604,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
         >
           <Ionicons name="remove" size={18} color={C.expense} />
         </TouchableOpacity>
-        <Text style={[{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: T.weights.bold }, { color: C.textSecondary }]} numberOfLines={1}>
+        <Text style={[{ flex: 1, textAlign: 'center', fontSize: T.sizes.caption, fontWeight: T.weights.bold }, { color: C.textSecondary }]} numberOfLines={1}>
           {fmtN(cashAmt || 0)}
         </Text>
         <TouchableOpacity
@@ -618,7 +618,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
       {(onlineAmt || 0) > 0 && (
         <View style={[{ marginTop: 5, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, paddingVertical: 2, borderRadius: R.full }, { backgroundColor: C.onlineBg }]}>
           <Ionicons name="globe-outline" size={9} color={C.online} style={{ marginRight: 3 }} />
-          <Text style={[{ fontSize: 9, fontWeight: T.weights.bold }, { color: C.online }]}>{fmt(onlineAmt)}</Text>
+          <Text style={[{ fontSize: T.sizes.micro, fontWeight: T.weights.bold }, { color: C.online }]}>{fmt(onlineAmt)}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -730,7 +730,7 @@ export default function ExpenseScreen({ navigation }) {
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
       <DayNavigator />
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { padding: S.lg, paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { padding: S.lg, paddingBottom: S.xl }]} showsVerticalScrollIndicator={false}>
 
         {/* Balance header */}
         <BalanceHeader dayData={dayData} C={C} T={T} S={S} R={R} t={t} />
@@ -824,9 +824,9 @@ const s = StyleSheet.create({
   scroll:    { flex: 1 },
   content:   {},
   secHdr:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  secLbl:    { fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
-  hint:      { fontSize: 11, marginBottom: 12 },
+  secLbl:    { fontSize: BaseTypography.sizes.xs, fontWeight: BaseTypography.weights.bold, letterSpacing: 1.5 },
+  hint:      { fontSize: BaseTypography.sizes.xs, marginBottom: 12 },
   grid:      { flexDirection: 'row', flexWrap: 'wrap' },
   manageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
-  manageTxt: { fontSize: 13, fontWeight: '600' },
+  manageTxt: { fontSize: BaseTypography.sizes.sm, fontWeight: BaseTypography.weights.semibold },
 });

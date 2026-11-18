@@ -33,11 +33,11 @@ const formatTime = (isoStr) => {
 // visual (Ionicons name used in place of the old emoji prefix).
 
 const MOODS = [
-  {key:'memory', label:'🎉 Memory',  color:'#F59E0B', icon:'sparkles'},
-  {key:'visitor',label:'👥 Visitor', color:'#8B5CF6', icon:'people'},
-  {key:'errand', label:'📋 Errand',  color:'#3B82F6', icon:'clipboard'},
-  {key:'health', label:'💊 Health',  color:'#EF4444', icon:'medkit'},
-  {key:'other',  label:'📝 Other',   color:'#6B7280', icon:'document-text'},
+  { key: 'memory', icon: 'sparkles', colorToken: 'warning' },
+  { key: 'visitor', icon: 'people', colorToken: 'iconNotes' },
+  { key: 'errand', icon: 'clipboard', colorToken: 'iconTask' },
+  { key: 'health', icon: 'medkit', colorToken: 'expense' },
+  { key: 'other', icon: 'document-text', colorToken: 'textMuted' },
 ];
 
 // ── Add / Edit Note Modal ─────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
     } catch (e) { setError(t('ledger.save_failed')); }
   };
 
-  const MOODS_TRANSLATED = MOODS.map(m => ({...m, label: t(`notes.moods.${m.key}`)}));
+  const MOODS_TRANSLATED = MOODS.map(m => ({ ...m, color: C[m.colorToken], label: t(`notes.moods.${m.key}`) }));
   const selectedMood = MOODS_TRANSLATED.find(m=>m.key===mood) || MOODS_TRANSLATED[4];
 
   return (
@@ -129,7 +129,7 @@ const nm = StyleSheet.create({
 const NoteCard = ({ note, onEdit, onDelete, C, t }) => {
   const { scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
-  const MOODS_TRANSLATED = MOODS.map(m => ({...m, label: t(`notes.moods.${m.key}`)}));
+  const MOODS_TRANSLATED = MOODS.map(m => ({ ...m, color: C[m.colorToken], label: t(`notes.moods.${m.key}`) }));
   const mood = MOODS_TRANSLATED.find(m=>m.key===note.mood) || MOODS_TRANSLATED[4];
   const [expanded, setExpanded] = useState(false);
   const isLong = note.text.length > 120;
@@ -151,7 +151,7 @@ const NoteCard = ({ note, onEdit, onDelete, C, t }) => {
             <Ionicons name="create-outline" size={16} color={C.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={[nc.actionBtn,{backgroundColor:C.expenseLight, borderRadius:Radius.sm}]} onPress={()=>onDelete(note.id)}>
-            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+            <Ionicons name="trash-outline" size={16} color={C.expense} />
           </TouchableOpacity>
         </View>
       </View>
@@ -187,7 +187,7 @@ const nc = StyleSheet.create({
 
 // ── Main Notes Screen ─────────────────────────────────────────────────────────
 
-export default function NotesScreen({ route }) {
+export default function NotesScreen({ route, navigation }) {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing } = scaleTheme(scale);
@@ -210,8 +210,9 @@ export default function NotesScreen({ route }) {
     if (route?.params?.autoAdd) {
       setEditNote(null);
       setModal(true);
+      navigation.setParams({ autoAdd: false });
     }
-  }, [route?.params?.autoAdd]);
+  }, [navigation, route?.params?.autoAdd]);
 
   const handleSave = (text, mood, id) => {
     if (!dayData) throw new Error('Day is not ready');
@@ -250,7 +251,7 @@ export default function NotesScreen({ route }) {
         <IconBadge icon="reader-outline" color={C.iconNotes} size={40} />
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.content, {padding:Spacing.base, paddingBottom:100}]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, {padding:Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl}]} showsVerticalScrollIndicator={false}>
         <Button label={t('ledger.add_note')} icon="add" size="lg" fullWidth onPress={() => { setEditNote(null); setModal(true); }} style={{ marginBottom: Spacing.base }} />
 
         {notes.length === 0 ? (
@@ -262,7 +263,7 @@ export default function NotesScreen({ route }) {
                   key={m.key}
                   label={t(`notes.moods.${m.key}`)}
                   icon={m.icon}
-                  color={m.color}
+                  color={C[m.colorToken]}
                   onPress={()=>{setEditNote({mood:m.key,text:''});setModal(true);}}
                 />
               ))}
@@ -282,9 +283,9 @@ export default function NotesScreen({ route }) {
       </ScrollView>
 
       <FAB
-        icon="add"
+        label={t('home.addNote')}
         onPress={()=>{setEditNote(null);setModal(true);}}
-        style={s.fab}
+        style={{ position: 'absolute', right: Spacing.lg, bottom: Spacing.base }}
       />
 
       <NoteModal
@@ -306,5 +307,4 @@ const s = StyleSheet.create({
   scroll:  { flex: 1 },
   content: {},
   moodSuggest:  { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  fab: { position: 'absolute', right: 20, bottom: 110 },
 });

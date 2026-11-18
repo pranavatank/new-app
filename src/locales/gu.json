@@ -198,6 +198,8 @@
     "allScreens": "હોમ · ખર્ચ · કાર્યો · સ્થળો · નોંધ · આંકડા"
   },
   "common": {
+    "back": "પાછા",
+    "close": "બંધ કરો",
     "seeAll": "બધા જુઓ",
     "cancel": "રદ",
     "save": "સાચવો",
@@ -311,6 +313,21 @@
     "deleteConfirm": "આ વસ્તુ ડિલીટ કરો?"
   },
   "ledger": {
+    "nav_today": "આજે",
+    "nav_month": "મહિનો",
+    "nav_notes": "નોંધો",
+    "nav_tools": "સાધનો",
+    "add_fuel": "ઇંધણ ઉમેરો",
+    "vehicle_reading_bounds": "પહેલાં અને પછીનાં રીડિંગ વચ્ચેનું રીડિંગ દાખલ કરો.",
+    "change_language": "ભાષા બદલો",
+    "previous_day": "પાછલો દિવસ",
+    "next_day": "આગલો દિવસ",
+    "previous_month": "પાછલો મહિનો",
+    "next_month": "આગલો મહિનો",
+    "jump_to_today": "આજની તારીખ પર જાઓ",
+    "tools_everyday": "રોજિંદા કામ",
+    "tools_money": "પૈસા અને અહેવાલો",
+    "tools_app": "ઍપ",
     "add_expense": "ખર્ચ ઉમેરો",
     "add_note": "નોંધ લખો",
     "add_receipt": "જમા ઉમેરો",

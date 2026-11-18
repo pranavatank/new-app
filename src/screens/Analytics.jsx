@@ -6,7 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { scaleTheme, makeShadow } from '../constants/theme';
+import { Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { translateCategoryName } from '../constants/defaultCategories';
 import { Card, IconBadge, EmptyState } from '../components/common';
@@ -189,7 +189,7 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
                       )}
                     </View>
                   ) : (
-                    <View style={[dt.barEmpty, { backgroundColor: bar.isFuture ? 'transparent' : C.bgElevated }]} />
+                    <View style={[dt.barEmpty, { backgroundColor: bar.isFuture ? C.transparent : C.bgElevated }]} />
                   )}
                   {/* Today indicator */}
                   {bar.isToday && <View style={[dt.todayLine, { backgroundColor: C.primary }]} />}
@@ -197,7 +197,7 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
                 {/* Day label */}
                 <Text style={[dt.dayLabel,
                   { color: bar.isToday ? C.primary : C.textMuted },
-                  bar.isToday && { fontWeight: '700' },
+                  bar.isToday && { fontWeight: T.weights.bold },
                 ]}>
                   {bar.day}
                 </Text>
@@ -235,11 +235,11 @@ const dt = StyleSheet.create({
   barSegment:{ width: 10 },
   barEmpty:  { width: 6, height: 3, borderRadius: 2 },
   todayLine: { position: 'absolute', bottom: -4, width: 10, height: 2, borderRadius: 1 },
-  dayLabel:  { fontSize: 9, marginTop: 4 },
+  dayLabel:  { fontSize: BaseTypography.sizes.micro, marginTop: 4 },
   legend:    { flexDirection: 'row' },
   legendItem:{ flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendTxt: { fontSize: 11 },
+  legendTxt: { fontSize: BaseTypography.sizes.xs },
 });
 
 // ── Category Breakdown (horizontal bars) ─────────────────────────────────────
@@ -296,12 +296,12 @@ const cb = StyleSheet.create({
   nameWrap:{ flex: 1 },
   name:    {},
   subRow:  { flexDirection: 'row', marginTop: 2 },
-  sub:     { fontSize: 10, fontWeight: '500' },
+  sub:     { fontSize: BaseTypography.sizes.caption, fontWeight: BaseTypography.weights.medium },
   right:   { width: 100, alignItems: 'flex-end' },
   amount:  { marginBottom: 3 },
   barTrack:{ width: 100, height: 6, borderRadius: 3, overflow: 'hidden' },
   barFill: { height: 6, borderRadius: 3 },
-  pct:     { fontSize: 10, marginTop: 2 },
+  pct:     { fontSize: BaseTypography.sizes.caption, marginTop: 2 },
 });
 
 // ── Donut-style Pie Chart (pure RN) ──────────────────────────────────────────
@@ -384,7 +384,6 @@ const TopDays = ({ topDays, C, T, S, R, Shadow, t }) => {
   };
 
   const RANK_ICONS = ['trophy', 'medal', 'medal', 'ribbon', 'ribbon'];
-  const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
   return (
     <Card style={{ marginBottom: S.base }}>
@@ -393,7 +392,7 @@ const TopDays = ({ topDays, C, T, S, R, Shadow, t }) => {
         const pct = (day.total / maxVal) * 100;
         return (
           <View key={day.date} style={[td.row, { gap: S.sm, paddingVertical: S.xs }]}>
-            <IconBadge icon={RANK_ICONS[idx] || 'ribbon'} color={RANK_COLORS[idx] || C.accents[idx % C.accents.length]} size={26} iconRatio={0.6} />
+            <IconBadge icon={RANK_ICONS[idx] || 'ribbon'} color={C.rankColors[idx] || C.accents[idx % C.accents.length]} size={26} iconRatio={0.6} />
             <Text style={[td.date, { fontSize: T.sizes.xs, fontWeight: T.weights.medium, color: C.textSecondary }]}>{formatDay(day.date)}</Text>
             <View style={[td.barTrack, { backgroundColor: C.bgElevated }]}>
               <View style={[td.barFill, { width: `${pct}%`, backgroundColor: C.accents[idx % C.accents.length] }]} />
@@ -472,7 +471,7 @@ export default function AnalyticsScreen() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { padding: S.base, paddingBottom: 100 }]}
+        contentContainerStyle={[s.content, { padding: S.base, paddingBottom: S.xl }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
       >

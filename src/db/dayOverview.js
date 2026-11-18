@@ -1,5 +1,5 @@
 import { getDB } from './schema';
-import { getVehicleStats } from './queries';
+import { getPlacesForDate, getVehicleStats } from './queries';
 
 /** Read the selected day's home sections without creating a financial day. */
 export const getDayOverview = (date) => {
@@ -15,9 +15,7 @@ export const getDayOverview = (date) => {
     SELECT c.id category_id,c.name,c.icon,c.icon_type,c.sort_order,COALESCE(SUM(e.amount),0) total
     FROM categories c LEFT JOIN expenses e ON e.category_id=c.id AND e.day_id=?
     WHERE c.is_active=1 GROUP BY c.id ORDER BY c.sort_order;`, [dayId]) : [];
-  const places=dayId ? db.getAllSync(`
-    SELECT p.* FROM places p JOIN day_places dp ON dp.place_id=p.id
-    WHERE dp.day_id=? ORDER BY p.name;`, [dayId]) : [];
+  const places=getPlacesForDate(date);
   const notes=dayId ? db.getAllSync('SELECT * FROM notes WHERE day_id=? ORDER BY created_at,id;', [dayId]) : [];
   const fuel=db.getAllSync('SELECT * FROM vehicle_records WHERE date=? ORDER BY id DESC;', [date]);
   return {tasks,expenses,places,notes,fuel,vehicleStats:getVehicleStats()};

@@ -1,5 +1,5 @@
 import "react-native-gesture-handler";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,16 +11,13 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SplashScreen from "expo-splash-screen";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import AppTabBar from "./src/components/AppTabBar";
 
 import { ThemeProvider, useTheme } from "./src/store/ThemeContext";
 import { initializeDatabase } from "./src/db/schema";
@@ -50,45 +47,6 @@ const Tab = createBottomTabNavigator();
 
 // Check if biometric is available (not on web)
 const isBiometricAvailable = Platform.OS !== "web";
-
-// Daily entry and the monthly book stay visible; all original tools remain available.
-const TABS = [
-  { name: 'DailyBook', icon: 'today-outline', active: 'today', en: 'Today', gu: 'આજનો હિસાબ' },
-  { name: 'MonthlyLedger', icon: 'book-outline', active: 'book', en: 'Month book', gu: 'મહિનાનો હિસાબ' },
-  { name: 'Notes', icon: 'document-text-outline', active: 'document-text', en: 'Notes', gu: 'નોંધો' },
-  { name: 'FamilyTools', icon: 'grid-outline', active: 'grid', en: 'All tools', gu: 'બધાં સાધનો' },
-];
-
-function CustomTabBar({ state, navigation }) {
-  const { C, language, scale } = useTheme();
-  const { Typography, Spacing, Radius } = scaleTheme(scale);
-  const insets = useSafeAreaInsets();
-  const selectedName = state.routes[state.index]?.name;
-  const currentTab = TABS.some(tab => tab.name === selectedName) ? selectedName : 'FamilyTools';
-  return (
-    <View style={[tb.wrap, { backgroundColor: C.bgCard, borderTopColor: C.border, paddingTop: Spacing.xs, paddingHorizontal: Spacing.sm, paddingBottom: Math.max(insets.bottom || 0, Spacing.sm) }]}>
-      <View style={tb.bar}>
-        {TABS.map(tab => {
-          const focused = tab.name === currentTab;
-          const label = language === 'gu' ? tab.gu : tab.en;
-          return (
-            <TouchableOpacity key={tab.name} onPress={() => navigation.navigate(tab.name)}
-              style={[tb.item, { borderRadius: Radius.md, paddingVertical: Spacing.xs }, focused && { backgroundColor: C.primaryDim }]}
-              accessibilityRole="tab" accessibilityState={{ selected: focused }} accessibilityLabel={label}>
-              <Ionicons name={focused ? tab.active : tab.icon} size={23} color={focused ? C.primary : C.textSecondary} />
-              <Text style={{ color: focused ? C.primary : C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: focused ? Typography.weights.bold : Typography.weights.medium, textAlign: 'center' }}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-const tb = StyleSheet.create({
-  wrap: { borderTopWidth: 1, paddingTop: 6, paddingHorizontal: 8, alignItems: 'center' },
-  bar: { flexDirection: 'row', width: '100%', maxWidth: 620, gap: 4 },
-  item: { flex: 1, minHeight: 58, paddingHorizontal: 3, paddingVertical: 6, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4 },
-});
 
 function BiometricGate({ onUnlocked }) {
   const { C, language, scale } = useTheme();
@@ -240,13 +198,13 @@ const lsStyles = (Typography, Spacing, Radius) =>
     top: { alignItems: "center", gap: Spacing.md },
     logoImage: { width: 160, height: 160 },
     appName: {
-      fontSize: 48,
+      fontSize: Typography.sizes.display,
       fontWeight: Typography.weights.black,
       letterSpacing: -2,
       marginTop: 4,
     },
     tagline: {
-      fontSize: 12,
+      fontSize: Typography.sizes.sm,
       fontWeight: Typography.weights.bold,
       letterSpacing: 5,
       opacity: 0.8,
@@ -291,6 +249,21 @@ const lsStyles = (Typography, Spacing, Radius) =>
 // ─── App Inner ────────────────────────────────────────────────────────────────
 function AppInner() {
   const { C, ready: themeReady } = useTheme();
+  const navigationTheme = useMemo(() => {
+    const base = C.isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: C.primary,
+        background: C.bg,
+        card: C.bgCard,
+        text: C.textPrimary,
+        border: C.border,
+        notification: C.expense,
+      },
+    };
+  }, [C]);
   const [unlocked, setUnlocked] = useState(false);
   const [appReady, setAppReady] = useState(false);
   const { setDbReady, refreshDayData } = useAppStore();
@@ -325,19 +298,19 @@ function AppInner() {
 
   if (!unlocked) {
     return (
-      <View style={{ flex: 1 }} onLayout={onLayout}>
+      <View style={{ flex: 1, backgroundColor: C.bg }} onLayout={onLayout}>
         <BiometricGate onUnlocked={() => setUnlocked(true)} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayout}>
-      <NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: C.bg }} onLayout={onLayout}>
+      <NavigationContainer theme={navigationTheme}>
         <Tab.Navigator
           initialRouteName="DailyBook"
           backBehavior="history"
-          tabBar={(props) => <CustomTabBar {...props} />}
+          tabBar={(props) => <AppTabBar {...props} />}
           screenOptions={{ headerShown: false }}
         >
           <Tab.Screen name="DailyBook" component={DailyBookScreen} />
@@ -350,31 +323,11 @@ function AppInner() {
           <Tab.Screen name="Places" component={PlacesScreen} />
           <Tab.Screen name="Analytics" component={AnalyticsScreen} />
           <Tab.Screen name="Settings" component={SettingsScreen} />
-          <Tab.Screen
-            name="Notes"
-            component={NotesScreen}
-            options={{ tabBarButton: () => null }}
-          />
-          <Tab.Screen
-            name="ExpenseItems"
-            component={ExpenseItemsScreen}
-            options={{ tabBarButton: () => null }}
-          />
-          <Tab.Screen
-            name="Vehicle"
-            component={VehicleScreen}
-            options={{ tabBarButton: () => null }}
-          />
-          <Tab.Screen
-            name="Search"
-            component={SearchScreen}
-            options={{ tabBarButton: () => null }}
-          />
-          <Tab.Screen
-            name="Recurring"
-            component={RecurringScreen}
-            options={{ tabBarButton: () => null }}
-          />
+          <Tab.Screen name="Notes" component={NotesScreen} />
+          <Tab.Screen name="ExpenseItems" component={ExpenseItemsScreen} />
+          <Tab.Screen name="Vehicle" component={VehicleScreen} />
+          <Tab.Screen name="Search" component={SearchScreen} />
+          <Tab.Screen name="Recurring" component={RecurringScreen} />
         </Tab.Navigator>
       </NavigationContainer>
     </View>

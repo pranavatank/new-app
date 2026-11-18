@@ -311,7 +311,7 @@ export default function ExpenseItemsScreen({ navigation }) {
       </ScrollView>
 
       {selectedCategory && (
-        <FAB icon="add" onPress={handleAddItem} style={st.fab} />
+        <FAB label={t('expenseItems.addItem')} onPress={handleAddItem} style={st.fab} />
       )}
 
       <ItemFormSheet
@@ -334,7 +334,7 @@ const styles = (scale) => {
     tabs: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.md, gap: Spacing.sm },
 
     content: { flex: 1 },
-    contentInner: { padding: Spacing.base, paddingBottom: 100 },
+    contentInner: { padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl },
 
     sectionHeader: {
       flexDirection: 'row',
@@ -360,7 +360,7 @@ const styles = (scale) => {
 
     fab: {
       position: 'absolute',
-      bottom: 100,
+      bottom: Spacing.base,
       right: Spacing.xl,
     },
 
@@ -372,7 +372,7 @@ const styles = (scale) => {
       borderWidth: 1,
       paddingHorizontal: Spacing.base,
       paddingVertical: Spacing.md,
-      fontSize: 28,
+      fontSize: Typography.sizes.xxl,
       textAlign: 'center',
     },
     imageBtn: { width: 56, height: 56, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },

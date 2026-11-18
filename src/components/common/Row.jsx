@@ -30,6 +30,7 @@ export default function Row({
 
   return (
     <Wrapper
+      accessibilityRole={onPress ? 'button' : undefined}
       activeOpacity={0.7}
       onPress={onPress}
       style={[styles.row, { paddingVertical: Spacing.md }, style]}

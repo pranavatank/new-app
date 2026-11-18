@@ -198,6 +198,8 @@
     "allScreens": "Home · Expense · Tasks · Places · Notes · Analytics"
   },
   "common": {
+    "back": "Back",
+    "close": "Close",
     "seeAll": "See all",
     "cancel": "Cancel",
     "save": "Save",
@@ -311,6 +313,21 @@
     "deleteConfirm": "Delete this item?"
   },
   "ledger": {
+    "nav_today": "Today",
+    "nav_month": "Month",
+    "nav_notes": "Notes",
+    "nav_tools": "Tools",
+    "add_fuel": "Add fuel",
+    "vehicle_reading_bounds": "Enter a reading between the earlier and later readings.",
+    "change_language": "Switch language",
+    "previous_day": "Previous day",
+    "next_day": "Next day",
+    "previous_month": "Previous month",
+    "next_month": "Next month",
+    "jump_to_today": "Jump to today",
+    "tools_everyday": "Everyday",
+    "tools_money": "Money and reports",
+    "tools_app": "App",
     "add_expense": "Add expense",
     "add_note": "Write a note",
     "add_receipt": "Add receipt",

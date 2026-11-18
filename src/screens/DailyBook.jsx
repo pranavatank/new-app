@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Alert, StatusBar } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,8 @@ import DayOverview from '../components/DayOverview';
 import LedgerEntryRow, { money } from '../components/ledger/LedgerEntryRow';
 import LedgerEntryForm from '../components/ledger/LedgerEntryForm';
 import { getDayLedger, removeLedgerEntry, restoreLedgerEntry } from '../db/ledger';
-import { Card, ActionTile, SummaryRow, Button, EmptyState } from '../components/common';
+import { Card, ActionTile, SummaryRow, Button, EmptyState, IconBadge, SectionHeader } from '../components/common';
+import { Layout, scaleTheme } from '../constants/theme';
 
 export default function DailyBook({ navigation }) {
   const { C, language, changeLanguage, scale } = useTheme();
@@ -19,7 +20,7 @@ export default function DailyBook({ navigation }) {
   const [ledger, setLedger] = useState(null);
   const [form, setForm] = useState({ visible: false, mode: 'expense', entry: null });
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const fs = n => Math.round(n * scale);
+  const { Typography, Spacing } = scaleTheme(scale);
   const load = useCallback(() => { try { setLedger(getDayLedger(selectedDate)); } catch { setLedger({ error: true, entries: [] }); } }, [selectedDate]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const add = mode => setForm({ visible: true, mode, entry: null });
@@ -40,43 +41,60 @@ export default function DailyBook({ navigation }) {
   const day = ledger?.day || {};
   const entries = ledger?.entries || [];
   const receiptTotal = Number(day.deposit_today || 0) + Number(day.receipt_total || 0);
-  const cashClosing = day.closing_balance;
+  const nextLanguage = language === 'gu' ? 'en' : 'gu';
+  const displayMoney = amount => ledger?.error ? '—' : money(amount, i18n.language);
   return <View style={{ flex: 1, backgroundColor: C.bg }}>
     <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
     <DayNavigator />
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 36, gap: 12 }} keyboardShouldPersistTaps="handled">
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-        {['en', 'gu'].map(lang => <Button key={lang} size="sm" variant={language === lang ? 'primary' : 'secondary'} label={lang === 'en' ? 'English' : 'ગુજરાતી'} onPress={() => changeLanguage(lang)} style={{ minHeight: 44 }} />)}
+    <ScrollView contentContainerStyle={{ width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: Spacing.base, paddingBottom: Spacing.xl, gap: Spacing.md }} keyboardShouldPersistTaps="handled">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
+        <Text accessibilityRole="header" style={{ color: C.textPrimary, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }}>Rojnishi</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+          <Button size="sm" variant="ghost" icon="search-outline" label={t('search.title')} onPress={() => navigation.navigate('Search')} />
+          <Button size="sm" variant="secondary" label={nextLanguage === 'en' ? 'English' : 'ગુજરાતી'} accessibilityLabel={t('ledger.change_language')} onPress={() => changeLanguage(nextLanguage)} />
+        </View>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      {!!ledger?.error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base }}>{t('ledger.load_failed')}</Text>}
+      <Card gradient={C.gradients.primary} padding="lg" elevation="primary" style={{ borderWidth: 0, gap: Spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold }}>{t('ledger.closing')}</Text>
+            <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.hero, fontWeight: Typography.weights.black }}>{displayMoney(day.closing_balance)}</Text>
+          </View>
+          <IconBadge icon="wallet-outline" color={C.textOnGradient} size={48} style={{ backgroundColor: C.gradientSubtle }} />
+        </View>
+        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.gradientBorder, paddingTop: Spacing.md, gap: Spacing.md }}>
+          {[[t('ledger.receipts'), receiptTotal, C.incomeOnGradient], [t('ledger.cash_spent'), day.cash_spent, C.expenseOnGradient]].map(([label, amount, color]) =>
+            <View key={label} style={{ flex: 1 }}>
+              <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.sm }}>{label}</Text>
+              <Text style={{ color, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }}>{displayMoney(amount)}</Text>
+            </View>
+          )}
+        </View>
+      </Card>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         <ActionTile label={t('ledger.add_expense')} icon="cart-outline" color={C.iconExpense} onPress={() => add('expense')} />
         <ActionTile label={t('ledger.add_note')} icon="document-text-outline" color={C.iconNotes} onPress={() => add('note')} />
         <ActionTile label={t('ledger.add_receipt')} icon="wallet-outline" color={C.income} onPress={() => add('receipt')} />
         <ActionTile label={t('ledger.add_locker')} icon="lock-closed-outline" color={C.primary} onPress={() => add('locker')} />
       </View>
-      <Button label={t('ledger.monthly_book')} icon="book-outline" variant="secondary" fullWidth onPress={() => navigation.navigate('MonthlyLedger')} style={{ minHeight: 52 }} />
-      {!!ledger?.error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: fs(16) }}>{t('ledger.load_failed')}</Text>}
-      <Card padding="md">
-        <Text style={{ color: C.textPrimary, fontWeight: '800', fontSize: fs(18), marginBottom: 4 }}>{t('ledger.day_summary')}</Text>
-        <SummaryRow label={t('ledger.opening')} value={money(day.opening_balance, i18n.language)} />
-        <SummaryRow label={t('ledger.receipts')} value={money(receiptTotal, i18n.language)} divider />
-        <SummaryRow label={t('ledger.cash_spent')} value={money(day.cash_spent, i18n.language)} divider />
-        <SummaryRow label={t('ledger.closing')} value={money(cashClosing, i18n.language)} emphasis divider />
-        <SummaryRow label={t('ledger.locker_balance')} value={ledger?.locker_balance == null ? t('ledger.unknown') : money(ledger.locker_balance, i18n.language)} divider />
-        <TouchableOpacity onPress={() => setShowBreakdown(value => !value)} style={{ minHeight: 48, justifyContent: 'center', borderTopWidth: 1, borderTopColor: C.divider }}><Text style={{ color: C.primary, fontWeight: '700', fontSize: fs(16) }}>{showBreakdown ? t('ledger.hide_breakdown') : t('ledger.show_breakdown')}</Text></TouchableOpacity>
+      <Card padding="md" elevation="none">
+        <Button label={showBreakdown ? t('ledger.hide_breakdown') : t('ledger.show_breakdown')} icon={showBreakdown ? 'chevron-up' : 'chevron-down'} size="sm" variant="ghost"
+          accessibilityState={{ expanded: showBreakdown }} onPress={() => setShowBreakdown(value => !value)} />
         {showBreakdown && <>
-          <SummaryRow label={t('ledger.cash_receipts')} value={money(day.deposit_today, i18n.language)} />
-          <SummaryRow label={t('ledger.receipts')} value={money(day.receipt_total, i18n.language)} divider />
-          <SummaryRow label={t('ledger.online_spent')} value={money(day.online_spent, i18n.language)} divider />
+          <SummaryRow label={t('ledger.opening')} value={displayMoney(day.opening_balance)} divider />
+          <SummaryRow label={t('ledger.cash_receipts')} value={displayMoney(day.deposit_today)} divider />
+          <SummaryRow label={t('ledger.receipts')} value={displayMoney(day.receipt_total)} divider />
+          <SummaryRow label={t('ledger.online_spent')} value={displayMoney(day.online_spent)} divider />
+          <SummaryRow label={t('ledger.locker_balance')} value={ledger?.locker_balance == null ? t('ledger.unknown') : displayMoney(ledger.locker_balance)} divider />
           {entries.filter(e => e.kind === 'transfer').map(e => <SummaryRow key={`transfer-${e.id}`} label={e.direction === 'out' ? t('ledger.locker_out') : t('ledger.locker_in')} value={`${e.direction === 'out' ? '−' : '+'}${money(e.amount, i18n.language)}`} divider />)}
         </>}
       </Card>
       <Card padding="md">
-        <Text style={{ color: C.textPrimary, fontWeight: '900', fontSize: fs(19), marginBottom: 4 }}>{t('ledger.entries')}</Text>
+        <SectionHeader icon="list" title={t('ledger.entries')} />
         {entries.length ? entries.map(entry => <LedgerEntryRow key={`${entry.kind}:${entry.id}`} entry={entry} onEdit={edit} onDelete={askDelete} />) : <EmptyState icon="leaf-outline" title={t('ledger.empty_day')} />}
       </Card>
       <DayOverview date={selectedDate} navigation={navigation} refreshKey={ledger} />
-      <Button label={t('ledger.more_tools')} icon="grid-outline" variant="ghost" fullWidth onPress={() => navigation.navigate('FamilyTools')} style={{ minHeight: 48 }} />
     </ScrollView>
     <LedgerEntryForm visible={form.visible} mode={form.mode} entry={form.entry} date={selectedDate} onClose={() => setForm(v => ({ ...v, visible: false }))} onSaved={load} />
   </View>;

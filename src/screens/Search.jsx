@@ -171,7 +171,7 @@ export default function SearchScreen({ navigation }) {
                     <TouchableOpacity
                       key={`exp-${r.id}`}
                       activeOpacity={0.7}
-                      onPress={() => openDay(r.date, 'Expense')}
+                      onPress={() => openDay(r.date, 'DailyBook')}
                       style={[st.resultRow, { borderBottomColor: C.divider }]}
                     >
                       <IconBadge

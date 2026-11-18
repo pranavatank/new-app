@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, Modal, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, BackHandler, Platform, StatusBar } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ScreenHeader from '../components/common/ScreenHeader';
-import useLedgerTheme from '../components/ledger/useLedgerTheme';
+import { Button, Card, Chip, EmptyState, IconBadge, Input, ScreenHeader, Sheet } from '../components/common';
+import { Layout, scaleTheme } from '../constants/theme';
+import { useTheme } from '../store/ThemeContext';
 import { getPurchases, savePurchase, deletePurchase } from '../db/ledger';
 import { persistPurchaseImage } from '../services/purchaseImages';
 import { money } from '../components/ledger/LedgerEntryRow';
@@ -28,9 +28,9 @@ const dateLabel = (value, locale) => validDate(value) ? new Date(`${value}T00:00
 const blank = () => ({ name: '', date: today(), category: 'other', amount: '', shop: '', details: '', image_uri: '' });
 
 function PurchaseForm({ visible, item, onClose, onSaved }) {
-  const { C, scale } = useLedgerTheme();
-  const { t, i18n } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const { C, scale } = useTheme();
+  const { t } = useTranslation();
+  const { Radius, Spacing, Typography } = scaleTheme(scale);
   const [form, setForm] = useState(blank);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -93,32 +93,39 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
     } finally { saveLock.current = false; setSaving(false); }
   };
 
-  const label = { color: C.textSecondary, fontSize: 16, fontWeight: '700', marginBottom: 6 };
-  const field = { minHeight: 52, borderWidth: 1, borderColor: C.border, borderRadius: 13, paddingHorizontal: 13, paddingVertical: 10, color: C.textPrimary, backgroundColor: C.bgInput, fontSize: 17, marginBottom: 13 };
-  const locale = i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN';
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: C.overlay }}>
-      <View style={{ maxHeight: '95%', backgroundColor: C.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingBottom: (insets?.bottom || 0) + 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}><View style={{ flex: 1 }}><Text style={{ color: C.textPrimary, fontSize: 20, fontWeight: '900' }}>{item ? t('purchases.editTitle') : t('purchases.addTitle')}</Text><Text style={{ color: C.textSecondary, fontSize: 15, marginTop: 3 }}>{t('purchases.independent')}</Text></View><TouchableOpacity onPress={close} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="close" size={24} color={C.textSecondary} /></TouchableOpacity></View>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 6 }}>
-          <Text style={label}>{t('purchases.name')}</Text><TextInput style={field} value={form.name} onChangeText={v => update('name', v)} placeholder={t('purchases.namePlaceholder')} placeholderTextColor={C.textMuted} />
-          <Text style={label}>{t('purchases.date')}</Text><TextInput style={field} value={form.date} onChangeText={v => update('date', v)} placeholder="YYYY-MM-DD" placeholderTextColor={C.textMuted} keyboardType="numbers-and-punctuation" />
-          <Text style={label}>{t('purchases.category')}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>{CATEGORIES.map(category => <TouchableOpacity key={category} onPress={() => update('category', category)} style={{ minHeight: 46, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 23, borderWidth: 1, borderColor: form.category === category ? C.primary : C.border, backgroundColor: form.category === category ? C.primaryDim : C.bgCard, marginRight: 8, marginBottom: 8 }}><Text style={{ color: form.category === category ? C.primary : C.textSecondary, fontWeight: '700', fontSize: 15 }}>{t(`purchases.categories.${category}`)}</Text></TouchableOpacity>)}</View>
-          <Text style={label}>{t('purchases.amountOptional')}</Text><TextInput style={field} value={form.amount} onChangeText={v => update('amount', v)} placeholder={t('purchases.amountPlaceholder')} placeholderTextColor={C.textMuted} keyboardType="decimal-pad" />
-          <Text style={label}>{t('purchases.shopOptional')}</Text><TextInput style={field} value={form.shop} onChangeText={v => update('shop', v)} placeholder={t('purchases.shopPlaceholder')} placeholderTextColor={C.textMuted} />
-          <Text style={label}>{t('purchases.detailsOptional')}</Text><TextInput style={[field, { minHeight: 90, textAlignVertical: 'top' }]} value={form.details} onChangeText={v => update('details', v)} placeholder={t('purchases.detailsPlaceholder')} placeholderTextColor={C.textMuted} multiline />
-          <Text style={label}>{t('purchases.photoOptional')}</Text>
-          {form.image_uri ? <View style={{ marginBottom: 12 }}><Image source={{ uri: form.image_uri }} resizeMode="cover" style={{ width: '100%', height: 190, borderRadius: 14, backgroundColor: C.bgElevated }} /><TouchableOpacity onPress={() => update('image_uri', '')} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 10 }}><Text style={{ color: C.expense, fontSize: 15, fontWeight: '700' }}>{t('purchases.removePhoto')}</Text></TouchableOpacity></View> : <TouchableOpacity onPress={choosePhoto} disabled={picking} style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, borderWidth: 1, borderColor: C.border, borderRadius: 14, backgroundColor: C.bgElevated, marginBottom: 12 }}>{picking ? <ActivityIndicator color={C.primary} /> : <Ionicons name="camera-outline" size={22} color={C.primary} />}<Text style={{ color: C.primary, fontWeight: '800', fontSize: 16 }}>{picking ? t('purchases.loadingPhoto') : t('purchases.choosePhoto')}</Text></TouchableOpacity>}
-          {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: 16, marginBottom: 12 }}>{error}</Text>}
-          <TouchableOpacity disabled={saving || picking} onPress={save} style={{ minHeight: 58, borderRadius: 15, backgroundColor: C.primary, opacity: saving || picking ? 0.6 : 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.textOnPrimary, fontWeight: '900', fontSize: 18 }}>{saving ? t('purchases.saving') : t('common.save')}</Text></TouchableOpacity>
-        </ScrollView>
+  const label = { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.xs };
+  const field = { marginBottom: Spacing.md };
+  return (
+    <Sheet visible={visible} onClose={close} title={item ? t('purchases.editTitle') : t('purchases.addTitle')}>
+      <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{t('purchases.independent')}</Text>
+      <Input label={t('purchases.name')} style={field} value={form.name} onChangeText={value => update('name', value)} placeholder={t('purchases.namePlaceholder')} />
+      <Input label={t('purchases.date')} style={field} value={form.date} onChangeText={value => update('date', value)} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
+      <Text style={label}>{t('purchases.category')}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>
+        {CATEGORIES.map(category => <Chip key={category} active={form.category === category} onPress={() => update('category', category)} label={t('purchases.categories.' + category)} style={{ minHeight: 44, marginRight: Spacing.sm, marginBottom: Spacing.sm }} />)}
       </View>
-    </KeyboardAvoidingView>
-  </Modal>;
+      <Input label={t('purchases.amountOptional')} style={field} value={form.amount} onChangeText={value => update('amount', value)} placeholder={t('purchases.amountPlaceholder')} keyboardType="decimal-pad" />
+      <Input label={t('purchases.shopOptional')} style={field} value={form.shop} onChangeText={value => update('shop', value)} placeholder={t('purchases.shopPlaceholder')} />
+      <Input label={t('purchases.detailsOptional')} style={field} inputStyle={{ minHeight: 90, textAlignVertical: 'top' }} value={form.details} onChangeText={value => update('details', value)} placeholder={t('purchases.detailsPlaceholder')} multiline />
+      <Text style={label}>{t('purchases.photoOptional')}</Text>
+      {form.image_uri ? (
+        <View style={{ marginBottom: Spacing.md }}>
+          <Image source={{ uri: form.image_uri }} resizeMode="cover" style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: Radius.lg, backgroundColor: C.bgElevated }} />
+          <Button variant="ghost" size="sm" label={t('purchases.removePhoto')} onPress={() => update('image_uri', '')} />
+        </View>
+      ) : (
+        <Button variant="secondary" icon="camera-outline" label={t('purchases.choosePhoto')} onPress={choosePhoto}
+          loading={picking} style={{ marginBottom: Spacing.md }} />
+      )}
+      {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{error}</Text>}
+      <Button label={saving ? t('purchases.saving') : t('common.save')} onPress={save} loading={saving} disabled={picking} fullWidth />
+    </Sheet>
+  );
 }
 
 export default function Purchases({ navigation }) {
-  const { C } = useLedgerTheme();
+  const { C, scale } = useTheme();
+  const { Radius, Spacing, Typography } = scaleTheme(scale);
   const { t, i18n } = useTranslation();
   const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -141,38 +148,74 @@ export default function Purchases({ navigation }) {
       } },
     ]);
   };
-  const card = { backgroundColor: C.bgCard, borderColor: C.border, borderWidth: 1, borderRadius: 18, padding: 13, marginBottom: 11 };
-  return <View style={{ flex: 1, backgroundColor: C.bg }}>
-    <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
-    {selected ? <>
-      <ScreenHeader title={selected.name} onBack={() => setSelectedId(null)} rightIcon="create-outline" onRightPress={openEdit} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {selected.image_uri ? <Image source={{ uri: selected.image_uri }} resizeMode="cover" style={{ width: '100%', height: 250, borderRadius: 20, backgroundColor: C.bgElevated, marginBottom: 16 }} /> : <View style={{ height: 150, borderRadius: 20, backgroundColor: C.bgElevated, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Ionicons name="bag-handle-outline" size={46} color={C.primary} /></View>}
-        <View style={card}>
-          <Text style={{ color: C.textPrimary, fontSize: 23, fontWeight: '900' }}>{selected.name}</Text>
-          <Text style={{ color: C.textSecondary, fontSize: 17, marginTop: 8 }}>{dateLabel(selected.date, locale)} · {t(`purchases.categories.${CATEGORIES.includes(selected.category) ? selected.category : 'other'}`)}</Text>
-          {selected.amount != null && <Text style={{ color: C.primary, fontSize: 24, fontWeight: '900', marginTop: 16 }}>{money(selected.amount, i18n.language)}</Text>}
-          {!!selected.shop && <View style={{ marginTop: 18 }}><Text style={{ color: C.textMuted, fontSize: 14, fontWeight: '800' }}>{t('purchases.shop')}</Text><Text style={{ color: C.textPrimary, fontSize: 18, marginTop: 3 }}>{selected.shop}</Text></View>}
-          {!!selected.details && <View style={{ marginTop: 18 }}><Text style={{ color: C.textMuted, fontSize: 14, fontWeight: '800' }}>{t('purchases.details')}</Text><Text style={{ color: C.textPrimary, fontSize: 17, lineHeight: 25, marginTop: 3 }}>{selected.details}</Text></View>}
-        </View>
-        <Text style={{ color: C.textSecondary, fontSize: 15, lineHeight: 22, marginHorizontal: 4, marginBottom: 18 }}>{t('purchases.independent')}</Text>
-        <TouchableOpacity onPress={openEdit} style={{ minHeight: 54, borderRadius: 15, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}><Text style={{ color: C.textOnPrimary, fontSize: 17, fontWeight: '800' }}>{t('purchases.editTitle')}</Text></TouchableOpacity>
-        <TouchableOpacity onPress={removeSelected} style={{ minHeight: 52, borderRadius: 15, backgroundColor: C.expenseBg, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.expense, fontSize: 17, fontWeight: '800' }}>{t('purchases.delete')}</Text></TouchableOpacity>
-      </ScrollView>
-    </> : <>
-      <ScreenHeader title={t('purchases.title')} rightIcon="add" onRightPress={openAdd} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 36 }}>
-        <Text style={{ color: C.textSecondary, fontSize: 15, lineHeight: 22, marginBottom: 15 }}>{t('purchases.independent')}</Text>
-        <TouchableOpacity onPress={openAdd} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, borderRadius: 16, backgroundColor: C.primary, marginBottom: 15 }}><Ionicons name="add" size={22} color={C.textOnPrimary} /><Text style={{ color: C.textOnPrimary, fontSize: 17, fontWeight: '800' }}>{t('purchases.addTitle')}</Text></TouchableOpacity>
-        {loadError && <Text style={{ color: C.expense, fontSize: 16, marginBottom: 12 }}>{t('purchases.loadError')}</Text>}
-        {!loadError && items.length === 0 && <View style={[card, { alignItems: 'center', padding: 28 }]}><Ionicons name="bag-handle-outline" size={38} color={C.textMuted} /><Text style={{ color: C.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12 }}>{t('purchases.emptyTitle')}</Text><Text style={{ color: C.textSecondary, fontSize: 15, textAlign: 'center', marginTop: 5 }}>{t('purchases.emptyBody')}</Text></View>}
-        {items.map(item => <TouchableOpacity key={item.id} onPress={() => setSelectedId(item.id)} activeOpacity={0.8} style={{ ...card, flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 84 }}>
-          {item.image_uri ? <Image source={{ uri: item.image_uri }} resizeMode="cover" style={{ width: 66, height: 66, borderRadius: 13, backgroundColor: C.bgElevated }} /> : <View style={{ width: 66, height: 66, borderRadius: 13, backgroundColor: C.bgElevated, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="bag-handle-outline" size={26} color={C.primary} /></View>}
-          <View style={{ flex: 1 }}><Text style={{ color: C.textPrimary, fontSize: 18, fontWeight: '800' }}>{item.name}</Text><Text style={{ color: C.textSecondary, fontSize: 15, marginTop: 4 }}>{dateLabel(item.date, locale)} · {t(`purchases.categories.${CATEGORIES.includes(item.category) ? item.category : 'other'}`)}</Text>{!!item.shop && <Text style={{ color: C.textMuted, fontSize: 15, marginTop: 3 }}>{item.shop}</Text>}</View>
-          {item.amount != null && <Text style={{ color: C.primary, fontWeight: '800', fontSize: 16 }}>{money(item.amount, i18n.language)}</Text>}
-        </TouchableOpacity>)}
-      </ScrollView>
-    </>}
-    <PurchaseForm visible={form.visible} item={form.item} onClose={() => setForm(value => ({ ...value, visible: false }))} onSaved={onSaved} />
-  </View>;
+  useFocusEffect(useCallback(() => {
+    if (Platform.OS !== 'android' || !selectedId || form.visible) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setSelectedId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [selectedId, form.visible]));
+
+  const content = { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: Spacing.base, paddingBottom: Spacing.xl, gap: Spacing.md };
+  const photoStyle = { borderRadius: Radius.lg, backgroundColor: C.bgElevated };
+  const label = { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold };
+  const detail = { color: C.textPrimary, fontSize: Typography.sizes.base };
+  const categoryLabel = item => t('purchases.categories.' + (CATEGORIES.includes(item.category) ? item.category : 'other'));
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
+      {selected ? (
+        <>
+          <ScreenHeader title={selected.name} onBack={() => setSelectedId(null)} rightIcon="create-outline" rightLabel={t('common.edit')} onRightPress={openEdit} />
+          <ScrollView contentContainerStyle={content}>
+            {selected.image_uri && (
+              <Image source={{ uri: selected.image_uri }} resizeMode="cover" style={[photoStyle, { width: '100%', aspectRatio: 4 / 3 }]} />
+            )}
+            <Card style={{ gap: Spacing.md }}>
+              <Text style={{ color: C.textPrimary, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.black }}>{selected.name}</Text>
+              <Text style={label}>{dateLabel(selected.date, locale)} · {categoryLabel(selected)}</Text>
+              {selected.amount != null && <Text style={{ color: C.primary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }}>{money(selected.amount, i18n.language)}</Text>}
+              {[[t('purchases.shop'), selected.shop], [t('purchases.details'), selected.details]].map(([heading, value]) => value ? (
+                <View key={heading} style={{ gap: Spacing.xs }}>
+                  <Text style={label}>{heading}</Text>
+                  <Text style={detail}>{value}</Text>
+                </View>
+              ) : null)}
+            </Card>
+            <Button variant="danger" size="sm" icon="trash-outline" label={t('purchases.delete')} onPress={removeSelected} />
+          </ScrollView>
+        </>
+      ) : (
+        <>
+          <ScreenHeader title={t('purchases.title')} onBack={() => navigation.goBack()} />
+          <ScrollView contentContainerStyle={content}>
+            <Button icon="add" label={t('purchases.addTitle')} onPress={openAdd} />
+            {loadError && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base }}>{t('purchases.loadError')}</Text>}
+            {!loadError && items.length === 0 && (
+              <Card><EmptyState icon="bag-handle-outline" title={t('purchases.emptyTitle')} subtitle={t('purchases.emptyBody')} /></Card>
+            )}
+            {items.map(item => (
+              <Card key={item.id} padding="none">
+                <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedId(item.id)} activeOpacity={0.8}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: Spacing.md, gap: Spacing.md }}>
+                  {item.image_uri
+                    ? <Image source={{ uri: item.image_uri }} resizeMode="cover" style={[photoStyle, { width: 60, height: 60 }]} />
+                    : <IconBadge icon="bag-handle-outline" size={60} color={C.iconExpense} />}
+                  <View style={{ flex: 1, gap: Spacing.xs }}>
+                    <Text style={{ ...detail, fontWeight: Typography.weights.bold }}>{item.name}</Text>
+                    <Text style={label}>{dateLabel(item.date, locale)} · {categoryLabel(item)}</Text>
+                    {!!item.shop && <Text style={label}>{item.shop}</Text>}
+                  </View>
+                  {item.amount != null && <Text style={{ ...label, color: C.primary, maxWidth: '32%', textAlign: 'right' }}>{money(item.amount, i18n.language)}</Text>}
+                  <Ionicons name="chevron-forward" size={18} color={C.textSecondary} />
+                </TouchableOpacity>
+              </Card>
+            ))}
+          </ScrollView>
+        </>
+      )}
+      <PurchaseForm visible={form.visible} item={form.item} onClose={() => setForm(value => ({ ...value, visible: false }))} onSaved={onSaved} />
+    </View>
+  );
 }

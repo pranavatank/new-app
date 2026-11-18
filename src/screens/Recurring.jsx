@@ -6,7 +6,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
-import { scaleTheme } from '../constants/theme';
+import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import {
   Card, Button, Sheet, Input, Chip, Badge, IconBadge,
@@ -250,7 +250,7 @@ export default function RecurringScreen() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ padding: Spacing.base, paddingBottom: 140 }}
+        contentContainerStyle={{ padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl }}
         showsVerticalScrollIndicator={false}
       >
         {rules.length === 0 ? (
@@ -290,7 +290,7 @@ export default function RecurringScreen() {
         )}
       </ScrollView>
 
-      <FAB icon="add" onPress={openAdd} style={s.fab} />
+      <FAB label={t('recurring.addTitle')} onPress={openAdd} style={s.fab} />
 
       <Sheet
         visible={sheetOpen}
@@ -480,9 +480,9 @@ const styles = (scale) => {
   return StyleSheet.create({
     root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
     scroll: { flex: 1 },
-    lbl:    { fontWeight: '700', marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
+    lbl:    { fontWeight: BaseTypography.weights.bold, marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
 
-    fab: { position: 'absolute', right: Spacing.lg, bottom: 110 },
+    fab: { position: 'absolute', right: Spacing.lg, bottom: Spacing.base },
 
     ruleCard:       { marginTop: Spacing.sm },
     ruleCardPaused: { opacity: 0.6 },

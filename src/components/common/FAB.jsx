@@ -6,13 +6,14 @@ import { makeShadow } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
 /** Floating action button, e.g. quick-deposit on Home, add-item elsewhere. */
-export default function FAB({ icon = 'add', onPress, size = 56, style, gradient }) {
+export default function FAB({ icon = 'add', label, onPress, size = 56, style, gradient }) {
   const { C } = useTheme();
   const Shadow = makeShadow(C);
   const colors = gradient || C.gradients.primary;
 
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[{ width: size, height: size }, style]}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
+      activeOpacity={0.85} onPress={onPress} style={[{ width: size, height: size }, style]}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }}

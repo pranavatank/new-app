@@ -6,14 +6,16 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const compiled = babel.transformFileSync(path.resolve('src/components/ledger/LedgerEntryForm.jsx'), {
+  babelrc: false,
+  configFile: false,
   plugins: ['@babel/plugin-transform-react-jsx', '@babel/plugin-transform-modules-commonjs'],
 }).code;
 
-function harness(entry = null) {
+function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }]) {
   let cursor = 0, changed = false, tree;
   const slots = [], effects = [], calls = [], alerts = [];
   const categories = [{ id: 1, name: 'Vegetables' }, { id: 2, name: 'Fruit' }];
-  const items = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }];
+  const items = [...existingItems];
   const React = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     Fragment: 'Fragment',
@@ -81,13 +83,21 @@ function harness(entry = null) {
     calls, alerts,
     press(label) { control('Chip', props => props.label === label).onPress(); render(); },
     input(label, value) { control('Input', props => props.label?.includes(label)).onChangeText(value); render(); },
+    addItem(name) {
+      this.input('ledger.new_item', name);
+      control('Button', props => props.label === 'ledger.add_item').onPress();
+      render();
+    },
     save() { control('Button', props => props.label === 'common.save').onPress(); render(); },
   };
 }
 
-const shopping = harness();
+const shopping = harness(null, []);
 shopping.press('Vegetables');
+shopping.press('ledger.expense_by_items');
+shopping.addItem('Tomato');
 shopping.input('Tomato', '30');
+shopping.addItem('Brinjal');
 shopping.input('Brinjal', '40');
 shopping.save();
 assert.equal(shopping.calls.length, 1);

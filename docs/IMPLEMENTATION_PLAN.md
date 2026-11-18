@@ -11,7 +11,7 @@ Started: 9 November 2026. Working directly in the existing `main` checkout, as r
 5. Represent external receipts and locker movements separately; internal transfers do not become income or spending. Locker opening money is unknown until established.
 6. At the end, add purchase memories with durable product photo, name, date and details. Saving a memory does not automatically record spending.
 
-## Advisory plan and ownership
+## Original advisory plan and ownership
 
 One read-only planning pass by `gpt-6.1-sol` (medium) completed. Two `gpt-6-luna` (medium) builders have exclusive scopes; no nested delegation.
 
@@ -57,12 +57,18 @@ Continue the existing plan with these acceptance criteria:
 - Vegetables can contain separate Tomato and Brinjal amounts in one save; both remain item-linked expense rows in daily/monthly views and category totals. Batch writes are atomic.
 - Today visibly includes selected-day tasks, places, notes and optional vehicle records with existing module actions. Original routes and grid remain available.
 
-Current ownership: UI builder owns shared UI/theme, ledger form/rows and four new screens/locales; data builder owns item-aware ledger APIs and regression fixtures. Day-overview integration follows the API handoff with exclusive file ownership. Coordinator integrates navigation/docs and runs checks. Targeted independent review covers these corrections after integration.
-
-Next command: `npm run check:source` after the item/theme and day-overview handoffs, followed by `npm run test:ledger` and a fresh Expo export.
-
 Earlier implementation checkpoint: all four labelled navigation destinations and purchase memories were integrated. The original expense grid edits only its own common rows; original Notes refreshes on focus and has a visible add button with optional type selection. Home/Expense summaries explain additional receipts and locker movements. Source checks, in-memory API regression checks and all-platform Expo export passed before the user's corrections above. Those corrections require fresh verification.
 
-Browser inspection was attempted through Computer Use. The browser access host was unavailable; Windows access then stopped because the helper could not confidently verify the current browser URL. No visual/runtime validation is claimed and no further browser input was sent.
+### Clone continuation · 19 November 2026
 
-The original independent review is complete. Reuse that reviewer for a targeted review of the user-correction diff after the builders finish.
+Resumed from `33d1e3c` on `main`. Reconstructed the plan-then-build skill from the repository handoff. GPT-6.2 Sol at medium handled read-only planning and independent review. The delegation tool lacked GPT-6 Luna, so the coordinating agent implemented the fixes directly.
+
+Mounted the shared overview in the original Home, removed the ledger-only palette, and reused shared controls in the new screens. Both ledger views now display item names with their category. A fresh shopping draft can create Tomato and Brinjal and save both amounts together. Places resolves visit reads and writes from the selected date, and the Notes and Tasks shortcuts consume their add-form request on each visit.
+
+See the [implementation notes](IMPLEMENTATION_NOTES.md#verification-and-handoff) for check results and remaining device validation.
+
+### Shared theme and navigation follow-up · 19 November 2026
+
+The request expanded to a screen-by-screen audit and visual refresh. The four primary destinations use a rounded, safe-area tab bar with colored active icons and visible labels. Tools groups the secondary destinations into Everyday, Money and reports, and App. Today gets the shared gradient balance card and prominent quick actions. Month book and Purchases use the same surfaces and controls.
+
+Use the existing expense search and selected-date entry points to check routing. Expense results land on the matching date in Today. Month book follows a changed selected month, supports month-by-month browsing, and links back to day details. Task and fuel shortcuts open drafts for the selected date. The checks cover route registration across all 15 screens, both navigation languages, theme tokens, item entry, and selected-day data.

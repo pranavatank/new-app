@@ -1,15 +1,16 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { scaleTheme } from '../../constants/theme';
+import { makeShadow, scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
+import IconBadge from './IconBadge';
 
 export default function ActionTile({ label, icon, color, onPress, style }) {
   const { C, scale } = useTheme();
   const { Typography, Radius, Spacing } = scaleTheme(scale);
   const tint = color || C.primary;
-  return <TouchableOpacity accessibilityRole="button" onPress={onPress} activeOpacity={0.78} style={[{ flex: 1, minWidth: 120, minHeight: 76, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', gap: Spacing.xs }, style]}>
-    <Ionicons name={icon} size={26} color={tint} />
-    <Text style={{ color: C.textPrimary, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, textAlign: 'center', flexShrink: 1 }}>{label}</Text>
+  return <TouchableOpacity accessibilityRole="button" onPress={onPress} activeOpacity={0.78}
+    style={[makeShadow(C).sm, { flex: 1, minWidth: 120, minHeight: 92, padding: Spacing.md, borderRadius: Radius.xl, backgroundColor: C.bgCard, borderWidth: 1, borderColor: C.border, justifyContent: 'center', gap: Spacing.sm }, style]}>
+    <IconBadge icon={icon} size={38} color={tint} />
+    <Text style={{ color: C.textPrimary, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold }}>{label}</Text>
   </TouchableOpacity>;
 }

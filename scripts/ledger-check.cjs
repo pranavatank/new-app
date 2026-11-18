@@ -37,7 +37,11 @@ const initSqlJs = require('sql.js');
   };
   const loadModule = (filename) => {
     if(cache.has(filename)) return cache.get(filename).exports;
-    const out=babel.transformFileSync(filename,{plugins:['@babel/plugin-transform-modules-commonjs']}).code;
+    const out = babel.transformFileSync(filename, {
+      babelrc: false,
+      configFile: false,
+      plugins: ['@babel/plugin-transform-modules-commonjs'],
+    }).code;
     const mod={exports:{}};
     cache.set(filename,mod);
     const localRequire=(id)=>mockRequire(id,filename);
@@ -48,6 +52,8 @@ const initSqlJs = require('sql.js');
   const {initializeDatabase}=loadModule(path.join(root,'src/db/schema.js'));
   const queries=loadModule(path.join(root,'src/db/queries.js'));
   const ledger=loadModule(path.join(root,'src/db/ledger.js'));
+  const { getDayOverview } = loadModule(path.join(root, 'src/db/dayOverview.js'));
+  const { getOdometerNeighbors } = loadModule(path.join(root, 'src/utils/vehicleRecords.js'));
   const backup=loadModule(path.join(root,'src/services/backupService.js'));
   const excel=loadModule(path.join(root,'src/services/excelService.js'));
   const pdf=loadModule(path.join(root,'src/services/pdfService.js'));
@@ -65,6 +71,8 @@ const initSqlJs = require('sql.js');
   assert.equal(db.getFirstSync("SELECT SUM(amount) total FROM expenses e JOIN days d ON d.id=e.day_id WHERE d.date='2026-11-05';").total,20,'item batch preserves aggregate amount');
   const itemEntries=ledger.getDayLedger('2026-11-05').entries.filter(x=>x.kind==='expense');
   assert.deepEqual(itemEntries.map(x=>[x.item_name,x.item_icon,x.item_icon_type]),[['Tomato','🍅','emoji'],['Brinjal','🍆','emoji']],'ledger projects expense item metadata');
+  const shoppingDay = ledger.getMonthLedger(2026, 11).days.find(day => day.date === '2026-11-05');
+  assert.deepEqual(shoppingDay.entries.map(entry => entry.item_name), ['Tomato', 'Brinjal']);
   ledger.saveExpense({id:itemIds[0],date:'2026-11-05',categoryId:category,amount:13});
   assert.equal(db.getFirstSync('SELECT item_id FROM expenses WHERE id=?;',[itemIds[0]]).item_id,tomato,'omitted itemId preserves item on edit');
   assert.throws(()=>ledger.saveExpense({id:itemIds[0],date:'2026-11-05',categoryId:alternateCategory,amount:13}),/Item must belong/,'category changes cannot retain a mismatched item');
@@ -194,6 +202,38 @@ const initSqlJs = require('sql.js');
   await backup.restoreFromJSONData({version:'1.0.0',data:{categories:[{id:category,name:'Food',icon:'🍲',sort_order:1,is_active:1}],days:[{id:1,date:'2026-12-01',deposit_today:500,closing_balance:500}]}});
   await excel.importFromExcel();
   assert.equal(db.getFirstSync("SELECT closing_balance FROM days WHERE date='2026-12-02';").closing_balance,600,'Excel import rebuilds balances for newly imported deposit-only days');
+
+  const overviewDate = '2026-12-02';
+  const priorDate = '2026-12-01';
+  const nextDate = '2026-12-03';
+  queries.addTask('Carried forward', priorDate);
+  queries.addTask('Future task', nextDate);
+  db.runSync("INSERT INTO tasks(title,start_date,completed_date,status) VALUES (?,?,?,'completed'),(?,?,?,'completed');",
+    ['Done on selection', priorDate, overviewDate, 'Done before selection', priorDate, priorDate]);
+  const market = queries.addPlace('Market');
+  const bakery = queries.addPlace('Bakery');
+  queries.togglePlaceForDay(queries.getOrCreateDay(overviewDate).id, market.id);
+  queries.togglePlaceForDay(queries.getOrCreateDay(priorDate).id, bakery.id);
+  ledger.saveDailyNote({ date: overviewDate, text: 'Selected note' });
+  ledger.saveDailyNote({ date: priorDate, text: 'Earlier note' });
+  db.runSync('INSERT INTO vehicle_records(date,reading,liters,price_per_liter,amount) VALUES (?,100,2,100,200),(?,180,3,100,300);',
+    [priorDate, overviewDate]);
+  const overview = getDayOverview(overviewDate);
+  assert.deepEqual(overview.tasks.map(task => task.title), ['Carried forward', 'Done on selection']);
+  assert.deepEqual(overview.places.map(place => place.name), ['Market']);
+  assert.deepEqual(overview.notes.map(note => note.text), ['Selected note']);
+  assert.deepEqual(overview.fuel.map(record => record.reading), [180]);
+  const vehicleRecords = queries.getAllVehicleRecords();
+  const beforeLaterFill = getOdometerNeighbors(vehicleRecords, priorDate);
+  assert.equal(beforeLaterFill.previous.reading, 100);
+  assert.equal(beforeLaterFill.next.reading, 180, 'a backdated fuel form has an upper bound from the next fill');
+  const afterLaterFill = getOdometerNeighbors(vehicleRecords, nextDate);
+  assert.equal(afterLaterFill.previous.reading, 180, 'changing the form date changes the predecessor');
+  assert.equal(afterLaterFill.next, null);
+  const editing = getOdometerNeighbors(vehicleRecords, overviewDate, vehicleRecords[0].id);
+  assert.equal(editing.previous.reading, 100, 'editing excludes the record itself');
+  assert.deepEqual(getDayOverview(nextDate).places, []);
+  assert.equal(db.getFirstSync('SELECT id FROM days WHERE date=?;', [nextDate]), null, 'previewing a day does not create it');
   console.log('ledger-check: actual schema/query/ledger/restore APIs passed synthetic SQL.js assertions');
   raw.close();
 })().catch(e=>{console.error(e);process.exitCode=1});

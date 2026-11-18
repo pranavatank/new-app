@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { scaleTheme, makeShadow } from '../../constants/theme';
+import { Layout, scaleTheme, makeShadow } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
 /**
@@ -20,6 +20,8 @@ export default function Button({
   fullWidth = false,
   wrap = true,
   style,
+  accessibilityLabel = label,
+  accessibilityState,
 }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
@@ -32,6 +34,11 @@ export default function Button({
   };
   const sz = sizes[size] || sizes.md;
   const isDisabled = disabled || loading;
+  const accessibility = {
+    accessibilityRole: 'button',
+    accessibilityLabel,
+    accessibilityState: { ...accessibilityState, disabled: isDisabled, busy: loading },
+  };
 
   const content = (
     <View style={styles.row}>
@@ -73,6 +80,7 @@ export default function Button({
   );
 
   const shared = {
+    minHeight: Layout.touchTarget,
     paddingVertical: sz.padV,
     paddingHorizontal: sz.padH,
     borderRadius: Radius.full,
@@ -84,7 +92,7 @@ export default function Button({
 
   if (variant === 'primary') {
     return (
-      <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={isDisabled} style={[fullWidth && { width: '100%' }, style]}>
+      <TouchableOpacity {...accessibility} activeOpacity={0.85} onPress={onPress} disabled={isDisabled} style={[fullWidth && { width: '100%' }, style]}>
         <LinearGradient colors={C.gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[shared, Shadow.primary]}>
           {content}
         </LinearGradient>
@@ -94,7 +102,7 @@ export default function Button({
 
   if (variant === 'danger') {
     return (
-      <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={isDisabled} style={[fullWidth && { width: '100%' }, style]}>
+      <TouchableOpacity {...accessibility} activeOpacity={0.85} onPress={onPress} disabled={isDisabled} style={[fullWidth && { width: '100%' }, style]}>
         <LinearGradient colors={C.gradients.expense} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[shared, Shadow.sm]}>
           {content}
         </LinearGradient>
@@ -105,6 +113,7 @@ export default function Button({
   if (variant === 'secondary') {
     return (
       <TouchableOpacity
+        {...accessibility}
         activeOpacity={0.75}
         onPress={onPress}
         disabled={isDisabled}
@@ -118,10 +127,11 @@ export default function Button({
   // ghost
   return (
     <TouchableOpacity
+      {...accessibility}
       activeOpacity={0.6}
       onPress={onPress}
       disabled={isDisabled}
-      style={[shared, { backgroundColor: 'transparent' }, style]}
+      style={[shared, { backgroundColor: C.transparent }, style]}
     >
       {content}
     </TouchableOpacity>

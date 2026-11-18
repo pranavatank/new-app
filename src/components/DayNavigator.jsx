@@ -6,6 +6,7 @@ import { scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import useAppStore from '../store/useAppStore';
 import { useTranslation } from 'react-i18next';
+import IconButton from './common/IconButton';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -51,27 +52,21 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
           {/* Header with close button */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
             <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{t('ledger.select_date')}</Text>
-            <TouchableOpacity style={[{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={onClose}>
-              <Ionicons name="close" size={18} color={C.textSecondary} />
-            </TouchableOpacity>
+            <IconButton icon="close" label={t('common.close')} onPress={onClose} />
           </View>
 
           {/* Month nav */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
-            <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={prev}>
-              <Ionicons name="chevron-back" size={20} color={C.primary} />
-            </TouchableOpacity>
+            <IconButton icon="chevron-back" label={t('ledger.previous_month')} onPress={prev} />
             <Text style={[{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }, { color: C.textPrimary }]}>{new Date(yr,mo,1).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { month:'long', year:'numeric' })}</Text>
-            <TouchableOpacity style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.bgElevated }]} onPress={next}>
-              <Ionicons name="chevron-forward" size={20} color={C.primary} />
-            </TouchableOpacity>
+            <IconButton icon="chevron-forward" label={t('ledger.next_month')} onPress={next} />
           </View>
 
           {/* Day headers */}
           <View style={{ flexDirection: 'row', marginBottom: Spacing.xs }}>
             {WEEKDAY_INDICES.map(i => {
               const d = new Date(2023, 0, 1 + i).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { weekday: 'short' });
-              return <Text key={i} style={[{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: '600', letterSpacing: 0.5 }, { color: C.textMuted }]}>{d}</Text>;
+              return <Text key={i} style={[{ flex: 1, textAlign: 'center', fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold, letterSpacing: 0.5 }, { color: C.textMuted }]}>{d}</Text>;
             })}
           </View>
 
@@ -96,8 +91,8 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
                   <Text style={[
                     { fontSize: Math.max(16, Typography.sizes.sm), fontWeight: Typography.weights.medium },
                     { color: C.textSecondary },
-                    isSel && { color: '#fff', fontWeight: '700' },
-                    isT && !isSel && { color: C.primary, fontWeight: '700' },
+                    isSel && { color: C.textOnPrimary, fontWeight: Typography.weights.bold },
+                    isT && !isSel && { color: C.primary, fontWeight: Typography.weights.bold },
                     isSun && !isSel && { color: C.expense },
                   ]}>{new Date(yr, mo, day).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { day: 'numeric' })}</Text>
                 </TouchableOpacity>
@@ -110,7 +105,7 @@ const CalModal = ({ visible, selected, onSelect, onClose }) => {
             style={[{ marginTop: Spacing.sm, paddingVertical: Spacing.md, borderRadius: Radius.full, alignItems: 'center' }, { backgroundColor: C.primaryDim }]}
             onPress={() => { onSelect(toDStr(new Date())); onClose(); }}
           >
-            <Text style={[{ fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }, { color: C.primary }]}>Jump to Today</Text>
+            <Text style={[{ fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }, { color: C.primary }]}>{t('ledger.jump_to_today')}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -160,16 +155,14 @@ export default function DayNavigator() {
     <>
       <View style={[{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: topInset + Spacing.xs, paddingBottom: Spacing.sm, borderBottomWidth: 1 }, { backgroundColor: C.bgCard, borderBottomColor: C.border }, Shadow.sm]}>
         {/* Prev */}
-        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.primaryDim }]} onPress={handlePrev} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={C.primary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label={t('ledger.previous_day')} onPress={handlePrev} />
 
         {/* Date tap */}
-        <TouchableOpacity style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }} onPress={() => setCalOpen(true)} activeOpacity={0.8}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.select_date') + ', ' + label + ' ' + sub} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.xs }} onPress={() => setCalOpen(true)} activeOpacity={0.8}>
           {isToday && (
             <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.full, marginBottom: 3 }, { backgroundColor: C.primaryDim }]}>
               <View style={[{ width: 5, height: 5, borderRadius: 3 }, { backgroundColor: C.primary }]} />
-              <Text style={[{ fontSize: 9, fontWeight: '800', letterSpacing: 1.5 }, { color: C.primary }]}>{t('ledger.today').toUpperCase()}</Text>
+              <Text style={[{ fontSize: Typography.sizes.micro, fontWeight: Typography.weights.heavy, letterSpacing: 1.5 }, { color: C.primary }]}>{t('ledger.today').toUpperCase()}</Text>
             </View>
           )}
           <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, letterSpacing: 0.2 }, { color: C.textPrimary }]}>{label}</Text>
@@ -180,9 +173,7 @@ export default function DayNavigator() {
         </TouchableOpacity>
 
         {/* Next */}
-        <TouchableOpacity style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: C.primaryDim }]} onPress={handleNext} activeOpacity={0.7}>
-          <Ionicons name="chevron-forward" size={22} color={C.primary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-forward" label={t('ledger.next_day')} onPress={handleNext} />
       </View>
 
       <CalModal

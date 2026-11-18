@@ -1,26 +1,28 @@
 # Daily book implementation notes
 
-Working checkout: `main`. Date: 9 November 2026. No commit or publication is part of this task.
+Working checkout `main`, last verified on 19 November 2026.
 
 ## Everyday use
 
 - The app opens in the new daily book. Large, labelled actions start an expense or a note. Money received and locker movements have separate actions.
+- The floating bar opens Today, Month, Notes, and Tools. Today puts closing cash in the gradient card, lets you expand the breakdown, and has a direct Search action.
 - Switch English/Gujarati directly on the daily page. New book and purchase screens use Latin/100-style numbers in both languages.
 - An expense is a new independent record. Adding ₹100 and then ₹60 for vegetables keeps both entries. Editing a row changes that row.
-- Item links remain part of an expense: Tomato and Brinjal can have separate amounts under Vegetables. Item batches use one transaction, so a validation or balance-recalculation failure cannot leave half a shopping entry saved.
+- Create Tomato and Brinjal from the same Vegetables draft and enter an amount for each. Today and Month book show both item names. The batch writes both rows and rebuilds balances in one transaction.
 - A note needs only its text. The original Notes screen remains available, now with a visible add button and optional type selection.
 - The monthly book shows calendar days, carried cash, individual expenses, receipts, locker movements and notes. Tap a day to open its daily book.
+- Month book follows changes to the selected month. Its arrows let you browse independently. An expense search result opens the matching day's entries.
 - Dirty new entry forms ask before discarding. Failed saves keep the draft. Daily entries have explicit edit/remove actions and an immediate undo option.
 
 ## Existing features and compatibility
 
-All original routes are retained in All tools. The old expense category grid remains separate. Its common amount editor changes only legacy/grid-origin rows; individual daily-book records and new recurring payments are protected. Tile totals still include all spending. Common amounts and category item amounts remain distinct.
+Tools groups the original routes under Everyday, Money and reports, and App. The old expense category grid remains separate. Its common amount editor changes only legacy/grid-origin rows. Tile totals include all spending, and common amounts and category item amounts remain distinct.
 
-The user correction restores the original day-wise module previews directly on Today, using a shared overview with the original Home. Pending tasks carry forward from their start date; completed tasks appear on their completion date. Places, notes and fuel records are filtered by the selected day. All-time mileage figures are labelled separately.
+Today and the original Home share day-wise module previews. Pending tasks carry forward from their start date. Completed tasks appear on their completion date. Places, notes and fuel records are filtered by the selected day. Task and fuel shortcuts default to that date, and all-time mileage figures are labelled separately.
 
 ## Shared appearance
 
-The new pages use the same central light/dark palettes as the original modules. Repeated controls and surfaces use the common component library. Theme tokens also cover gradient content; changing the central palette updates screens together. Source checks reject literal UI colors, unknown theme tokens, palette-key mismatches and duplicate JSX attributes. See [theme and component rules](THEME_AND_COMPONENTS.md) for future changes.
+All 15 screens and React Navigation use the central light and dark palettes. The refresh uses shared cards, rows, headings, buttons, and ledger entries across Today, Month book, Tools, and Purchases. The source check verifies registered destinations, translated navigation labels, palette parity, and central color and typography usage. See [theme and component rules](THEME_AND_COMPONENTS.md).
 
 Old `days.deposit_today` values remain daily legacy receipts with unknown sources. New receipts are stored separately and are not copied into that field. Existing expense rows retain their category, item, payment and place relationships; new origin/time columns are added through repeat-safe migrations.
 
@@ -30,7 +32,7 @@ The analytics comparison is now called **Receipts less spending**. It subtracts 
 
 ## Product memories
 
-Open All tools → Purchases. Add a product name, date, appliance/clothes/other category, optional amount, shop, details and photo. Tap a saved item for its details, photo, edit and removal controls.
+Open Tools → Everyday → Purchases. Add a product name, date, appliance/clothes/other category, optional amount, shop, details and photo. Tap a saved item for its details, photo, edit and removal controls. Back from a purchase returns to the list.
 
 On native platforms a selected image is copied into the app's document directory. On web it is stored as a serializable data URI. Photo selection has cancellation/error handling. Removing a record or replacing its photo does not delete the original image from the phone's library.
 
@@ -48,17 +50,20 @@ JSON files and product photos still need an off-device copy to protect against l
 
 ## Verification and handoff
 
-The plan-then-build workflow uses one read-only Sol planning pass, two Luna builders with separate files, coordinator integration and an independent Sol final review. See [the implementation plan](IMPLEMENTATION_PLAN.md) for scope and checkpoints.
+The reconstructed plan-then-build skill uses GPT-6.2 Sol at medium for read-only planning and independent review, and prefers the latest available Luna at medium for builders. Both Sol passes ran for this continuation. The delegation tool did not expose GPT-6 Luna, so the coordinating agent made the changes directly. See the [implementation plan](IMPLEMENTATION_PLAN.md) for scope and prior checkpoints.
 
 Checks are implemented as:
 
 ```text
 npm run check:source
 npm run test:ledger
+npm run test:entry-form
 ```
 
-The source check parses application JS/JSX, checks unresolved references and local imports, and verifies literal new-feature translation keys in both languages. The API check transforms the real schema/query/ledger/restore services and runs them against isolated in-memory SQL.js fixtures. It never opens the user's app database.
+All three checks passed after the theme and navigation updates. The source check scanned 53 files with zero errors and covered all 15 screen routes. The API fixture exercises the real schema, queries, ledger and restore services against in-memory SQL.js, including monthly item rows, selected-day filtering and adjacent odometer records. The form check exercises the real save callbacks, including creating two items in a fresh draft. The lockfile now includes the existing Expo haptics and gradient dependencies, and the `npm ci` dry run passed.
 
-Final check results and independent-review disposition will be recorded below after the final repair pass.
+`expo export --platform all` completed for Android, iOS and web on the final changes.
 
-Computer Use could not inspect the running app: the browser host was unavailable, and Windows app access stopped because its URL could not be verified confidently. No visual phone/browser pass is claimed. Before relying on the app daily, check Gujarati wrapping, large system text, the keyboard-open save button, photo selection, reopening the app, and a JSON restore on a disposable test installation.
+The independent review confirmed shared theme usage, item labels, atomic writes and selected-day previews. The follow-up improved contrast on the shared gradient and Vehicle header and isolated the test harnesses from Expo's production Babel configuration. Task completion uses the date it was marked complete. Vehicle drafts opened from Tools use today's date, and the selected-day shortcut sets the preview date. Editing the fuel date updates the adjacent odometer readings used for validation.
+
+The browser access host was unavailable and the native browser launch timed out. Browser interaction and physical Android verification remain pending, including Gujarati wrapping, large system text, keyboard-open Save, photo selection and persistence, biometrics, and JSON restore on a disposable installation.

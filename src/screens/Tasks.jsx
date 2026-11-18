@@ -7,7 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { scaleTheme } from '../constants/theme';
+import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
@@ -48,7 +48,7 @@ const getDaysOverdue = (startDate) => {
 
 const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-const TaskModal = ({ visible, editTask, onSave, onClose }) => {
+const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
@@ -63,12 +63,13 @@ const TaskModal = ({ visible, editTask, onSave, onClose }) => {
   React.useEffect(() => {
     if (visible) {
       setTitle(editTask?.title || '');
-      setStartDate(editTask?.start_date || todayStr());
-      const d = new Date((editTask?.start_date || todayStr()) + 'T00:00:00');
+      const date = editTask?.start_date || initialDate;
+      setStartDate(date);
+      const d = new Date(date + 'T00:00:00');
       setCalYear(d.getFullYear());
       setCalMonth(d.getMonth());
     }
-  }, [visible, editTask]);
+  }, [visible, editTask, initialDate]);
 
   const handleSave = () => {
     if (!title.trim()) { Alert.alert('Required', t('tasks.whatToDo')); return; }
@@ -137,8 +138,8 @@ const TaskModal = ({ visible, editTask, onSave, onClose }) => {
                   isToday&&!isSel&&{borderWidth:1.5,borderColor:C.primary,borderRadius:Radius.sm},
                 ]} onPress={()=>{setStartDate(ds);setShowCal(false);}}>
                   <Text style={[m.calDayTxt,{color:C.textSecondary},
-                    isSel&&{color:'#fff',fontWeight:'700'},
-                    isToday&&!isSel&&{color:C.primary,fontWeight:'700'},
+                    isSel&&{color:C.textOnPrimary,fontWeight:Typography.weights.bold},
+                    isToday&&!isSel&&{color:C.primary,fontWeight:Typography.weights.bold},
                   ]}>{day}</Text>
                 </TouchableOpacity>
               );
@@ -161,18 +162,18 @@ const TaskModal = ({ visible, editTask, onSave, onClose }) => {
 };
 
 const m = StyleSheet.create({
-  label:      { fontSize: 12, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' },
+  label:      { fontSize: BaseTypography.sizes.sm, fontWeight: BaseTypography.weights.semibold, letterSpacing: 0.8, textTransform: 'uppercase' },
   datePill:   { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, alignSelf: 'flex-start' },
-  dateText:   { fontWeight: '600' },
+  dateText:   { fontWeight: BaseTypography.weights.semibold },
   calWrap:    { borderWidth: 1 },
   calHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   calNav:     { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  calMonth:   { fontWeight: '700' },
+  calMonth:   { fontWeight: BaseTypography.weights.bold },
   calDayRow:  { flexDirection: 'row', marginBottom: 4 },
-  calDayHd:   { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: '600' },
+  calDayHd:   { flex: 1, textAlign: 'center', fontSize: BaseTypography.sizes.caption, fontWeight: BaseTypography.weights.semibold },
   calGrid:    { flexDirection: 'row', flexWrap: 'wrap' },
   calCell:    { width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-  calDayTxt:  { fontSize: 12 },
+  calDayTxt:  { fontSize: BaseTypography.sizes.sm },
   btnRow:     { flexDirection: 'row', marginTop: 8 },
 });
 
@@ -186,7 +187,7 @@ const TaskCard = ({ task, onComplete, onEdit, onDelete }) => {
   const overdue   = getDaysOverdue(task.start_date);
   const isOverdue = overdue > 0;
   const isNew     = overdue === 0;
-  const accent    = isOverdue ? C.expense : isNew ? C.primary : 'transparent';
+  const accent    = isOverdue ? C.expense : isNew ? C.primary : C.transparent;
 
   return (
     <Card
@@ -251,12 +252,12 @@ const tc = StyleSheet.create({
   top:         { flexDirection: 'row', alignItems: 'flex-start' },
   check:       { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   body:        { flex: 1 },
-  taskTitle:   { fontWeight: '600', lineHeight: 22 },
+  taskTitle:   { fontWeight: BaseTypography.weights.semibold, lineHeight: 22 },
   meta:        { flexDirection: 'row', flexWrap: 'wrap' },
   actions:     { flexDirection: 'row' },
   actionBtn:   { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   completeBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  completeTxt: { fontWeight: '600', letterSpacing: 0.3 },
+  completeTxt: { fontWeight: BaseTypography.weights.semibold, letterSpacing: 0.3 },
 });
 
 // ── Completed Task Row ────────────────────────────────────────────────────────
@@ -287,13 +288,13 @@ const cr = StyleSheet.create({
   row:   { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
   checkBtn: { padding: 4 },
   info:  { flex: 1 },
-  title: { fontWeight: '500' },
+  title: { fontWeight: BaseTypography.weights.medium },
   date:  { marginTop: 2 },
 });
 
 // ── Main Tasks Screen ─────────────────────────────────────────────────────────
 
-export default function TasksScreen({ route }) {
+export default function TasksScreen({ route, navigation }) {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing } = scaleTheme(scale);
@@ -326,8 +327,9 @@ export default function TasksScreen({ route }) {
     if (route?.params?.autoAdd) {
       setEditTask(null);
       setShowModal(true);
+      navigation.setParams({ autoAdd: false });
     }
-  }, [route?.params?.autoAdd]);
+  }, [navigation, route?.params?.autoAdd]);
 
   const handleSave = (title, startDate, id) => {
     if (id) updateTask(id, title, startDate);
@@ -408,7 +410,7 @@ export default function TasksScreen({ route }) {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { padding: Spacing.base, paddingBottom: 100 }]}
+        contentContainerStyle={[s.content, { padding: Spacing.base, paddingBottom: Spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
 
@@ -452,6 +454,7 @@ export default function TasksScreen({ route }) {
       <TaskModal
         visible={showModal}
         editTask={editTask}
+        initialDate={selectedDate}
         onSave={handleSave}
         onClose={()=>{setShowModal(false);setEditTask(null);}}
       />
@@ -463,10 +466,10 @@ const s = StyleSheet.create({
   root:   { flex: 1, maxWidth: Platform.OS === 'web' ? 1200 : '100%', width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
   headerLeft:   { flexDirection: 'row', alignItems: 'center' },
-  headerTitle:  { fontWeight: '700' },
+  headerTitle:  { fontWeight: BaseTypography.weights.bold },
   tabRow:       { flexDirection: 'row', borderBottomWidth: 1 },
   tabBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  tabTxt:       { fontWeight: '600' },
+  tabTxt:       { fontWeight: BaseTypography.weights.semibold },
   scroll:  { flex: 1 },
   content: {},
 });

@@ -244,7 +244,7 @@ export default function SettingsScreen() {
                     st.segBtn,
                     {
                       borderColor: active ? C.primary : C.border,
-                      backgroundColor: active ? C.primaryDim : "transparent",
+                      backgroundColor: active ? C.primaryDim : C.transparent,
                       paddingVertical: Spacing.md,
                       borderRadius: Radius.lg,
                       gap: 4,
@@ -296,7 +296,7 @@ export default function SettingsScreen() {
                     st.segBtn,
                     {
                       borderColor: active ? C.primary : C.border,
-                      backgroundColor: active ? C.primaryDim : "transparent",
+                      backgroundColor: active ? C.primaryDim : C.transparent,
                       paddingVertical: Spacing.sm,
                       borderRadius: Radius.lg,
                       gap: 4,
@@ -305,7 +305,7 @@ export default function SettingsScreen() {
                   onPress={() => handleLanguageChange(code)}
                   activeOpacity={0.8}
                 >
-                  <Text style={{ fontSize: 24 }}>{meta.flag}</Text>
+                  <Text style={{ fontSize: Typography.sizes.xl }}>{meta.flag}</Text>
                   <Text
                     style={{
                       fontSize: Typography.sizes.sm,
@@ -575,7 +575,7 @@ export default function SettingsScreen() {
                 )
               }
             >
-              <AntDesign name="linkedin-square" size={20} color="#0A66C2" />
+              <AntDesign name="linkedin-square" size={20} color={C.brandLinkedIn} />
               <Text
                 style={{
                   fontSize: Typography.sizes.xs,
@@ -605,7 +605,7 @@ export default function SettingsScreen() {
               style={st.linkBtn}
               onPress={() => Linking.openURL("mailto:pranavatank@gmail.com")}
             >
-              <MaterialCommunityIcons name="gmail" size={20} color="#EA4335" />
+              <MaterialCommunityIcons name="gmail" size={20} color={C.brandGmail} />
               <Text
                 style={{
                   fontSize: Typography.sizes.xs,

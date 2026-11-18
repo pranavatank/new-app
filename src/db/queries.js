@@ -359,6 +359,17 @@ export const getPlacesForDay = (dayId) => {
   );
 };
 
+export const getPlacesForDate = (date) => {
+  const db = getDB();
+  return db.getAllSync(
+    `SELECT p.* FROM places p
+     JOIN day_places dp ON dp.place_id = p.id
+     JOIN days d ON d.id = dp.day_id
+     WHERE d.date = ? ORDER BY p.name;`,
+    [date]
+  );
+};
+
 export const addPlace = (name, isFavorite = 0, icon = '📍', iconType = 'emoji') => {
   const db = getDB();
   db.runSync(

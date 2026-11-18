@@ -2,6 +2,8 @@
 
 const BASE_TYPOGRAPHY = {
   sizes: {
+    micro: 9,
+    caption: 10,
     xs:   11,
     sm:   13,
     base: 15,
@@ -10,12 +12,14 @@ const BASE_TYPOGRAPHY = {
     xl:   24,
     xxl:  30,
     hero: 38,
+    display: 48,
   },
   weights: {
     regular:  '400',
     medium:   '500',
     semibold: '600',
     bold:     '700',
+    heavy:    '800',
     black:    '900',
   },
 };
@@ -60,6 +64,7 @@ export const scaleTheme = (scale = 1) => ({
 export const Typography = BASE_TYPOGRAPHY;
 export const Spacing = BASE_SPACING;
 export const Radius = BASE_RADIUS;
+export const Layout = { contentWidth: 760, navigationWidth: 500, touchTarget: 44 };
 
 // ── Light Theme ───────────────────────────────────────────────────────────────
 // Vibrant gradient canvas · Purple-blue primary · Vivid semantics
@@ -94,15 +99,19 @@ export const LightColors = {
   // Text - Higher contrast
   textPrimary:   '#1B1836',  // Deep indigo
   textSecondary: '#5B5A82',  // Medium purple-gray
-  textMuted:     '#93949E',  // Slate gray
+  textMuted:     '#666985',
   textOnPrimary: '#FFFFFF',
   textOnGradient: '#FFFFFF',
-  incomeOnGradient: '#A7F3D0',
-  expenseOnGradient: '#FCA5A5',
-  onlineOnGradient: '#C4B5FD',
+  incomeOnGradient: '#D1FAE5',
+  expenseOnGradient: '#FFE0E3',
+  onlineOnGradient: '#E9DFFF',
   gradientMuted: '#E9EEFF',
   gradientSubtle: '#FFFFFF26',
   gradientBorder: '#FFFFFF4D',
+  headerForeground: '#FFFFFF',
+  headerMuted: '#EEF1FF',
+  headerSubtle: '#FFFFFF29',
+  navAccentEnd: '#302685',
   subtle: '#E9EEFF',
 
   // UI chrome - Colorful borders
@@ -110,6 +119,7 @@ export const LightColors = {
   divider:     '#EEF1FE',
   shadow:      '#5B5EF0',
   overlay:     'rgba(27,24,54,0.5)',
+  transparent: 'transparent',
 
   // Status
   success: '#0EA872',
@@ -126,16 +136,20 @@ export const LightColors = {
   iconStats:   '#7C3AED',   // Violet
   iconSettings:'#475569',   // Slate
 
+  brandLinkedIn: '#0A66C2',
+  brandGmail: '#EA4335',
+  rankColors: ['#FFD700', '#C0C0C0', '#CD7F32'],
+
   // Extra category-chip accent set (cycled for chips/analytics bars)
   accents: ['#5B5EF0', '#0D9488', '#DB2777', '#F97316', '#7C3AED', '#0EA872', '#EA580C', '#0891B2'],
 
   gradients: {
-    primary: ['#4338CA', '#6366F1'],
+    primary: ['#4338CA', '#5145CD'],
     income:  ['#0EA872', '#34D399'],
-    expense: ['#DC2626', '#F87171'],
+    expense: ['#B91C1C', '#C32C38'],
     online:  ['#7C3AED', '#A78BFA'],
     card:    ['#FFFFFF', '#F1F4FF'],
-    header:  ['#4F46E5', '#6366F1', '#818CF8'],
+    header:  ['#4338CA', '#5145CD', '#5648CF'],
   },
 
   isDark: false,
@@ -174,7 +188,7 @@ export const DarkColors = {
   // Text - High contrast neon
   textPrimary:   '#F3F8FF',  // Bright white-cyan
   textSecondary: '#A3ACC2',  // Light gray
-  textMuted:     '#5B6479',  // Medium gray
+  textMuted:     '#929CB3',
   textOnPrimary: '#0F0A1F',  // Dark background
   textOnGradient: '#0F0A1F',
   incomeOnGradient: '#0F0A1F',
@@ -183,6 +197,10 @@ export const DarkColors = {
   gradientMuted: '#251D3D',
   gradientSubtle: '#0F0A1F26',
   gradientBorder: '#0F0A1F4D',
+  headerForeground: '#F3F8FF',
+  headerMuted: '#C9D3E8',
+  headerSubtle: '#F3F8FF29',
+  navAccentEnd: '#BAF3FF',
   subtle: '#251D3D',
 
   // UI chrome - Glowing borders
@@ -190,6 +208,7 @@ export const DarkColors = {
   divider:     '#251D3D',
   shadow:      '#000000',
   overlay:     'rgba(15,10,31,0.85)',
+  transparent: 'transparent',
 
   // Status
   success: '#34D399',
@@ -206,12 +225,16 @@ export const DarkColors = {
   iconStats:   '#C084FC',   // Violet
   iconSettings:'#94A3B8',   // Slate
 
+  brandLinkedIn: '#0A66C2',
+  brandGmail: '#EA4335',
+  rankColors: ['#FFD700', '#C0C0C0', '#CD7F32'],
+
   accents: ['#22D3EE', '#2DD4BF', '#F472B6', '#FB923C', '#C084FC', '#34D399', '#FBBF24', '#818CF8'],
 
   gradients: {
     primary: ['#06B6D4', '#22D3EE'],
     income:  ['#059669', '#34D399'],
-    expense: ['#E11D48', '#FB7185'],
+    expense: ['#EF476F', '#FB7185'],
     online:  ['#7C3AED', '#A78BFA'],
     card:    ['#1A1333', '#251D3D'],
     header:  ['#1A1333', '#2A2147', '#332C56'],

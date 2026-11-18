@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Modal, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { scaleTheme, makeShadow } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
+import IconButton from './IconButton';
 
 /**
  * Shared bottom-sheet modal. Consolidates the duplicated local `Sheet`
@@ -11,6 +12,7 @@ import { useTheme } from '../../store/ThemeContext';
  */
 export default function Sheet({ visible, onClose, title, children, scroll = true }) {
   const { C, scale } = useTheme();
+  const { t } = useTranslation();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const Shadow = makeShadow(C);
   const insets = useSafeAreaInsets();
@@ -47,13 +49,7 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
                 <Text style={{ flex: 1, minWidth: 0, flexShrink: 1, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, color: C.textPrimary }}>
                   {title}
                 </Text>
-                <TouchableOpacity
-                  style={[styles.closeBtn, { backgroundColor: C.bgElevated, minWidth: 44, minHeight: 44 }]}
-                  onPress={onClose}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="close" size={18} color={C.textSecondary} />
-                </TouchableOpacity>
+                <IconButton icon="close" label={t('common.close')} onPress={onClose} />
               </View>
             )}
             <Body {...bodyProps}>{children}</Body>
@@ -69,5 +65,4 @@ const styles = StyleSheet.create({
   sheet: { maxHeight: '90%', paddingTop: 10 },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  closeBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 });
