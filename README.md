@@ -18,9 +18,18 @@ A React Native (Expo) app for tracking daily cash/online expenses, deposits, tas
 
 ## Getting started
 
+With Node.js on your PATH, install the locked dependencies and start Expo.
+
 ```bash
-npm install
-npx expo start          # or: npm run android / npm run ios / npm run web
+npm ci
+npm run start
+```
+
+If PowerShell cannot find `npm` and this checkout has the portable toolchain in `.tmp/toolchain`, run these commands from the repository root.
+
+```powershell
+$env:Path = "$($PWD.Path)\.tmp\toolchain\node\package\bin;$env:Path"
+node .tmp/toolchain/npm/package/bin/npm-cli.js run start
 ```
 
 No backend, no API keys, no accounts — the app is 100% local. All data lives in a SQLite file on-device; there is no cloud sync.
@@ -127,9 +136,17 @@ So for consecutive fill-ups (oldest → newest), `mileage = (readingN − readin
 
 ## Building
 
+Use the EAS preview profile to build a standalone Android APK. The phone can install that APK directly. Expo Go and Android Studio are unnecessary for the cloud build and installation.
+
 ```bash
-eas build --platform android --profile preview     # installable APK, no store needed
-eas build --platform android --profile production   # Play Store AAB
+npx eas-cli@latest build --platform android --profile preview
 ```
 
-See `eas.json` for build profiles and `app.json` for app identifiers/permissions.
+With the portable PowerShell toolchain above, run the build through its bundled npx.
+
+```powershell
+$env:Path = "$($PWD.Path)\.tmp\toolchain\node\package\bin;$env:Path"
+node .tmp/toolchain/npm/package/bin/npx-cli.js eas-cli@latest build --platform android --profile preview
+```
+
+Sign into the Expo account that has access to this project when prompted. To update an installed copy in place, use the same Android signing key as that copy and an equal or higher version code. The preview profile produces an APK. The production profile is for Play Store builds.

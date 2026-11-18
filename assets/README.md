@@ -1,30 +1,7 @@
-# Rojnishi App Assets
+# Rojnishi app artwork
 
-## Required Assets
+- `logo.png` is the transparent notebook artwork used in the app, splash screen, and web favicon.
+- `logo_icon.png` is the square app icon configured at the Expo project level.
+- `logo_adaptive_foreground.png` is the Android launcher foreground. It uses the transparent notebook artwork centered on a 1024 × 1024 canvas, sized for a rounded-square launcher. Both layers are transparent around the artwork.
 
-Place the following image files in this directory:
-
-1. **logo.png** - Primary brand image used everywhere in the app
-   - Expo app icon
-   - Android adaptive icon foreground
-   - Splash screen image
-   - Web favicon
-
-2. Keep the file reasonably square so it works well as an app icon.
-
-## Quick Generation
-
-You can use online tools like:
-
-- https://www.appicon.co/
-- https://icon.kitchen/
-
-Or use Expo's asset generation:
-
-```bash
-npx expo-generate-icons
-```
-
-## Temporary Placeholder
-
-For now, you can use any 1024x1024 PNG image as a placeholder for all assets.
+If the artwork changes, use the new transparent logo as the foreground source, trim its transparent margins, and fit it inside a 624 × 624 box centered on the 1024 × 1024 canvas. Check a rounded-square mask before building. Launchers that use a circular mask may crop the corners.

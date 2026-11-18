@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo_icon.png",
+        "foregroundImage": "./assets/logo_adaptive_foreground.png",
         "backgroundColor": "#00000000"
       },
       "package": "com.rojnishi.app",
