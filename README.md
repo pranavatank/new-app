@@ -128,7 +128,7 @@ So for consecutive fill-ups (oldest → newest), `mileage = (readingN − readin
 ## Known intentional design choices (not bugs)
 
 - A category can have **both** a non-itemized "common" amount and itemized sub-amounts at once (via the "Common Item" toggle in the amount sheet) — both legitimately add up to the category's total.
-- The floating bottom tab bar is drawn as an absolutely-positioned overlay; every screen's scrollable content carries extra bottom padding (~100) so the last item/FAB isn't hidden behind it.
+- The floating bottom tab bar reserves space in the navigator and accounts for the device's bottom safe area.
 
 ## Localization
 
@@ -150,3 +150,5 @@ node .tmp/toolchain/npm/package/bin/npx-cli.js eas-cli@latest build --platform a
 ```
 
 Sign into the Expo account that has access to this project when prompted. To update an installed copy in place, use the same Android signing key as that copy and an equal or higher version code. The preview profile produces an APK. The production profile is for Play Store builds.
+
+The Android EAS build stages the upstream [SQLite 3.45.3 amalgamation](https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip) from `vendor/sqlite/` before Gradle runs. For a local Gradle build, run `npm run eas-build-post-install` after installing dependencies to stage the same archive.

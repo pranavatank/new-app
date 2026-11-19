@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "check:source": "node scripts/check-source.cjs",
     "test:ledger": "node scripts/ledger-check.cjs",
-    "test:entry-form": "node scripts/entry-form-check.cjs"
+    "test:entry-form": "node scripts/entry-form-check.cjs",
+    "eas-build-post-install": "node scripts/prepare-android-sqlite.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",

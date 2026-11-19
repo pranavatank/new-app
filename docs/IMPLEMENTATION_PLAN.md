@@ -72,3 +72,9 @@ See the [implementation notes](IMPLEMENTATION_NOTES.md#verification-and-handoff)
 The request expanded to a screen-by-screen audit and visual refresh. The four primary destinations use a rounded, safe-area tab bar with colored active icons and visible labels. Tools groups the secondary destinations into Everyday, Money and reports, and App. Today gets the shared gradient balance card and prominent quick actions. Month book and Purchases use the same surfaces and controls.
 
 Use the existing expense search and selected-date entry points to check routing. Expense results land on the matching date in Today. Month book follows a changed selected month, supports month-by-month browsing, and links back to day details. Task and fuel shortcuts open drafts for the selected date. The checks cover route registration across all 15 screens, both navigation languages, theme tokens, item entry, and selected-day data.
+
+### Android build and visual follow-up
+
+The preview build bundled JavaScript successfully and stopped at Gradle's `expo-sqlite:downloadSQLite` task because the build worker could not reach sqlite.org. The EAS post-install hook now stages the verified SQLite 3.45.3 archive before Gradle. The build archive and hook passed local checks. A new signed preview APK is still pending.
+
+The Home screen redesign is deferred to a later visual pass. The launcher artwork was checked against a rounded-square preview and the generated Android icon assets.

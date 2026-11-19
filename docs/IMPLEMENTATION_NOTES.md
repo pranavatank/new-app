@@ -67,3 +67,9 @@ All three checks passed after the theme and navigation updates. The source check
 The independent review confirmed shared theme usage, item labels, atomic writes and selected-day previews. The follow-up improved contrast on the shared gradient and Vehicle header and isolated the test harnesses from Expo's production Babel configuration. Task completion uses the date it was marked complete. Vehicle drafts opened from Tools use today's date, and the selected-day shortcut sets the preview date. Editing the fuel date updates the adjacent odometer readings used for validation.
 
 The browser access host was unavailable and the native browser launch timed out. Browser interaction and physical Android verification remain pending, including Gujarati wrapping, large system text, keyboard-open Save, photo selection and persistence, biometrics, and JSON restore on a disposable installation.
+
+## Android preview build
+
+The EAS worker reached the native release build and failed while fetching the SQLite source. The Android post-install hook now stages the upstream SQLite 3.45.3 archive included in the project. Local checks verified the upstream source digest and the archive staged at Gradle's download path. EAS archive inspection confirmed that the hook and archive are included and that Git history and review materials are excluded.
+
+The signed APK is pending. The Home screen redesign is deferred to a later visual pass. See the [build instructions](../README.md#building) for the preview profile and Windows PowerShell commands.
