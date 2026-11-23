@@ -1,6 +1,8 @@
 # Rojnishi — Family Cash & Expense Ledger
 
-A React Native (Expo) app for tracking daily cash/online expenses, deposits, tasks, visited places, notes, and bike fuel mileage — fully offline, backed by a local SQLite database.
+A React Native (Expo) cash book with separate wallet and home-locker balances, online payment notes, tasks, places, and bike mileage. Data is stored offline in a local SQLite database.
+
+**લોકરમાં રોકડ મૂકો** records outside cash in the home locker. **અંદરથી રોકડ લો** transfers it to the wallet. Pay cash expenses from the wallet or directly from the locker, and use **યાદ નથી** to record a wallet cash shortfall. Online payments are kept as notes. See the [cash-book workflow](docs/IMPLEMENTATION_NOTES.md#wallet-and-home-locker).
 
 ## Tech stack
 
@@ -151,4 +153,6 @@ node .tmp/toolchain/npm/package/bin/npx-cli.js eas-cli@latest build --platform a
 
 Sign into the Expo account that has access to this project when prompted. To update an installed copy in place, use the same Android signing key as that copy and an equal or higher version code. The preview profile produces an APK. The production profile is for Play Store builds.
 
-The Android EAS build stages the upstream [SQLite 3.45.3 amalgamation](https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip) from `vendor/sqlite/` before Gradle runs. For a local Gradle build, run `npm run eas-build-post-install` after installing dependencies to stage the same archive.
+The Android launcher keeps the notebook artwork at its existing size on a white adaptive-icon background.
+
+The Android EAS post-install hook checks the SHA-256 of the bundled [SQLite 3.45.3 amalgamation](https://www.sqlite.org/2024/sqlite-amalgamation-3450300.zip) and points the Gradle extraction task directly to it. The SQLite source is available locally during the build. For a local Gradle build, run `npm run eas-build-post-install` after installing dependencies.

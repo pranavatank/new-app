@@ -80,6 +80,8 @@ Edge with touch emulation at 360×740 and 320×568 verified the Gujarati entry f
 
 ## Android preview build
 
-The EAS worker reached the native release build and failed while fetching the SQLite source. The Android post-install hook now stages the upstream SQLite 3.45.3 archive included in the project. Local checks verified the upstream source digest and the archive staged at Gradle's download path. EAS archive inspection confirmed that the hook and archive are included and that Git history and review materials are excluded.
+The [24 November 2026 EAS preview build](https://expo.dev/accounts/pranav.tank/projects/hisab/builds/a4a47348-d9b1-4e4d-8093-3eba275da3e6#run-gradlew) reached `:app:assembleRelease`. Gradle failed at `:expo-sqlite:downloadSQLite` with `java.net.SocketException: Network is unreachable`. The earlier hook copied the archive to a Gradle downloads directory. The current Android post-install hook verifies the archive and configures the SQLite extraction task to read it directly from `vendor/sqlite`.
+
+The Android adaptive icon uses a solid white background with the existing transparent notebook artwork at the same scale.
 
 The signed APK is pending. The Home screen redesign is deferred to a later visual pass. See the [build instructions](../README.md#building) for the preview profile and Windows PowerShell commands.

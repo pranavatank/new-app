@@ -79,6 +79,8 @@ The preview build bundled JavaScript successfully and stopped at Gradle's `expo-
 
 The Home screen redesign is deferred to a later visual pass. The launcher artwork was checked against a rounded-square preview and the generated Android icon assets.
 
+On 24 November 2026 the next preview build still reached the SQLite download task and failed on the build worker's network. The post-install hook now points Gradle directly to the verified repository archive. The Android adaptive icon uses white behind the existing notebook artwork.
+
 ### Gujarati cash book follow-up · 23 November 2026
 
 The family confirmed that outside cash goes to the home locker, locker withdrawals supply the wallet, and online payments are notes. Keep the wallet prominent in the daily, monthly and money views and show the locker balance alongside it. Use dedicated locker actions and a wallet-only **યાદ નથી** expense. Recurring cash bills can deduct directly from the locker.
