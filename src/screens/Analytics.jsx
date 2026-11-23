@@ -81,13 +81,15 @@ const ms = StyleSheet.create({
 // ── Summary Cards Row ─────────────────────────────────────────────────────────
 
 const SummaryCards = ({ totals, C, T, S, R, Shadow, t }) => {
-  const savings = totals.deposited - totals.cash_spent - totals.online_spent;
+  const savings = totals.deposited - totals.cash_spent;
   const savingsPct = totals.deposited > 0 ? Math.round((savings / totals.deposited) * 100) : 0;
 
   const cards = [
+    { label: t('ledger.wallet_balance'), value: fmt(totals.wallet_balance), color: C.income, bg: C.incomeBg, icon: 'wallet-outline' },
+    { label: t('ledger.locker_balance'), value: totals.locker_balance == null ? t('ledger.unknown') : fmt(totals.locker_balance), color: C.primary, bg: C.bgElevated, icon: 'lock-closed-outline' },
     { label: t('analytics.deposited'),    value: fmt(totals.deposited),   color: C.income,  bg: C.incomeBg,   icon: 'cash-outline' },
     { label: t('analytics.cashSpent'),   value: fmt(totals.cash_spent),  color: C.expense, bg: C.expenseBg,  icon: 'trending-down' },
-    { label: t('analytics.onlineSpent'), value: fmt(totals.online_spent),color: C.online,  bg: C.onlineBg,   icon: 'globe-outline' },
+    { label: t('ledger.online_notes'), value: fmt(totals.online_spent),color: C.online,  bg: C.onlineBg,   icon: 'globe-outline' },
     { label: t('analytics.saved'),        value: fmt(savings), color: savings >= 0 ? C.income : C.expense,
       bg: savings >= 0 ? C.incomeBg : C.expenseBg, icon: savings >= 0 ? 'cash-outline' : 'warning-outline',
       sub: savings >= 0 ? `${savingsPct}${t('analytics.pctSaved')}` : t('analytics.overBudget') },
@@ -146,8 +148,6 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
       day: dayNum,
       date: dateStr,
       total: d?.total || 0,
-      cash:  d?.cash_total || 0,
-      online:d?.online_total || 0,
       isToday: dateStr === todayDate,
       isFuture: dateStr > todayDate,
     };
@@ -170,24 +170,13 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
         <View style={[dt.chartArea, { height: BAR_H + 36 }]}>
           {bars.map((bar) => {
             const barH = bar.total > 0 ? Math.max(4, Math.round((bar.total / maxVal) * BAR_H)) : 0;
-            const cashH = bar.cash > 0 ? Math.round((bar.cash / bar.total) * barH) : 0;
-            const onlineH = barH - cashH;
 
             return (
               <View key={bar.day} style={dt.barCol}>
                 {/* Bar itself */}
                 <View style={[dt.barSlot, { height: BAR_H }]}>
                   {bar.total > 0 ? (
-                    <View style={[dt.barFill, { height: barH }]}>
-                      {/* Cash portion */}
-                      {cashH > 0 && (
-                        <View style={[dt.barSegment, { height: cashH, backgroundColor: C.expense }]} />
-                      )}
-                      {/* Online portion */}
-                      {onlineH > 0 && (
-                        <View style={[dt.barSegment, { height: onlineH, backgroundColor: C.online }]} />
-                      )}
-                    </View>
+                    <View style={[dt.barFill, { height: barH, backgroundColor: C.expense }]} />
                   ) : (
                     <View style={[dt.barEmpty, { backgroundColor: bar.isFuture ? C.transparent : C.bgElevated }]} />
                   )}
@@ -213,14 +202,10 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
           <View style={[dt.legendDot, { backgroundColor: C.expense }]} />
           <Text style={[dt.legendTxt, { color: C.textSecondary }]}>{t('expense.cash')}</Text>
         </View>
-        <View style={dt.legendItem}>
-          <View style={[dt.legendDot, { backgroundColor: C.online }]} />
-          <Text style={[dt.legendTxt, { color: C.textSecondary }]}>{t('expense.onlineLabel')}</Text>
-        </View>
         {avgSpend > 0 && (
           <View style={dt.legendItem}>
             <View style={[dt.legendDot, { backgroundColor: C.primary }]} />
-            <Text style={[dt.legendTxt, { color: C.textSecondary }]}>Today</Text>
+            <Text style={[dt.legendTxt, { color: C.textSecondary }]}>{t('ledger.nav_today')}</Text>
           </View>
         )}
       </View>
@@ -232,7 +217,6 @@ const dt = StyleSheet.create({
   barCol:    { width: 18, alignItems: 'center', marginHorizontal: 2 },
   barSlot:   { width: 10, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' },
   barFill:   { width: 10, borderRadius: 3, overflow: 'hidden', justifyContent: 'flex-end' },
-  barSegment:{ width: 10 },
   barEmpty:  { width: 6, height: 3, borderRadius: 2 },
   todayLine: { position: 'absolute', bottom: -4, width: 10, height: 2, borderRadius: 1 },
   dayLabel:  { fontSize: BaseTypography.sizes.micro, marginTop: 4 },
@@ -307,23 +291,19 @@ const cb = StyleSheet.create({
 // ── Donut-style Pie Chart (pure RN) ──────────────────────────────────────────
 // Uses nested Views with border-radius to fake pie slices — works for 2-3 segments
 
-const SpendingDonut = ({ cashSpent, onlineSpent, deposited, C, T, S, R, Shadow, t }) => {
-  const total = cashSpent + onlineSpent;
+const SpendingDonut = ({ cashSpent, deposited, C, T, S, R, Shadow, t }) => {
+  const total = cashSpent;
   if (total === 0) return null;
 
-  // All three segments share one pool (cash spent + online spent + what's
-  // left of the deposit) so their percentages always sum to exactly 100 —
-  // computing cashPct/onlinePct against `deposited` independently let the
-  // bar overflow past 100% whenever there was online spending or overspend.
-  const saved = Math.max(0, deposited - cashSpent - onlineSpent);
-  const pool = cashSpent + onlineSpent + saved || 1;
+  const saved = Math.max(0, deposited - cashSpent);
+  const pool = cashSpent + saved || 1;
   const cashPct   = (cashSpent / pool) * 100;
-  const onlinePct = (onlineSpent / pool) * 100;
+
   const savedPct  = (saved / pool) * 100;
 
   const segments = [
     { label: t('analytics.cashSpent'),  value: cashSpent,   pct: cashPct,   color: C.expense },
-    { label: t('expense.onlineLabel'),      value: onlineSpent, pct: onlinePct, color: C.online },
+
     { label: t('analytics.saved'),       value: saved,        pct: savedPct,  color: C.income },
   ].filter(s => s.value > 0);
 
@@ -452,7 +432,7 @@ export default function AnalyticsScreen() {
     setTimeout(() => setRefreshing(false), 700);
   };
 
-  const totalSpent = totals.cash_spent + totals.online_spent;
+  const totalSpent = totals.cash_spent;
 
   const handleMonthChange = (y, m) => {
     setYear(y);
@@ -477,6 +457,7 @@ export default function AnalyticsScreen() {
       >
         {/* Month Selector */}
         <MonthSelector year={year} month={month} onChange={handleMonthChange} C={C} T={T} S={S} R={R} Shadow={Shadow} />
+        <SummaryCards totals={totals} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
 
         {!hasData ? (
           <EmptyState
@@ -487,13 +468,9 @@ export default function AnalyticsScreen() {
           />
         ) : (
           <>
-            {/* Summary Cards */}
-            <SummaryCards totals={totals} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
-
             {/* Spending Breakdown donut */}
             <SpendingDonut
               cashSpent={totals.cash_spent}
-              onlineSpent={totals.online_spent}
               deposited={totals.deposited}
               C={C} T={T} S={S} R={R} Shadow={Shadow} t={t}
             />

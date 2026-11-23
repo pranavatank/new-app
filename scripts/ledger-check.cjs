@@ -180,7 +180,8 @@ const initSqlJs = require('sql.js');
   ledger.saveExpense({date:'2026-10-31',categoryId:category,amount:400,paymentType:'cash'});
   await pdf.exportToPDF(2026,11);
   assert.match(printedHtml,/Receipts less spending/);
-  assert.match(printedHtml,/63/,'PDF monthly metric excludes other-month rows and internal transfers');
+  assert.equal(printedHtml.match(/Receipts less spending<\/div>\s*<div class="card-value">([^<]+)/)?.[1], '₹93 (66.4%)',
+    'PDF net cash excludes other months, online notes and internal transfers');
 
   const snapshot={version:2,data:Object.fromEntries(['categories','places','days','category_items','day_places','expenses','notes','tasks','vehicle_records','recurring_expenses','ledger_movements','purchases','ledger_settings'].map(t=>[t,db.getAllSync(`SELECT * FROM "${t}"`)])),assets:{}};
   const before=db.getFirstSync('SELECT COUNT(*) n FROM expenses').n;
@@ -234,6 +235,59 @@ const initSqlJs = require('sql.js');
   assert.equal(editing.previous.reading, 100, 'editing excludes the record itself');
   assert.deepEqual(getDayOverview(nextDate).places, []);
   assert.equal(db.getFirstSync('SELECT id FROM days WHERE date=?;', [nextDate]), null, 'previewing a day does not create it');
+
+  const emptyCashBook = { version: '1.0.0', data: {
+    categories: [{ id: category, name: 'Food', icon: '🍲', sort_order: 1, is_active: 1 }],
+    days: [],
+  } };
+  await backup.restoreFromJSONData(emptyCashBook);
+  const cashDate = '2026-01-31';
+  const balances = date => {
+    const { day, locker_balance } = ledger.getDayLedger(date);
+    return [day.closing_balance, locker_balance];
+  };
+  const received = ledger.saveMovement({ date: cashDate, kind: 'receipt', account: 'locker', amount: 8000, direction: 'in' });
+  assert.deepEqual(balances(cashDate), [0, 8000]);
+  const withdrawn = ledger.saveMovement({ date: cashDate, kind: 'transfer', amount: 2000, direction: 'in' });
+  assert.deepEqual(balances(cashDate), [2000, 6000]);
+
+  ledger.saveExpense({ date: cashDate, categoryId: category, amount: 200, paymentType: 'cash' });
+  ledger.saveExpense({ date: cashDate, categoryId: category, amount: 1200, paymentType: 'locker', note: 'Milk' });
+  assert.deepEqual(balances(cashDate), [1800, 4800]);
+  ledger.saveExpense({ date: cashDate, categoryId: category, amount: 550, paymentType: 'online' });
+  assert.deepEqual(balances(cashDate), [1800, 4800]);
+  const forgotten = ledger.saveExpense({ date: cashDate, amount: 50, paymentType: 'locker', forgotten: true });
+  assert.deepEqual(balances('2026-02-01'), [1750, 4800]);
+  assert.equal(ledger.getDayLedger(cashDate).entries.find(entry => entry.kind === 'expense' && entry.id === forgotten).origin, 'forgotten');
+  const cashMonth = ledger.getMonthLedger(2026, 1);
+  assert.equal(cashMonth.totals.wallet_spent, 250);
+  assert.equal(cashMonth.totals.locker_spent, 1200);
+  assert.equal(cashMonth.totals.online_spent, 550);
+  const cashTotals = queries.getMonthTotals(2026, 1);
+  assert.deepEqual([cashTotals.deposited, cashTotals.cash_spent, cashTotals.online_spent], [8000, 1450, 550]);
+
+  ledger.saveMovement({ id: withdrawn, date: cashDate, kind: 'transfer', amount: 2100, direction: 'in' });
+  assert.deepEqual(balances('2026-02-01'), [1850, 4700]);
+  ledger.saveMovement({ id: withdrawn, date: cashDate, kind: 'transfer', amount: 2000, direction: 'in' });
+  const removedReceipt = ledger.removeLedgerEntry({ kind: 'receipt', id: received, date: cashDate });
+  ledger.restoreLedgerEntry(removedReceipt);
+  assert.deepEqual(balances('2026-02-01'), [1750, 4800]);
+
+  const recent = new Date();
+  const monthStart = new Date(recent.getFullYear(), recent.getMonth(), 1);
+  const due = [monthStart.getFullYear(), String(monthStart.getMonth() + 1).padStart(2, '0'), '01'].join('-');
+  db.runSync("INSERT INTO recurring_expenses(category_id,amount,payment_type,frequency,day_of_month,next_due_date,note) VALUES (?,300,'locker','monthly',1,?,'Milk');", [category, due]);
+  assert.equal(queries.processRecurringExpenses().posted, 1);
+  assert.equal(queries.processRecurringExpenses().posted, 0, 'a second launch does not repeat a monthly charge');
+  assert.deepEqual(balances(due), [1750, 4500]);
+
+  await excel.exportToExcel();
+  await backup.restoreFromJSONData(emptyCashBook);
+  await excel.importFromExcel();
+  assert.deepEqual(balances(due), [1750, 4500], 'Excel round trip preserves account, recurring spending and opening balance');
+  const cashSnapshot = { ...snapshot, data: Object.fromEntries(Object.keys(snapshot.data).map(table => [table, db.getAllSync(`SELECT * FROM "${table}"`)])) };
+  await backup.restoreFromJSONData(cashSnapshot);
+  assert.deepEqual(balances(due), [1750, 4500], 'JSON restores both balances');
   console.log('ledger-check: actual schema/query/ledger/restore APIs passed synthetic SQL.js assertions');
   raw.close();
 })().catch(e=>{console.error(e);process.exitCode=1});

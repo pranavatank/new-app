@@ -38,109 +38,85 @@ export const getOrCreateDay = (date) => {
   return day;
 };
 
-/**
- * Get full day data including computed opening balance and totals.
- */
+const getCashActivity = (db, dayId) => {
+  const expenses = db.getFirstSync(
+    "SELECT COALESCE(SUM(CASE WHEN payment_type='cash' THEN amount END),0) wallet_spent, " +
+    "COALESCE(SUM(CASE WHEN payment_type='locker' THEN amount END),0) locker_spent, " +
+    "COALESCE(SUM(CASE WHEN payment_type='online' THEN amount END),0) online_spent FROM expenses WHERE day_id=?;",
+    [dayId]
+  );
+  const movements = db.getFirstSync(
+    "SELECT COALESCE(SUM(CASE WHEN kind='receipt' AND account='wallet' THEN signed_amount END),0) wallet_receipts, " +
+    "COALESCE(SUM(CASE WHEN kind='receipt' AND account='locker' THEN signed_amount END),0) locker_receipts, " +
+    "COALESCE(SUM(CASE WHEN kind='transfer' THEN signed_amount END),0) transfer_net " +
+    "FROM (SELECT kind,account,amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END signed_amount FROM ledger_movements WHERE day_id=?);",
+    [dayId]
+  );
+  return { ...expenses, ...movements };
+};
+
+const walletClosing = (opening, day, activity) => Math.round(100 * (
+  opening + day.deposit_today + activity.wallet_receipts + activity.transfer_net - activity.wallet_spent
+)) / 100;
+
+export const getLockerBalance = (date, includeDay = true) => {
+  const db = getDB();
+  const comparison = includeDay ? '<=' : '<';
+  const opening = db.getFirstSync("SELECT value FROM ledger_settings WHERE key='locker_opening';");
+  const movements = db.getFirstSync(
+    "SELECT COALESCE(SUM(CASE WHEN m.kind='transfer' THEN -signed_amount ELSE signed_amount END),0) net, " +
+    "COUNT(CASE WHEN m.kind='transfer' THEN 1 END) transfers FROM " +
+    "(SELECT day_id,kind,account,amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END signed_amount FROM ledger_movements) m " +
+    "JOIN days d ON d.id=m.day_id WHERE d.date " + comparison + " ? AND (m.kind='transfer' OR (m.kind='receipt' AND m.account='locker'));",
+    [date]
+  );
+  if (!opening && movements.transfers) return null;
+  const spending = db.getFirstSync(
+    "SELECT COALESCE(SUM(e.amount),0) total FROM expenses e JOIN days d ON d.id=e.day_id WHERE e.payment_type='locker' AND d.date " + comparison + " ?;",
+    [date]
+  ).total;
+  return Math.round(100 * (Number(opening?.value || 0) + movements.net - spending)) / 100;
+};
+
 export const getDayData = (date) => {
   const db = getDB();
   const day = getOrCreateDay(date);
-
-  const cashSpent = db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';`, [day.id]).total;
-
-  const onlineSpent = db.getFirstSync(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM expenses
-     WHERE day_id = ? AND payment_type = 'online';`,
-    [day.id]
-  ).total;
-  const receiptTotal = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';", [day.id]).total;
-  const transferNet = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';", [day.id]).total;
-
-  const openingBalance = getPreviousClosingBalance(date);
-
+  const activity = getCashActivity(db, day.id);
+  const opening = getPreviousClosingBalance(date);
+  const cashSpent = activity.wallet_spent + activity.locker_spent;
   return {
     ...day,
-    opening_balance: openingBalance,
-    cash_spent:      cashSpent,
-    editable_cash_total: db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash' AND origin='legacy' AND item_id IS NULL;`, [day.id]).total,
-    editable_online_total: db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='online' AND origin='legacy' AND item_id IS NULL;`, [day.id]).total,
-    total_cash_spent: db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';`, [day.id]).total,
-    total_online_spent: onlineSpent,
-    receipt_total: receiptTotal,
-    transfer_net: transferNet,
-    online_spent:    onlineSpent,
-    // closing = opening + deposit - cash spent (online doesn't affect cash)
-    closing_balance: openingBalance + day.deposit_today + receiptTotal + transferNet - cashSpent,
+    ...activity,
+    opening_balance: opening,
+    cash_spent: cashSpent,
+    editable_cash_total: db.getFirstSync("SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash' AND origin='legacy' AND item_id IS NULL;", [day.id]).total,
+    editable_online_total: db.getFirstSync("SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='online' AND origin='legacy' AND item_id IS NULL;", [day.id]).total,
+    total_cash_spent: cashSpent,
+    total_online_spent: activity.online_spent,
+    receipt_total: activity.wallet_receipts + activity.locker_receipts,
+    closing_balance: walletClosing(opening, day, activity),
+    locker_balance: getLockerBalance(date),
   };
 };
 
-/**
- * Recompute and persist closing_balance for every day strictly after `date`,
- * in chronological order, chaining each day's opening balance off the
- * previous day's freshly-recomputed closing balance.
- *
- * Without this, editing a past day's deposit/expenses only updates that
- * day's own stored closing_balance — any later day that was already
- * created in the `days` table keeps its stale balance until it happens to
- * be recalculated on its own.
- */
-const cascadeBalanceForward = (db, date) => {
-  const laterDays = db.getAllSync(
-    'SELECT id, date, deposit_today FROM days WHERE date > ? ORDER BY date ASC;',
-    [date]
-  );
-  if (laterDays.length === 0) return;
-
-  let prevClosing = getPreviousClosingBalance(laterDays[0].date);
-
-  for (const d of laterDays) {
-    const cashSpent = db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';`, [d.id]).total;
-    const receipts = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[d.id]).total;
-    const transferNet = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[d.id]).total;
-
-    const newClosing = prevClosing + d.deposit_today + receipts + transferNet - cashSpent;
-    db.runSync('UPDATE days SET closing_balance = ? WHERE id = ?;', [newClosing, d.id]);
-    prevClosing = newClosing;
+// Rebuild the cached wallet balance forward after a past edit or a restore.
+export const rebuildWalletBalances = (fromDate = '0000-00-00') => {
+  const db = getDB();
+  let closing = getPreviousClosingBalance(fromDate);
+  for (const day of db.getAllSync('SELECT id, deposit_today FROM days WHERE date >= ? ORDER BY date;', [fromDate])) {
+    closing = walletClosing(closing, day, getCashActivity(db, day.id));
+    db.runSync('UPDATE days SET closing_balance = ? WHERE id = ?;', [closing, day.id]);
   }
 };
 
-/**
- * Update deposit for a day and recalculate closing balance.
- */
 export const updateDeposit = (date, amount) => {
-  const db = getDB();
   const day = getOrCreateDay(date);
-  const openingBalance = getPreviousClosingBalance(date);
-
-  const cashSpent = db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';`, [day.id]).total;
-  const receipts = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[day.id]).total;
-  const transferNet = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[day.id]).total;
-
-  const newClosing = openingBalance + amount + receipts + transferNet - cashSpent;
-
-  db.runSync(
-    'UPDATE days SET deposit_today = ?, closing_balance = ? WHERE id = ?;',
-    [amount, newClosing, day.id]
-  );
-  cascadeBalanceForward(db, date);
+  getDB().runSync('UPDATE days SET deposit_today = ? WHERE id = ?;', [amount, day.id]);
+  rebuildWalletBalances(date);
 };
 
-/**
- * Recalculate and save closing balance (call after any expense change).
- */
 export const recalculateBalance = (dayId, date) => {
-  const db = getDB();
-  const day = db.getFirstSync('SELECT * FROM days WHERE id = ?;', [dayId]);
-  if (!day) return;
-
-  const openingBalance = getPreviousClosingBalance(date);
-
-  const cashSpent = db.getFirstSync(`SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';`, [dayId]).total;
-  const receipts = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[dayId]).total;
-  const transferNet = db.getFirstSync("SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[dayId]).total;
-
-  const newClosing = openingBalance + day.deposit_today + receipts + transferNet - cashSpent;
-  db.runSync('UPDATE days SET closing_balance = ? WHERE id = ?;', [newClosing, dayId]);
-  cascadeBalanceForward(db, date);
+  if (getDB().getFirstSync('SELECT id FROM days WHERE id = ?;', [dayId])) rebuildWalletBalances(date);
 };
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
@@ -168,11 +144,11 @@ export const getExpenseSummaryForDay = (dayId) => {
   return db.getAllSync(
     `SELECT 
        c.id as category_id, c.name, c.icon, c.sort_order,
-       COALESCE(SUM(CASE WHEN e.payment_type='cash'   THEN e.amount ELSE 0 END), 0) as cash_total,
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
        COALESCE(SUM(CASE WHEN e.payment_type='cash' AND e.origin='legacy' AND e.item_id IS NULL THEN e.amount ELSE 0 END), 0) as editable_cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' AND e.origin='legacy' AND e.item_id IS NULL THEN e.amount ELSE 0 END), 0) as editable_online_total,
-       COALESCE(SUM(e.amount), 0) as total
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total
      FROM categories c
      LEFT JOIN expenses e ON e.category_id = c.id AND e.day_id = ?
      WHERE c.is_active = 1
@@ -453,12 +429,12 @@ export const getMonthlySummary = (year, month) => {
 
   return db.getAllSync(
     `SELECT c.name,c.icon,
-       COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END),0) cash_total,
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END),0) cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END),0) online_total,
-       COALESCE(SUM(e.amount),0) total
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END),0) total
      FROM categories c LEFT JOIN expenses e ON e.category_id=c.id
        AND e.day_id IN (SELECT id FROM days WHERE date LIKE ?)
-     WHERE c.is_active=1 GROUP BY c.id HAVING total>0 ORDER BY total DESC;`,
+     GROUP BY c.id HAVING total>0 ORDER BY total DESC;`,
     [`${prefix}%`]
   );
 };
@@ -483,9 +459,9 @@ export const getDailyTotals = (year, month) => {
   return db.getAllSync(
     `SELECT
        d.date,
-       COALESCE(SUM(CASE WHEN e.payment_type='cash'   THEN e.amount ELSE 0 END), 0) as cash_total,
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
-       COALESCE(SUM(e.amount), 0) as total,
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total,
        d.deposit_today
      FROM days d
      LEFT JOIN expenses e ON e.day_id = d.id
@@ -505,14 +481,21 @@ export const getMonthTotals = (year, month) => {
   const row = db.getFirstSync(
     `SELECT
        COALESCE(SUM(d.deposit_today), 0) + COALESCE((SELECT SUM(m.amount * CASE m.direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements m JOIN days md ON md.id=m.day_id WHERE md.date LIKE ? AND m.kind='receipt'),0) as deposited,
-       COALESCE(SUM((SELECT SUM(e.amount) FROM expenses e WHERE e.day_id=d.id AND e.payment_type='cash')),0) as cash_spent,
+       COALESCE(SUM((SELECT SUM(e.amount) FROM expenses e WHERE e.day_id=d.id AND e.payment_type IN ('cash','locker'))),0) as cash_spent,
        COALESCE(SUM((SELECT SUM(e.amount) FROM expenses e WHERE e.day_id=d.id AND e.payment_type='online')),0) as online_spent,
        COALESCE((SELECT SUM(m.amount * CASE m.direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements m JOIN days md ON md.id=m.day_id WHERE md.date LIKE ? AND m.kind='transfer'),0) as transfer_net
      FROM days d
      WHERE d.date LIKE ?;`,
     [`${prefix}%`, `${prefix}%`, `${prefix}%`]
   );
-  return row || { deposited: 0, cash_spent: 0, online_spent: 0 };
+  const nextMonth = Number(month) === 12
+    ? `${Number(year) + 1}-01-01`
+    : `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`;
+  return {
+    ...row,
+    wallet_balance: getPreviousClosingBalance(nextMonth),
+    locker_balance: getLockerBalance(nextMonth, false),
+  };
 };
 
 /**
@@ -522,7 +505,7 @@ export const getTopSpendingDays = (year, month, limit = 5) => {
   const db = getDB();
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
   return db.getAllSync(
-    `SELECT d.date, COALESCE(SUM(e.amount), 0) as total
+    `SELECT d.date, COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total
      FROM days d
      LEFT JOIN expenses e ON e.day_id = d.id
      WHERE d.date LIKE ?
@@ -810,8 +793,8 @@ const parseLocalISO = (s) => {
   return new Date(y, m - 1, d);
 };
 
-/** Clamp a day-of-month into the safe 1..28 range. */
-const clampDom = (n) => Math.min(28, Math.max(1, parseInt(n, 10) || 1));
+const clampDom = (n) => Math.min(31, Math.max(1, parseInt(n, 10) || 1));
+const monthlyDate = (year, month, day) => new Date(year, month, Math.min(clampDom(day), new Date(year, month + 1, 0).getDate()));
 
 /** Clamp a weekday into 0..6 (0 = Sunday, matching Date.getDay()). */
 const clampDow = (n) => {
@@ -821,18 +804,16 @@ const clampDow = (n) => {
 
 /**
  * Given a due date string, return the NEXT occurrence strictly after it.
- * Monthly: same day-of-month next calendar month. day_of_month is capped at
- *   1..28 so new Date(y, m + 1, dom) can never roll over into the wrong month.
+ * Monthly: use the last day when the month does not contain the selected day.
  * Weekly: exactly +7 days.
  */
-const advanceDueDate = (dueDateStr, frequency, dayOfMonth, dayOfWeek) => {
+const advanceDueDate = (dueDateStr, frequency, dayOfMonth) => {
   const d = parseLocalISO(dueDateStr);
   if (frequency === 'weekly') {
     d.setDate(d.getDate() + 7);
     return toLocalISO(d);
   }
-  const dom = clampDom(dayOfMonth);
-  return toLocalISO(new Date(d.getFullYear(), d.getMonth() + 1, dom));
+  return toLocalISO(monthlyDate(d.getFullYear(), d.getMonth() + 1, dayOfMonth));
 };
 
 /**
@@ -850,11 +831,11 @@ export const computeFirstDueDate = (frequency, dayOfMonth, dayOfWeek, fromDateSt
     return toLocalISO(d);
   }
 
-  const dom = clampDom(dayOfMonth);
-  if (from.getDate() <= dom) {
-    return toLocalISO(new Date(from.getFullYear(), from.getMonth(), dom));
+  const due = monthlyDate(from.getFullYear(), from.getMonth(), dayOfMonth);
+  if (from <= due) {
+    return toLocalISO(due);
   }
-  return toLocalISO(new Date(from.getFullYear(), from.getMonth() + 1, dom));
+  return toLocalISO(monthlyDate(from.getFullYear(), from.getMonth() + 1, dayOfMonth));
 };
 
 /**
@@ -939,7 +920,9 @@ export const updateRecurringExpense = (id, {
   const freq = frequency === 'weekly' ? 'weekly' : 'monthly';
   const dom  = clampDom(dayOfMonth);
   const dow  = clampDow(dayOfWeek);
-  const next = computeFirstDueDate(freq, dom, dow);
+  const old = db.getFirstSync('SELECT frequency,day_of_month,day_of_week,next_due_date FROM recurring_expenses WHERE id=?;', [id]);
+  const sameSchedule = old?.frequency === freq && (freq === 'weekly' ? old.day_of_week === dow : old.day_of_month === dom);
+  const next = sameSchedule ? old.next_due_date : computeFirstDueDate(freq, dom, dow);
 
   db.runSync(
     `UPDATE recurring_expenses SET
@@ -1022,6 +1005,8 @@ export const processRecurringExpenses = () => {
     let any   = false;
 
     while (due <= todayStr && guard < MAX_CATCHUP_PER_RULE) {
+      const next = advanceDueDate(due, rule.frequency, rule.day_of_month);
+      db.execSync('BEGIN TRANSACTION;');
       try {
         const day = getOrCreateDay(due);
         db.runSync(
@@ -1038,21 +1023,20 @@ export const processRecurringExpenses = () => {
           ]
         );
         recalculateBalance(day.id, due);
+        db.runSync('UPDATE recurring_expenses SET next_due_date = ? WHERE id = ?;', [next, rule.id]);
+        db.execSync('COMMIT;');
         posted += 1;
         any = true;
       } catch (e) {
+        try { db.execSync('ROLLBACK;'); } catch (_) {}
         console.warn('Recurring post failed for rule', rule.id, due, e?.message || e);
+        break;
       }
 
-      due = advanceDueDate(due, rule.frequency, rule.day_of_month, rule.day_of_week);
+      due = next;
       guard += 1;
     }
 
-    if (guard >= MAX_CATCHUP_PER_RULE && due <= todayStr) {
-      due = computeFirstDueDate(rule.frequency, rule.day_of_month, rule.day_of_week);
-    }
-
-    db.runSync('UPDATE recurring_expenses SET next_due_date = ? WHERE id = ?;', [due, rule.id]);
     if (any) rulesHit += 1;
   });
 

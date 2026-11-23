@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
+import { parseCashAmount } from '../utils/cash';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
@@ -32,16 +33,16 @@ import {
 // Module-level Dimensions.get('window') can return 0 in production APK on
 // first bundle evaluation before the native layout is measured.
 
-const fmt  = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-const fmtN = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const fmt  = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const fmtN = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
 // ── Balance Header ────────────────────────────────────────────────────────────
 
 const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
   const bal  = dayData?.closing_balance ?? 0;
-  const dep  = (dayData?.deposit_today ?? 0) + (dayData?.receipt_total ?? 0);
   const transfer = dayData?.transfer_net ?? 0;
-  const cash = dayData?.cash_spent      ?? 0;
+  const cash = dayData?.wallet_spent ?? 0;
+  const locker = dayData?.locker_balance;
   const onl  = dayData?.online_spent    ?? 0;
   const pos  = bal >= 0;
   const bh = balanceStyles(C);
@@ -50,7 +51,7 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
     <Card gradient={C.gradients.primary} elevation="primary" style={{ borderRadius: R.xl, padding: S.xl, marginBottom: S.md, borderWidth: 0 }}>
       <View style={bh.topRow}>
         <View>
-          <Text style={[bh.lbl]}>{t('expense.cashBalance').toUpperCase()}</Text>
+          <Text style={[bh.lbl]}>{t('ledger.wallet_balance')}</Text>
           <Text style={[bh.bal, { fontSize: T.sizes.hero, fontWeight: T.weights.black }, { color: pos ? C.incomeOnGradient : C.expenseOnGradient }]}>{fmt(bal)}</Text>
         </View>
         <View style={bh.circle}>
@@ -62,9 +63,9 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
 
       <View style={bh.statsRow}>
         {[
-          { l: t('ledger.receipts'),  v: '+' + fmt(dep),  c: C.incomeOnGradient },
-          { l: t('analytics.cashSpent'), v: '−' + fmt(cash), c: C.expenseOnGradient },
-          { l: t('analytics.onlineSpent'),     v: fmt(onl),         c: C.onlineOnGradient },
+          { l: t('ledger.locker_balance'), v: locker == null ? t('ledger.unknown') : fmt(locker), c: C.textOnGradient },
+          { l: t('ledger.wallet_spent'), v: '−' + fmt(cash), c: C.expenseOnGradient },
+          { l: t('ledger.online_spent'), v: fmt(onl), c: C.onlineOnGradient },
         ].map((x, i) => (
           <React.Fragment key={x.l}>
             {i > 0 && <View style={bh.pipe} />}
@@ -130,8 +131,8 @@ const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, T, S, R,
   }, [visible]);
 
   const save = () => {
-    const n = Number(val);
-    if (!/^\d+(\.\d{1,2})?$/.test(val.trim()) || !Number.isFinite(n) || n < 0) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
+    const n = parseCashAmount(val);
+    if (!Number.isFinite(n) || n < 0 || Math.abs(Math.round(n * 100) - n * 100) > 0.00001) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
     if (onSave(n) !== false) onClose();
   };
 
@@ -247,8 +248,8 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
   if (!cat) return null;
 
   const save = () => {
-    const n = Number(val);
-    if (!/^\d+(\.\d{1,2})?$/.test(val.trim()) || !Number.isFinite(n) || n < 0) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
+    const n = parseCashAmount(val);
+    if (!Number.isFinite(n) || n < 0 || Math.abs(Math.round(n * 100) - n * 100) > 0.00001) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
     if (editingItemId) {
       setItemAmounts(prev => ({ ...prev, [editingItemId]: isNaN(n) ? 0 : Math.max(0, n) }));
       setEditingItemId(null);
@@ -284,13 +285,13 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
       <View style={{ alignItems: 'center', marginBottom: S.xs }}>
         <IconBadge emoji={cat.icon} color={C.primary} size={56} />
       </View>
-      <Text style={[s2b.title, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold, textAlign: 'center', marginTop: S.sm }]}>{cat.name}</Text>
+      <Text style={[s2b.title, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold, textAlign: 'center', marginTop: S.sm }]}>{translateCategoryName(cat.name, t)}</Text>
       <Text style={[s2b.sub, { color: C.textSecondary, fontSize: T.sizes.sm, textAlign: 'center', marginBottom: S.lg }]}>{t('expense.enterAmount')}</Text>
 
       <View style={[sa.toggle, { backgroundColor: C.bgElevated, borderRadius: R.lg, marginBottom: S.base }]}>
         {[
-          { k: 'cash', icon: 'cash-outline', lbl: t('expense.cash') },
-          { k: 'online', icon: 'globe-outline', lbl: t('expense.onlineLabel') },
+          { k: 'cash', icon: 'cash-outline', lbl: t('ledger.cash') },
+          { k: 'online', icon: 'globe-outline', lbl: t('ledger.online') },
         ].map(({ k, icon, lbl }) => (
           <TouchableOpacity
             key={k}
@@ -304,7 +305,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
       </View>
 
       {showItems ? (
-        <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+        <View>
           <View style={[sa.itemsGrid, { gap: S.sm, marginBottom: S.base }]}>
             {items.map((item) => {
               const amt = itemAmounts[item.id] || 0;
@@ -373,7 +374,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
             <Ionicons name="wallet-outline" size={18} color={C.textSecondary} style={{ marginRight: S.sm }} />
             <Text style={[sa.commonTxt, { color: C.textSecondary, fontSize: T.sizes.sm, fontWeight: T.weights.semibold }]}>{t('expense.commonItem')}</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       ) : (
         <>
           <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: R.lg, paddingHorizontal: S.base, marginBottom: S.base }]}>
@@ -448,15 +449,16 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
   React.useEffect(() => { if (visible) load(); }, [visible]);
 
   const doAdd = () => {
-    if (!newName.trim()) return;
+    if (!newName.trim()) { Alert.alert(t('common.error'), t('ledger.category_required_name')); return; }
     addCategory(newName.trim(), newIcon);
     setNewName(''); setNewIcon('💰'); setAdding(false);
     load(); onRefresh();
   };
 
   const doEdit = () => {
-    if (!editing || !newName.trim()) return;
-    updateCategory(editing.id, newName.trim(), newIcon);
+    if (!editing || !newName.trim()) { Alert.alert(t('common.error'), t('ledger.category_required_name')); return; }
+    const name = newName.trim() === translateCategoryName(editing.name, t) ? editing.name : newName.trim();
+    updateCategory(editing.id, name, newIcon);
     setEditing(null); setNewName(''); setNewIcon('💰');
     load(); onRefresh();
   };
@@ -487,35 +489,36 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('expense.manageCategories')}>
-      <ScrollView
-        style={{ maxHeight: 320 }}
-        contentContainerStyle={{ flexGrow: 0 }}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-        scrollEnabled
-        keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={false}
-      >
+    <Sheet visible={visible} onClose={onClose} title={t('expense.manageCategories')} footer={adding || editing ? (
+      <View style={[s2.btnRow, { gap: S.sm }]}>
+        <Button label={t('common.cancel')} variant="secondary" onPress={() => { setAdding(false); setEditing(null); }} style={{ flex: 1 }} />
+        <Button label={editing ? t('common.save') : t('common.add')} onPress={editing ? doEdit : doAdd} style={{ flex: 1 }} />
+      </View>
+    ) : null}>
+      {!adding && !editing && <View>
         {cats.map((item, index) => (
           <View key={item.id} style={[mc.row, { borderBottomColor: C.divider }]}>
             <View style={mc.reorderBtns}>
-              <TouchableOpacity onPress={() => moveUp(index)} disabled={index === 0}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.move_category_up')} onPress={() => moveUp(index)} disabled={index === 0} style={mc.orderBtn}>
                 <Ionicons name="chevron-up" size={14} color={C.textMuted} style={{ opacity: index === 0 ? 0.3 : 1 }} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => moveDown(index)} disabled={index === cats.length - 1}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.move_category_down')} onPress={() => moveDown(index)} disabled={index === cats.length - 1} style={mc.orderBtn}>
                 <Ionicons name="chevron-down" size={14} color={C.textMuted} style={{ opacity: index === cats.length - 1 ? 0.3 : 1 }} />
               </TouchableOpacity>
             </View>
             <IconBadge emoji={item.icon} color={C.primary} size={34} style={{ marginHorizontal: S.xs }} />
-            <Text style={[mc.name, { color: C.textPrimary, fontSize: T.sizes.base, fontWeight: T.weights.medium }]}>{item.name}</Text>
+            <Text style={[mc.name, { color: C.textPrimary, fontSize: T.sizes.base, fontWeight: T.weights.medium }]}>{translateCategoryName(item.name, t)}</Text>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.edit') + ' ' + translateCategoryName(item.name, t)}
               style={[mc.editBtn, { backgroundColor: C.primaryDim }]}
-              onPress={() => { setEditing(item); setNewName(item.name); setNewIcon(item.icon); }}
+              onPress={() => { setEditing(item); setNewName(translateCategoryName(item.name, t)); setNewIcon(item.icon); }}
             >
               <Ionicons name="create-outline" size={16} color={C.primary} />
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.delete') + ' ' + translateCategoryName(item.name, t)}
               style={[mc.del, { backgroundColor: C.expenseLight }]}
               onPress={() => doDelete(item.id)}
             >
@@ -523,12 +526,13 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
             </TouchableOpacity>
           </View>
         ))}
-      </ScrollView>
+      </View>}
 
       {(adding || editing) ? (
         <View style={[mc.addForm, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.lg, padding: S.base, marginTop: S.base }]}>
           <View style={[mc.addRow, { gap: S.sm, marginBottom: S.base }]}>
             <TextInput
+              accessibilityLabel={t('expenseItems.icon')}
               style={[mc.iconInput, { color: C.textPrimary, borderColor: C.border, backgroundColor: C.bgInput, borderRadius: R.sm }]}
               value={newIcon}
               onChangeText={setNewIcon}
@@ -542,13 +546,10 @@ const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
               autoFocus
             />
           </View>
-          <View style={[s2.btnRow, { gap: S.sm }]}>
-            <Button label={t('common.cancel')} variant="secondary" onPress={() => { setAdding(false); setEditing(null); }} style={{ flex: 1 }} />
-            <Button label={editing ? t('common.save') : t('common.add')} variant="primary" onPress={editing ? doEdit : doAdd} style={{ flex: 1 }} />
-          </View>
         </View>
       ) : (
         <TouchableOpacity
+          accessibilityRole="button"
           style={[mc.addBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, borderRadius: R.lg, padding: S.md, marginTop: S.base }]}
           onPress={() => setAdding(true)}
         >
@@ -562,8 +563,9 @@ const mc = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, borderBottomWidth: 1 },
   reorderBtns: { flexDirection: 'column', gap: 2 },
   name: { flex: 1 },
-  editBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  del: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  orderBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  editBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  del: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addForm: { borderWidth: 1 },
   addRow: { flexDirection: 'row' },
   iconInput: { width: 52, borderWidth: 1, textAlign: 'center', fontSize: BaseTypography.sizes.xl, paddingVertical: 8 },
@@ -736,7 +738,7 @@ export default function ExpenseScreen({ navigation }) {
         <BalanceHeader dayData={dayData} C={C} T={T} S={S} R={R} t={t} />
 
         {/* Deposit row */}
-        <DepositRow deposit={dayData?.deposit_today || 0} onPress={() => setShowDeposit(true)} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
+        {!!dayData?.deposit_today && <DepositRow deposit={dayData.deposit_today} onPress={() => setShowDeposit(true)} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />}
 
         {/* Expenses header */}
         <View style={s.secHdr}>

@@ -38,6 +38,7 @@ export default function Button({
     accessibilityRole: 'button',
     accessibilityLabel,
     accessibilityState: { ...accessibilityState, disabled: isDisabled, busy: loading },
+    'aria-expanded': accessibilityState?.expanded,
   };
 
   const content = (

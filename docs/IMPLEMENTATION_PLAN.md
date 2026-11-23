@@ -78,3 +78,9 @@ Use the existing expense search and selected-date entry points to check routing.
 The preview build bundled JavaScript successfully and stopped at Gradle's `expo-sqlite:downloadSQLite` task because the build worker could not reach sqlite.org. The EAS post-install hook now stages the verified SQLite 3.45.3 archive before Gradle. The build archive and hook passed local checks. A new signed preview APK is still pending.
 
 The Home screen redesign is deferred to a later visual pass. The launcher artwork was checked against a rounded-square preview and the generated Android icon assets.
+
+### Gujarati cash book follow-up · 23 November 2026
+
+The family confirmed that outside cash goes to the home locker, locker withdrawals supply the wallet, and online payments are notes. Keep the wallet prominent in the daily, monthly and money views and show the locker balance alongside it. Use dedicated locker actions and a wallet-only **યાદ નથી** expense. Recurring cash bills can deduct directly from the locker.
+
+Preserve existing wallet entries and English preferences. Accept Gujarati amount input and keep category and item editing usable in small shared sheets. See [the wallet and locker workflow](IMPLEMENTATION_NOTES.md#wallet-and-home-locker) for the Gujarati wording and example.

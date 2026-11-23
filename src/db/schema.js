@@ -160,6 +160,7 @@ export const initializeDatabase = async () => {
       value TEXT
     );
   `);
+  try { database.execSync("ALTER TABLE ledger_movements ADD COLUMN account TEXT NOT NULL DEFAULT 'wallet' CHECK(account IN ('wallet','locker'));"); } catch (_) {}
 
   // Places — saved locations
   database.execSync(`

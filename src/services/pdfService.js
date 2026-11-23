@@ -9,9 +9,9 @@ export const exportToPDF = async (year, month) => {
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
 
   const totals = getMonthTotals(year,month);
-  const savings = totals.deposited - totals.cash_spent - totals.online_spent;
+  const savings = totals.deposited - totals.cash_spent;
   const totalReceipts = totals.deposited;
-  const totalSpent = totals.cash_spent + totals.online_spent;
+  const totalSpent = totals.cash_spent;
   const savingsPercent =
     totalReceipts > 0 ? ((savings / totalReceipts) * 100).toFixed(1) : 0;
 
@@ -20,13 +20,12 @@ export const exportToPDF = async (year, month) => {
     `
     SELECT 
       c.name, c.icon,
-      COALESCE(SUM(e.amount), 0) as total,
-      COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END), 0) as cash_total,
+      COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total,
+      COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
       COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total
     FROM categories c
     LEFT JOIN expenses e ON e.category_id = c.id
       AND e.day_id IN (SELECT id FROM days WHERE date LIKE ?)
-    WHERE c.is_active = 1
     GROUP BY c.id
     HAVING total > 0
     ORDER BY total DESC;
@@ -39,8 +38,8 @@ export const exportToPDF = async (year, month) => {
     `
     SELECT
       d.date,
-      COALESCE(SUM(e.amount), 0) as total,
-      COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END), 0) as cash_total,
+      COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total,
+      COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
       COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
       d.deposit_today,
       COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='receipt'),0) as receipts,
@@ -49,7 +48,7 @@ export const exportToPDF = async (year, month) => {
     LEFT JOIN expenses e ON e.day_id = d.id
     WHERE d.date LIKE ?
     GROUP BY d.date
-    HAVING total > 0
+    HAVING total > 0 OR online_total > 0
     ORDER BY total DESC
     LIMIT 10;
   `,
@@ -59,7 +58,7 @@ export const exportToPDF = async (year, month) => {
   // Get top spending days
   const topDays = db.getAllSync(
     `
-    SELECT d.date, COALESCE(SUM(e.amount), 0) as total
+    SELECT d.date, COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total
     FROM days d
     LEFT JOIN expenses e ON e.day_id = d.id
     WHERE d.date LIKE ?
@@ -231,7 +230,7 @@ export const exportToPDF = async (year, month) => {
       <div class="card-value">₹${totals.cash_spent.toFixed(0)}</div>
     </div>
     <div class="card amber">
-      <div class="card-label">🌐 Online Spent</div>
+      <div class="card-label">🌐 Online Notes</div>
       <div class="card-value">₹${totals.online_spent.toFixed(0)}</div>
     </div>
   </div>

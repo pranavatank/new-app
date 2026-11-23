@@ -7,7 +7,9 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
+import { translateCategoryName } from '../constants/defaultCategories';
 import { useTheme } from '../store/ThemeContext';
+import { parseCashAmount, paymentLabel } from '../utils/cash';
 import {
   Card, Button, Sheet, Input, Chip, Badge, IconBadge,
   EmptyState, SectionHeader, ScreenHeader, FAB,
@@ -22,7 +24,7 @@ import {
   getAllCategoryItems,
 } from '../db/queries';
 
-const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, i) => i + 1);
+const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 const WEEKDAY_KEYS  = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export default function RecurringScreen() {
@@ -42,7 +44,7 @@ export default function RecurringScreen() {
   const [categoryId, setCategoryId]   = useState(null);
   const [itemId, setItemId]           = useState(null);
   const [amount, setAmount]           = useState('');
-  const [paymentType, setPaymentType] = useState('cash');
+  const [paymentType, setPaymentType] = useState('locker');
   const [note, setNote]               = useState('');
   const [frequency, setFrequency]     = useState('monthly');
   const [dayOfMonth, setDayOfMonth]   = useState(1);
@@ -70,7 +72,7 @@ export default function RecurringScreen() {
     setCategoryId(null);
     setItemId(null);
     setAmount('');
-    setPaymentType('cash');
+    setPaymentType('locker');
     setNote('');
     setFrequency('monthly');
     setDayOfMonth(1);
@@ -101,9 +103,9 @@ export default function RecurringScreen() {
   };
 
   const handleSave = () => {
-    const amt = parseFloat(amount);
+    const amt = parseCashAmount(amount);
     if (!categoryId)      { Alert.alert(t('recurring.title'), t('recurring.errNoCategory')); return; }
-    if (!amt || amt <= 0) { Alert.alert(t('recurring.title'), t('recurring.errNoAmount')); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { Alert.alert(t('recurring.title'), t('recurring.errNoAmount')); return; }
 
     const payload = {
       categoryId,
@@ -207,7 +209,7 @@ export default function RecurringScreen() {
               ₹{rule.amount}
             </Text>
             <Badge
-              label={rule.payment_type === 'online' ? t('recurring.online') : t('recurring.cash')}
+              label={t(paymentLabel(rule.payment_type))}
               color={rule.payment_type === 'online' ? C.online : C.income}
             />
             {paused && (
@@ -305,7 +307,7 @@ export default function RecurringScreen() {
           {categories.map(cat => (
             <Chip
               key={cat.id}
-              label={cat.name}
+              label={translateCategoryName(cat.name, t)}
               emoji={cat.icon_type === 'photo' ? undefined : cat.icon}
               color={C.iconExpense}
               active={categoryId === cat.id}
@@ -343,7 +345,7 @@ export default function RecurringScreen() {
         <Input
           label={t('recurring.amount')}
           value={amount}
-          onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
+          onChangeText={setAmount}
           keyboardType="decimal-pad"
           placeholder="0"
           placeholderTextColor={C.textMuted}
@@ -355,14 +357,21 @@ export default function RecurringScreen() {
         </Text>
         <View style={s.wrapRow}>
           <Chip
-            label={t('recurring.cash')}
+            label={t('ledger.cash')}
             icon="cash-outline"
             color={C.income}
             active={paymentType === 'cash'}
             onPress={() => setPaymentType('cash')}
           />
           <Chip
-            label={t('recurring.online')}
+            label={t('ledger.payment_locker')}
+            icon="lock-closed-outline"
+            color={C.primary}
+            active={paymentType === 'locker'}
+            onPress={() => setPaymentType('locker')}
+          />
+          <Chip
+            label={t('ledger.online')}
             icon="card-outline"
             color={C.online}
             active={paymentType === 'online'}
@@ -396,7 +405,7 @@ export default function RecurringScreen() {
               {t('recurring.dayOfMonth')}
             </Text>
             <Text style={{ fontSize: Typography.sizes.xs, color: C.textMuted, marginBottom: Spacing.sm }}>
-              {t('recurring.dayOfMonthHint')}
+              {t('ledger.monthly_day_hint')}
             </Text>
             <Card padding="sm" elevation="none" style={{ backgroundColor: C.bgElevated, borderColor: C.border }}>
               <View style={s.dayGrid}>

@@ -25,6 +25,7 @@ export const translateCategoryName = (name, t) => {
     'Education': 'education',
     'Occasion': 'occasion',
     'Other': 'other',
+    'Forgotten': 'forgotten',
   };
   const key = keyMap[name];
   return key ? t(`categories.${key}`) : name;

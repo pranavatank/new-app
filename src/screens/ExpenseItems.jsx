@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { scaleTheme } from '../constants/theme';
+import { translateCategoryName } from '../constants/defaultCategories';
 import { useTheme } from '../store/ThemeContext';
 import {
   Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader, FAB,
@@ -21,6 +22,7 @@ import {
 } from '../db/queries';
 
 const ItemCard = ({ item, onEdit, onDelete }) => {
+  const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing } = scaleTheme(scale);
   const st = styles(scale);
@@ -40,12 +42,16 @@ const ItemCard = ({ item, onEdit, onDelete }) => {
       </View>
       <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('common.edit') + ' ' + item.name}
           style={[st.actionBtn, { backgroundColor: C.primaryDim }]}
           onPress={() => onEdit(item)}
         >
           <Ionicons name="create-outline" size={18} color={C.primary} />
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('common.delete') + ' ' + item.name}
           style={[st.actionBtn, { backgroundColor: C.expenseLight }]}
           onPress={() => onDelete(item)}
         >
@@ -75,26 +81,29 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
   }, [visible, item]);
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
 
-    if (!result.canceled) {
-      setIcon(result.assets[0].uri);
-      setIconType('image');
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setIcon(result.assets[0].uri);
+        setIconType('image');
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('ledger.photo_pick_failed'));
     }
   };
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert(t('common.error'), 'Please enter item name');
+      Alert.alert(t('common.error'), t('ledger.item_required_name'));
       return;
     }
-    onSave({ name: name.trim(), icon, icon_type: iconType });
-    onClose();
+    if (onSave({ name: name.trim(), icon, icon_type: iconType })) onClose();
   };
 
   return (
@@ -102,6 +111,7 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
       visible={visible}
       onClose={onClose}
       title={item ? t('expenseItems.editItem') : t('expenseItems.addItem')}
+      footer={<Button label={t('common.save')} onPress={handleSave} fullWidth />}
     >
       <Text style={[st.label, { color: C.textSecondary }]}>{t('expenseItems.icon')}</Text>
       <View style={st.iconRow}>
@@ -112,6 +122,7 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
         />
         {iconType !== 'image' && (
           <TextInput
+            accessibilityLabel={t('expenseItems.icon')}
             style={[st.iconInput, { backgroundColor: C.bgInput, color: C.textPrimary, borderColor: C.border }]}
             value={icon}
             onChangeText={setIcon}
@@ -120,6 +131,8 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
           />
         )}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('purchases.choosePhoto')}
           style={[st.imageBtn, { backgroundColor: C.primaryDim, borderColor: C.primary }]}
           onPress={pickImage}
         >
@@ -127,6 +140,8 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
         </TouchableOpacity>
         {iconType === 'image' && (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('purchases.removePhoto')}
             style={[st.imageBtn, { backgroundColor: C.expenseLight, borderColor: C.expense }]}
             onPress={() => { setIcon('📦'); setIconType('emoji'); }}
           >
@@ -143,20 +158,6 @@ const ItemFormSheet = ({ visible, item, categoryId, onSave, onClose }) => {
         style={{ marginTop: Spacing.sm }}
       />
 
-      <View style={st.btnRow}>
-        <Button
-          label={t('common.cancel')}
-          variant="secondary"
-          onPress={onClose}
-          style={{ flex: 1 }}
-        />
-        <Button
-          label={t('common.save')}
-          variant="primary"
-          onPress={handleSave}
-          style={{ flex: 1 }}
-        />
-      </View>
     </Sheet>
   );
 };
@@ -188,9 +189,7 @@ export default function ExpenseItemsScreen({ navigation }) {
     try {
       const cats = getAllCategories();
       setCategories(cats);
-      if (cats.length > 0 && !selectedCategory) {
-        setSelectedCategory(cats[0]);
-      }
+      setSelectedCategory(current => cats.find(category => category.id === current?.id) ?? cats[0] ?? null);
     } catch (e) {
       console.error('loadCategories:', e);
     }
@@ -224,9 +223,11 @@ export default function ExpenseItemsScreen({ navigation }) {
         addCategoryItem(selectedCategory.id, data.name, data.icon, data.icon_type);
       }
       loadItems(selectedCategory.id);
+      return true;
     } catch (e) {
       console.error('saveItem:', e);
-      Alert.alert(t('common.error'), 'Failed to save item');
+      Alert.alert(t('common.error'), t('ledger.item_add_failed'));
+      return false;
     }
   };
 
@@ -260,6 +261,7 @@ export default function ExpenseItemsScreen({ navigation }) {
 
       <ScrollView
         horizontal
+        keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
         style={st.tabsContainer}
         contentContainerStyle={st.tabs}
@@ -267,7 +269,7 @@ export default function ExpenseItemsScreen({ navigation }) {
         {categories.map((cat, index) => (
           <Chip
             key={cat.id}
-            label={cat.name}
+            label={translateCategoryName(cat.name, t)}
             emoji={cat.icon}
             active={selectedCategory?.id === cat.id}
             color={C.accents[index % C.accents.length]}
@@ -276,12 +278,12 @@ export default function ExpenseItemsScreen({ navigation }) {
         ))}
       </ScrollView>
 
-      <ScrollView style={st.content} contentContainerStyle={st.contentInner}>
+      <ScrollView style={st.content} contentContainerStyle={st.contentInner} keyboardShouldPersistTaps="handled">
         {selectedCategory && (
           <>
             <View style={st.sectionHeader}>
               <Text style={[st.sectionTitle, { color: C.textPrimary }]}>
-                {selectedCategory.icon} {selectedCategory.name} {t('expenseItems.items')}
+                {selectedCategory.icon} {translateCategoryName(selectedCategory.name, t)} {t('expenseItems.items')}
               </Text>
               <Text style={[st.itemCount, { color: C.textSecondary }]}>
                 {items.length} {t('expenseItems.itemsCount')}
@@ -351,9 +353,9 @@ const styles = (scale) => {
       alignItems: 'center',
     },
     actionBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: Radius.full,
       alignItems: 'center',
       justifyContent: 'center',
     },

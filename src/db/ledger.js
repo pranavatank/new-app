@@ -1,5 +1,5 @@
 ﻿import { getDB } from './schema';
-import { getDayData, getOrCreateDay, recalculateBalance } from './queries';
+import { getDayData, getLockerBalance, getOrCreateDay, recalculateBalance } from './queries';
 
 const validDate = (date) => {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -39,7 +39,7 @@ const mappedExpenses = (date, dayId) => getDB().getAllSync(`
   .map((row) => ({ ...row, kind: 'expense', date }));
 
 const movementEntries = (date, dayId) => getDB().getAllSync(
-  'SELECT id,kind,amount,direction,note,created_at FROM ledger_movements WHERE day_id=? ORDER BY id;', [dayId]
+  'SELECT id,kind,amount,direction,account,note,created_at FROM ledger_movements WHERE day_id=? ORDER BY id;', [dayId]
 ).map((row) => ({ ...row, date }));
 const timeValue = (value) => {
   if (!value) return null;
@@ -50,7 +50,7 @@ const timeValue = (value) => {
 
 const dailyDeposit = (date, day) => day.deposit_today ? [{
   id: day.id, kind: 'legacy_receipt', date, amount: day.deposit_today,
-  direction: 'in', note: 'Daily deposit',
+  direction: 'in',
 }] : [];
 
 const entriesForDay = (date, day) => [
@@ -68,12 +68,7 @@ const entriesForDay = (date, day) => [
 
 export const getDayLedger = (date) => {
   const day = getDayData(date);
-  const db = getDB();
-  const setting = db.getFirstSync("SELECT value FROM ledger_settings WHERE key='locker_opening';");
-  const movement = db.getFirstSync(`
-    SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total
-    FROM ledger_movements m JOIN days d ON d.id=m.day_id WHERE d.date<=? AND m.kind='transfer';`, [date]).total;
-  return { day, entries: entriesForDay(date, day), locker_balance: setting ? Number(setting.value) - movement : null };
+  return { day, entries: entriesForDay(date, day), locker_balance: day.locker_balance };
 };
 
 export const setLockerOpeningBalance = (amount) => {
@@ -99,18 +94,19 @@ export const getMonthLedger = (year, month) => {
     const opening_balance = carry;
     const cash_spent = data?.cash_spent ?? 0;
     const online_spent = data?.online_spent ?? 0;
-    const transfer_net = transfer_in - transfer_out;
-    const closing_balance = opening_balance + (stored?.deposit_today ?? 0) + receipts + transfer_net - cash_spent;
+    const closing_balance = data?.closing_balance ?? opening_balance;
     carry = closing_balance;
     return { date, opening_balance, closing_balance,
       cash_spent, online_spent, receipts, transfer_in, transfer_out,
+      wallet_spent: data?.wallet_spent ?? 0, locker_spent: data?.locker_spent ?? 0,
+      locker_receipts: data?.locker_receipts ?? 0, wallet_receipts: data?.wallet_receipts ?? 0,
       entries: stored ? entriesForDay(date, {...data,opening_balance,closing_balance}) : [] };
   });
   const totals = days.reduce((acc,d) => {
     for (const k of Object.keys(acc)) acc[k] += d[k];
     return acc;
-  }, {cash_spent:0,online_spent:0,receipts:0,transfer_in:0,transfer_out:0});
-  return { days, totals, opening_balance: days[0]?.opening_balance ?? 0, closing_balance: days[days.length-1]?.closing_balance ?? 0 };
+  }, {cash_spent:0,online_spent:0,receipts:0,transfer_in:0,transfer_out:0,wallet_spent:0,locker_spent:0,locker_receipts:0,wallet_receipts:0});
+  return { days, totals, opening_balance: days[0]?.opening_balance ?? 0, closing_balance: days[count - 1].closing_balance, locker_balance: getLockerBalance(dates[count - 1]) };
 };
 
 const checkedExpenseFields = (db, {categoryId, amount, paymentType, note, itemId}, existing) => {
@@ -119,7 +115,7 @@ const checkedExpenseFields = (db, {categoryId, amount, paymentType, note, itemId
   const memo = note ?? existing?.note ?? '';
   const value = positiveAmount(amount);
   if (!Number.isInteger(Number(targetCategory)) || !db.getFirstSync('SELECT id FROM categories WHERE id=?;', [targetCategory])) throw new Error('A valid category is required');
-  if (!['cash','online'].includes(type)) throw new Error('Payment type must be cash or online');
+  if (!['cash','locker','online'].includes(type)) throw new Error('Invalid payment source');
   const targetItem = itemId === undefined ? (existing?.item_id ?? null) : itemId;
   if (targetItem != null) {
     const item = db.getFirstSync('SELECT id,category_id FROM category_items WHERE id=?;', [targetItem]);
@@ -128,12 +124,23 @@ const checkedExpenseFields = (db, {categoryId, amount, paymentType, note, itemId
   return {targetCategory,type,memo,value,targetItem};
 };
 
-export const saveExpense = ({ id, date, categoryId, amount, paymentType, note, itemId }) => {
+export const saveExpense = ({ id, date, categoryId, amount, paymentType, note, itemId, forgotten = false }) => {
   const db = getDB();
   return atomic(db, () => {
   if (!validDate(date)) throw new Error('Date must use YYYY-MM-DD');
   const existing = id != null ? db.getFirstSync('SELECT * FROM expenses WHERE id=?;', [id]) : null;
   if (id != null && !existing) throw new Error('Expense entry not found');
+  const isForgotten = forgotten || existing?.origin === 'forgotten';
+  if (isForgotten) {
+    if (existing) categoryId = existing.category_id;
+    else {
+      const category = db.getFirstSync("SELECT id FROM categories WHERE name='Forgotten' ORDER BY id LIMIT 1;");
+      if (!category) db.runSync("INSERT INTO categories(name,icon,sort_order) VALUES('Forgotten','❓',999);");
+      categoryId = category?.id ?? db.getFirstSync('SELECT last_insert_rowid() id;').id;
+    }
+    paymentType = 'cash';
+    itemId = null;
+  }
   const {targetCategory,type,memo,value,targetItem}=checkedExpenseFields(db,{categoryId,amount,paymentType,note,itemId},existing);
   const day = dayFor(date);
   if (id != null) {
@@ -142,7 +149,7 @@ export const saveExpense = ({ id, date, categoryId, amount, paymentType, note, i
     db.runSync('UPDATE expenses SET day_id=?,category_id=?,item_id=?,amount=?,payment_type=?,note=? WHERE id=?;', [day.id,targetCategory,targetItem,value,type,memo,id]);
     if (oldDate && oldDate !== date) recalculateBalance(old.day_id,oldDate);
   } else {
-    db.runSync("INSERT INTO expenses (day_id,category_id,item_id,amount,payment_type,note,origin,created_at) VALUES (?,?,?,?,?,?,'entry',?);", [day.id,targetCategory,targetItem,value,type,memo,new Date().toISOString()]);
+    db.runSync("INSERT INTO expenses (day_id,category_id,item_id,amount,payment_type,note,origin,created_at) VALUES (?,?,?,?,?,?,?,?);", [day.id,targetCategory,targetItem,value,type,memo,isForgotten?'forgotten':'entry',new Date().toISOString()]);
   }
   recalculateBalance(day.id,date);
   return id ?? db.getFirstSync('SELECT last_insert_rowid() id;').id;
@@ -155,7 +162,7 @@ export const saveExpenseBatch = ({date,categoryId,paymentType='cash',note='',ite
     if (!validDate(date)) throw new Error('Date must use YYYY-MM-DD');
     if (!Array.isArray(items) || items.length===0) throw new Error('At least one item expense is required');
     const type=paymentType;
-    if (!['cash','online'].includes(type)) throw new Error('Payment type must be cash or online');
+    if (!['cash','locker','online'].includes(type)) throw new Error('Invalid payment source');
     if (!Number.isInteger(Number(categoryId)) || !db.getFirstSync('SELECT id FROM categories WHERE id=?;', [categoryId])) throw new Error('A valid category is required');
     if (typeof note!=='string') throw new Error('Expense note must be text');
     const validated=items.map((item)=>{
@@ -175,19 +182,24 @@ export const saveExpenseBatch = ({date,categoryId,paymentType='cash',note='',ite
   });
 };
 
-export const saveMovement = ({ id, date, kind, amount, direction, note='' }) => {
+export const saveMovement = ({ id, date, kind, amount, direction, account, note='' }) => {
   const db = getDB();
   return atomic(db, () => {
   const day = dayFor(date), value = positiveAmount(amount);
   if (!['receipt','transfer'].includes(kind) || !['in','out'].includes(direction)) throw new Error('Invalid movement kind or direction');
-  if (id != null) {
-    const old=db.getFirstSync('SELECT day_id FROM ledger_movements WHERE id=?;',[id]);
-    if (!old) throw new Error('Movement entry not found');
+  const old = id == null ? null : db.getFirstSync('SELECT day_id,account FROM ledger_movements WHERE id=?;', [id]);
+  if (id != null && !old) throw new Error('Movement entry not found');
+  const target = kind === 'transfer' ? 'wallet' : account ?? old?.account ?? 'wallet';
+  if (!['wallet','locker'].includes(target)) throw new Error('Invalid cash account');
+  if (!old && kind === 'receipt' && target === 'locker') {
+    db.runSync("INSERT OR IGNORE INTO ledger_settings(key,value) SELECT 'locker_opening','0' WHERE NOT EXISTS (SELECT 1 FROM ledger_movements WHERE kind='transfer');");
+  }
+  if (old) {
     const oldDate=db.getFirstSync('SELECT date FROM days WHERE id=?;',[old.day_id])?.date;
-    db.runSync('UPDATE ledger_movements SET day_id=?,kind=?,amount=?,direction=?,note=? WHERE id=?;', [day.id,kind,value,direction,note,id]);
+    db.runSync('UPDATE ledger_movements SET day_id=?,kind=?,amount=?,direction=?,account=?,note=? WHERE id=?;', [day.id,kind,value,direction,target,note,id]);
     if(oldDate && oldDate!==date) recalculateBalance(old.day_id,oldDate);
   }
-  else db.runSync('INSERT INTO ledger_movements (day_id,kind,amount,direction,note) VALUES (?,?,?,?,?);', [day.id,kind,value,direction,note]);
+  else db.runSync('INSERT INTO ledger_movements (day_id,kind,amount,direction,account,note) VALUES (?,?,?,?,?,?);', [day.id,kind,value,direction,target,note]);
   recalculateBalance(day.id,date);
   return id ?? db.getFirstSync('SELECT last_insert_rowid() id;').id;
   });
@@ -235,7 +247,7 @@ export const restoreLedgerEntry = (snapshot) => {
   if (snapshot.kind==='expense') db.runSync('INSERT INTO expenses(id,day_id,category_id,item_id,amount,payment_type,place_id,note,origin,created_at) VALUES(?,?,?,?,?,?,?,?,?,?);',
     [r.id,day.id,r.category_id,r.item_id??null,r.amount,r.payment_type,r.place_id??null,r.note??null,r.origin??'entry',r.created_at??null]);
   else if (snapshot.kind==='note') db.runSync('INSERT INTO notes(id,day_id,text,mood,created_at) VALUES(?,?,?,?,?);',[r.id,day.id,r.text,r.mood,r.created_at]);
-  else if (snapshot.kind==='receipt'||snapshot.kind==='transfer') db.runSync('INSERT INTO ledger_movements(id,day_id,kind,amount,direction,note,created_at) VALUES(?,?,?,?,?,?,?);',[r.id,day.id,r.kind,r.amount,r.direction,r.note,r.created_at]);
+  else if (snapshot.kind==='receipt'||snapshot.kind==='transfer') db.runSync('INSERT INTO ledger_movements(id,day_id,kind,amount,direction,account,note,created_at) VALUES(?,?,?,?,?,?,?,?);',[r.id,day.id,r.kind,r.amount,r.direction,r.account??'wallet',r.note,r.created_at]);
   else if (snapshot.kind==='legacy_receipt') db.runSync('UPDATE days SET deposit_today=? WHERE id=?;',[r.deposit_today,day.id]);
   recalculateBalance(day.id,snapshot.date);
   return true;

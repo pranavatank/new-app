@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { getDB } from "../db/schema";
+import { rebuildWalletBalances } from "../db/queries";
 
 // Export to Excel with analytics and raw data.
 export const exportToExcel = async () => {
@@ -13,11 +14,11 @@ export const exportToExcel = async () => {
     SELECT 
       d.date as Date,
       d.deposit_today as Deposited,
-      COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type='cash'), 0) as CashSpent,
+      COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type IN ('cash','locker')), 0) as CashSpent,
       COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type='online'), 0) as OnlineSpent,
       COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='receipt'),0) as Receipts,
       COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='transfer'),0) as TransferNet,
-      (d.deposit_today + COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='receipt'),0) - COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type='cash'),0) - COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type='online'),0)) as ReceiptsLessSpending,
+      (d.deposit_today + COALESCE((SELECT SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END) FROM ledger_movements WHERE day_id=d.id AND kind='receipt'),0) - COALESCE((SELECT SUM(amount) FROM expenses WHERE day_id=d.id AND payment_type IN ('cash','locker')),0)) as NetCashChange,
       d.closing_balance as ClosingBalance
     FROM days d ORDER BY d.date DESC;
   `);
@@ -54,11 +55,11 @@ export const exportToExcel = async () => {
     SELECT 
       substr(d.date, 1, 7) as Month,
       SUM(d.deposit_today) as TotalDeposited,
-      SUM((SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type='cash')) as TotalCashSpent,
+      SUM((SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type IN ('cash','locker'))) as TotalCashSpent,
       SUM((SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type='online')) as TotalOnlineSpent,
       SUM((SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) FROM ledger_movements WHERE day_id=d.id AND kind='receipt')) as Receipts,
       SUM((SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) FROM ledger_movements WHERE day_id=d.id AND kind='transfer')) as TransferNet,
-      SUM(d.deposit_today + (SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) FROM ledger_movements WHERE day_id=d.id AND kind='receipt') - (SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type='cash') - (SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type='online')) as ReceiptsLessSpending
+      SUM(d.deposit_today + (SELECT COALESCE(SUM(amount * CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) FROM ledger_movements WHERE day_id=d.id AND kind='receipt') - (SELECT COALESCE(SUM(amount),0) FROM expenses WHERE day_id=d.id AND payment_type IN ('cash','locker'))) as NetCashChange
     FROM days d
     GROUP BY substr(d.date, 1, 7)
     ORDER BY Month DESC;
@@ -75,17 +76,17 @@ export const exportToExcel = async () => {
       c.name as Category,
       c.icon as Icon,
       COUNT(DISTINCT d.id) as DaysUsed,
-      SUM(e.amount) as TotalSpent,
+      COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount END),0) as TotalCashSpent,
       AVG(e.amount) as AvgPerTransaction,
-      SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END) as CashTotal,
+      SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END) as CashTotal,
       SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END) as OnlineTotal
     FROM categories c
     LEFT JOIN expenses e ON e.category_id = c.id
     LEFT JOIN days d ON e.day_id = d.id
     WHERE c.is_active = 1
     GROUP BY c.id
-    HAVING TotalSpent > 0
-    ORDER BY TotalSpent DESC;
+    HAVING TotalCashSpent > 0 OR OnlineTotal > 0
+    ORDER BY TotalCashSpent DESC;
   `);
   XLSX.utils.book_append_sheet(
     wb,
@@ -105,7 +106,7 @@ export const exportToExcel = async () => {
   `);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tasks), "Tasks");
 
-  const movements = db.getAllSync(`SELECT d.date as Date,m.kind as Kind,m.amount as Amount,m.direction as Direction,m.note as Note,m.id as Id FROM ledger_movements m JOIN days d ON d.id=m.day_id ORDER BY d.date,m.id;`);
+  const movements = db.getAllSync(`SELECT d.date as Date,m.kind as Kind,m.amount as Amount,m.direction as Direction,m.account as Account,m.note as Note,m.id as Id FROM ledger_movements m JOIN days d ON d.id=m.day_id ORDER BY d.date,m.id;`);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(movements),"Movements");
   const purchases = db.getAllSync('SELECT * FROM purchases ORDER BY date,id;');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(purchases),"Purchases");
@@ -153,6 +154,7 @@ export const exportToExcel = async () => {
     "_RawDays",
   );
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rawMovements),"_RawMovements");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(db.getAllSync("SELECT key,value FROM ledger_settings WHERE key='locker_opening';")),"_RawCashSettings");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rawPurchases),"_RawPurchases");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rawPlaces),"_RawPlaces");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rawItems),"_RawItems");
@@ -369,11 +371,11 @@ export const importFromExcel = async () => {
       const dayId=resolveDayId(row.day_id);
       if (!dayId) continue;
       const existing=db.getFirstSync('SELECT * FROM ledger_movements WHERE id=?;',[row.id]);
-      const matches=db.getAllSync('SELECT id FROM ledger_movements WHERE day_id=? AND kind=? AND amount=? AND direction=? AND note=? AND created_at IS ? ORDER BY id;',[dayId,row.kind,row.amount,row.direction,row.note||'',row.created_at||null]);
+      const matches=db.getAllSync('SELECT id FROM ledger_movements WHERE day_id=? AND kind=? AND amount=? AND direction=? AND account=? AND note=? AND created_at IS ? ORDER BY id;',[dayId,row.kind,row.amount,row.direction,row.account||'wallet',row.note||'',row.created_at||null]);
       const same=matches.find(match=>!matchedMovementIds.has(Number(match.id)));
       if(same) { matchedMovementIds.add(Number(same.id)); continue; }
-      db.runSync(`INSERT INTO ledger_movements(${existing?'':'id,'}day_id,kind,amount,direction,note,created_at) VALUES(${existing?'':'?,'}?,?,?,?,?,?);`,
-        [...(existing?[]:[row.id]),dayId,row.kind,row.amount,row.direction,row.note||'',row.created_at||null]);
+      db.runSync(`INSERT INTO ledger_movements(${existing?'':'id,'}day_id,kind,amount,direction,account,note,created_at) VALUES(${existing?'':'?,'}?,?,?,?,?,?,?);`,
+        [...(existing?[]:[row.id]),dayId,row.kind,row.amount,row.direction,row.account||'wallet',row.note||'',row.created_at||null]);
       matchedMovementIds.add(Number(db.getFirstSync('SELECT last_insert_rowid() id;').id));
       imported.movements++;
     }
@@ -421,16 +423,13 @@ export const importFromExcel = async () => {
     });
   }
 
-  if (imported.days || imported.expenses || imported.movements) {
-    let closing=0;
-    for (const day of db.getAllSync('SELECT id,deposit_today FROM days ORDER BY date;')) {
-      const cash=db.getFirstSync("SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';",[day.id]).total;
-      const receipts=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[day.id]).total;
-      const transfers=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[day.id]).total;
-      closing+=day.deposit_today+receipts+transfers-cash;
-      db.runSync('UPDATE days SET closing_balance=? WHERE id=?;',[closing,day.id]);
+  if (wb.SheetNames.includes("_RawCashSettings")) {
+    const opening = XLSX.utils.sheet_to_json(wb.Sheets["_RawCashSettings"]).find(row => row.key === 'locker_opening');
+    if (opening?.value != null && Number.isFinite(Number(opening.value)) && Number(opening.value) >= 0) {
+      db.runSync("INSERT OR IGNORE INTO ledger_settings(key,value) VALUES ('locker_opening',?);", [String(opening.value)]);
     }
   }
+  if (imported.days || imported.expenses || imported.movements) rebuildWalletBalances();
 
   db.execSync('COMMIT;');
   return imported;

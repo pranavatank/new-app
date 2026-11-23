@@ -11,7 +11,15 @@ const compiled = babel.transformFileSync(path.resolve('src/components/ledger/Led
   plugins: ['@babel/plugin-transform-react-jsx', '@babel/plugin-transform-modules-commonjs'],
 }).code;
 
-function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }]) {
+const cashModule = { exports: {} };
+const compiledCash = babel.transformFileSync(path.resolve('src/utils/cash.js'), {
+  babelrc: false,
+  configFile: false,
+  plugins: ['@babel/plugin-transform-modules-commonjs'],
+}).code;
+vm.runInThisContext(`(function(exports){${compiledCash}\n})`)(cashModule.exports);
+
+function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }], mode = 'expense') {
   let cursor = 0, changed = false, tree;
   const slots = [], effects = [], calls = [], alerts = [];
   const categories = [{ id: 1, name: 'Vegetables' }, { id: 2, name: 'Fruit' }];
@@ -41,7 +49,7 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     getAllCategoryItems: id => items.filter(item => item.category_id === Number(id)),
     addCategoryItem: (categoryId, name) => items.push({ id: items.length + 10, category_id: categoryId, name }),
   };
-  const ledger = Object.fromEntries(['saveExpense', 'saveExpenseBatch', 'saveMovement', 'saveDailyNote'].map(name => [name, data => calls.push({ name, data })]));
+  const ledger = Object.fromEntries(['saveExpense', 'saveExpenseBatch', 'saveMovement', 'saveDailyNote', 'setLockerOpeningBalance'].map(name => [name, data => calls.push({ name, data })]));
   const t = key => key;
   const localRequire = id => {
     if (id === 'react') return React;
@@ -51,13 +59,14 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     if (id.includes('constants/theme')) return { scaleTheme: () => ({ Typography: { sizes: { xs: 11, sm: 13, base: 15, md: 17, xl: 24 }, weights: { bold: '700' } }, Spacing: { xs: 4, sm: 8, md: 12, lg: 20 }, Radius: { md: 12 } }) };
     if (id.includes('db/queries')) return query;
     if (id.includes('db/ledger')) return ledger;
+    if (id.includes('utils/cash')) return cashModule.exports;
     if (id.includes('defaultCategories')) return { translateCategoryName: name => name };
     if (id.includes('/common/')) return { __esModule: true, default: id.split('/').pop() };
     throw new Error(`Unexpected form dependency ${id}`);
   };
   const module = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`)(localRequire, module, module.exports);
-  const props = { visible: true, mode: 'expense', date: '2026-11-09', entry, onClose() {}, onSaved() {} };
+  const props = { visible: true, mode, date: '2026-11-09', entry, onClose() {}, onSaved() {} };
   const render = () => {
     for (let pass = 0; pass < 10; pass++) {
       cursor = 0; changed = false;
@@ -67,14 +76,14 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     }
     throw new Error('Form did not settle');
   };
-  const find = (predicate, node = tree) => {
+  const find = (predicate, node) => {
     if (!node || typeof node !== 'object') return null;
     if (Array.isArray(node)) return node.map(child => find(predicate, child)).find(Boolean);
     if (predicate(node)) return node;
-    return find(predicate, node.props?.children);
+    return find(predicate, node.props?.children) || find(predicate, node.props?.footer);
   };
   const control = (type, predicate) => {
-    const found = find(node => node.type === type && predicate(node.props));
+    const found = find(node => node.type === type && predicate(node.props), tree);
     assert.ok(found, `Missing ${type} control`);
     return found.props;
   };
@@ -119,4 +128,17 @@ invalid.input('Tomato', '30');
 invalid.input('Brinjal', '-2');
 invalid.save();
 assert.equal(invalid.calls.length, 0, 'one invalid amount prevents the entire shopping save');
-console.log('entry-form-check: actual form callbacks passed new-item, edit-conversion and invalid-batch assertions');
+for (const [mode, api, fields] of [
+  ['deposit_locker', 'saveMovement', { kind: 'receipt', account: 'locker', direction: 'in' }],
+  ['take_locker', 'saveMovement', { kind: 'transfer', direction: 'in' }],
+  ['forgotten', 'saveExpense', { forgotten: true }],
+]) {
+  const form = harness(null, [], mode);
+  form.input('ledger.amount', '૧,૨૩૪.૫૦');
+  form.save();
+  assert.equal(form.calls.length, 1);
+  assert.equal(form.calls[0].name, api);
+  assert.equal(form.calls[0].data.amount, 1234.5);
+  for (const [key, value] of Object.entries(fields)) assert.equal(form.calls[0].data[key], value);
+}
+console.log('entry-form-check: passed item, edit, batch validation, locker, forgotten expense and Gujarati amount assertions');

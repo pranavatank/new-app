@@ -13,7 +13,7 @@ export const getDayOverview = (date) => {
     ORDER BY CASE WHEN status='pending' THEN 0 ELSE 1 END, start_date, id;`, [date,date]);
   const expenses=dayId ? db.getAllSync(`
     SELECT c.id category_id,c.name,c.icon,c.icon_type,c.sort_order,COALESCE(SUM(e.amount),0) total
-    FROM categories c LEFT JOIN expenses e ON e.category_id=c.id AND e.day_id=?
+    FROM categories c LEFT JOIN expenses e ON e.category_id=c.id AND e.day_id=? AND e.payment_type IN ('cash','locker')
     WHERE c.is_active=1 GROUP BY c.id ORDER BY c.sort_order;`, [dayId]) : [];
   const places=getPlacesForDate(date);
   const notes=dayId ? db.getAllSync('SELECT * FROM notes WHERE day_id=? ORDER BY created_at,id;', [dayId]) : [];

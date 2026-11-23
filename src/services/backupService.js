@@ -1,7 +1,8 @@
-﻿import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { getDB } from '../db/schema';
+import { rebuildWalletBalances } from '../db/queries';
 
 const TABLES = ['categories','places','days','category_items','day_places','expenses','notes','tasks','vehicle_records','recurring_expenses','ledger_movements','purchases','ledger_settings'];
 const ASSET_COLUMNS = ['icon','image_uri'];
@@ -60,18 +61,6 @@ const validateBackup = (db,backup) => {
   }
 };
 
-const recalculateRestoredBalances = (db) => {
-  let previous=0;
-  const days=db.getAllSync('SELECT id,date,deposit_today FROM days ORDER BY date;');
-  for (const day of days) {
-    const cash=db.getFirstSync("SELECT COALESCE(SUM(amount),0) total FROM expenses WHERE day_id=? AND payment_type='cash';",[day.id]).total;
-    const receipts=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='receipt';",[day.id]).total;
-    const transfers=db.getFirstSync("SELECT COALESCE(SUM(amount*CASE direction WHEN 'in' THEN 1 ELSE -1 END),0) total FROM ledger_movements WHERE day_id=? AND kind='transfer';",[day.id]).total;
-    previous += day.deposit_today + receipts + transfers - cash;
-    db.runSync('UPDATE days SET closing_balance=? WHERE id=?;',[previous,day.id]);
-  }
-};
-
 const restoreAll = async (db,backup) => {
   validateBackup(db,backup);
   const source=backup.data;
@@ -92,7 +81,7 @@ const restoreAll = async (db,backup) => {
       const slots=columns.map(()=>'?').join(',');
       db.runSync(`INSERT INTO "${table}" (${quoted}) VALUES (${slots});`,columns.map(c=>row[c]));
     }
-    recalculateRestoredBalances(db);
+    rebuildWalletBalances();
     const violations=db.getAllSync('PRAGMA foreign_key_check;');
     if (violations.length) throw new Error('Backup contains broken references; restore was rolled back');
     db.execSync('COMMIT;');

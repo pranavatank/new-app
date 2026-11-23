@@ -65,16 +65,18 @@ export default function MonthlyLedger({ navigation }) {
           <Card padding="md">
             <SectionHeader icon="analytics-outline" title={t('ledger.month_summary')} color={C.iconStats} />
             {[
+              ['closing', data.closing_balance],
+              ['locker_balance', data.locker_balance],
               ['opening', data.opening_balance],
-              ['cash_receipts', legacyReceipts],
-              ['receipts', data.totals.receipts],
+              ...(legacyReceipts ? [['cash_receipts', legacyReceipts]] : []),
+              ...(data.totals.wallet_receipts ? [['receipts', data.totals.wallet_receipts]] : []),
+              ['outside_cash', data.totals.locker_receipts],
               ['locker_in', data.totals.transfer_in],
               ['locker_out', data.totals.transfer_out],
-              ['cash_spent', data.totals.cash_spent],
-              ['online_spent', data.totals.online_spent],
-              ['closing', data.closing_balance],
+              ['wallet_spent', data.totals.wallet_spent],
+              ['locker_spent', data.totals.locker_spent],
             ].map(([name, value], index) =>
-              <SummaryRow key={name} label={t('ledger.' + name)} value={amount(value)} divider={index > 0} emphasis={name === 'closing'} />
+              <SummaryRow key={name} label={t('ledger.' + name)} value={value == null ? t('ledger.unknown') : amount(value)} divider={index > 0} emphasis={name === 'closing'} />
             )}
           </Card>
         )}
@@ -84,15 +86,20 @@ export default function MonthlyLedger({ navigation }) {
         {days.length > 0 && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base }}>{t('ledger.tap_day')}</Text>}
         {days.map(day => {
           const date = new Date(day.date + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+          const onlineNotes = day.entries.filter(entry => entry.payment_type === 'online');
           return (
             <Card key={day.date} padding="md">
               <Row icon="calendar-outline" label={date} onPress={() => openDay(day.date)} style={{ paddingTop: 0 }} />
               <SummaryRow label={t('ledger.opening')} value={amount(day.opening_balance)} divider />
-              {day.entries.map(entry => <LedgerEntryRow key={entry.kind + ':' + entry.id} entry={entry} />)}
-              {day.cash_spent + day.online_spent > 0 && (
-                <SummaryRow label={t('ledger.spent')} value={'−' + amount(day.cash_spent + day.online_spent)} />
+              {day.entries.filter(entry => entry.payment_type !== 'online').map(entry => <LedgerEntryRow key={entry.kind + ':' + entry.id} entry={entry} />)}
+              {day.cash_spent > 0 && (
+                <SummaryRow label={t('ledger.cash_spent')} value={'−' + amount(day.cash_spent)} />
               )}
               <SummaryRow label={t('ledger.closing')} value={amount(day.closing_balance)} emphasis />
+              {onlineNotes.length > 0 && <>
+                <SectionHeader icon="card-outline" title={t('ledger.online_notes')} />
+                {onlineNotes.map(entry => <LedgerEntryRow key={entry.id} entry={entry} />)}
+              </>}
             </Card>
           );
         })}

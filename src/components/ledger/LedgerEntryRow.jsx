@@ -5,6 +5,7 @@ import { Button, IconBadge } from '../common';
 import { translateCategoryName } from '../../constants/defaultCategories';
 import { scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
+import { paymentLabel } from '../../utils/cash';
 
 export const money = (value, language = 'en') => '₹' + Number(value || 0).toLocaleString(
   language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN',
@@ -23,7 +24,8 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
   const isNote = entry.kind === 'note';
   const isTransfer = entry.kind === 'transfer';
   const isExpense = entry.kind === 'expense';
-  const outgoing = isExpense || entry.direction === 'out';
+  const onlineNote = entry.payment_type === 'online';
+  const outgoing = (isExpense && !onlineNote) || entry.direction === 'out';
   let title = t('ledger.entry');
   let icon = 'wallet-outline';
   let tint = C.income;
@@ -33,7 +35,7 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
     icon = 'document-text-outline';
     tint = C.iconNotes;
   } else if (isExpense) {
-    title = expenseLabel(entry, t);
+    title = entry.origin === 'forgotten' ? t('ledger.add_forgotten') : expenseLabel(entry, t);
     icon = 'cart-outline';
     tint = C.iconExpense;
   } else if (isTransfer) {
@@ -43,7 +45,7 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
   } else if (entry.kind === 'legacy_receipt') {
     title = t('ledger.cash_receipts');
   } else if (entry.kind === 'receipt') {
-    title = t('ledger.receipts');
+    title = t(entry.account === 'locker' ? 'ledger.outside_cash' : 'ledger.receipts');
   }
 
   const image = entry.item_icon || entry.icon;
@@ -59,11 +61,11 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
           {!!entry.note && !isNote && entry.kind !== 'legacy_receipt' &&
             <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm }}>{entry.note}</Text>}
           {isExpense && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm }}>
-            {entry.payment_type === 'online' ? t('ledger.online') : t('ledger.cash')}
+            {t(paymentLabel(entry.payment_type))}
           </Text>}
         </View>
-        {!isNote && <Text style={{ maxWidth: '42%', flexShrink: 1, textAlign: 'right', color: outgoing ? C.expense : C.income, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold }}>
-          {(outgoing ? '−' : '+') + money(entry.amount, i18n.language)}
+        {!isNote && <Text style={{ maxWidth: '42%', flexShrink: 1, textAlign: 'right', color: onlineNote ? C.online : outgoing ? C.expense : C.income, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold }}>
+          {(onlineNote ? '' : outgoing ? '−' : '+') + money(entry.amount, i18n.language)}
         </Text>}
       </View>
       {(onEdit || onDelete) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: Spacing.xs }}>

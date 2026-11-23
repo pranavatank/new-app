@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
-import { Card, Button, EmptyState, IconBadge, SectionHeader } from './common';
+import { Card, Button, IconBadge, Row, SectionHeader } from './common';
 import { getDayOverview } from '../db/dayOverview';
 import { completeTask } from '../db/queries';
 import { translateCategoryName } from '../constants/defaultCategories';
@@ -40,11 +40,22 @@ export default function DayOverview({ date, navigation, refreshKey }) {
   const topCategories = data.expenses.filter(row => Number(row.total) > 0)
     .sort((a, b) => b.total - a.total).slice(0, 5);
   const nav = screen => navigation.navigate(screen);
+  const addTask = () => navigation.navigate('Tasks', { autoAdd: true });
+  const addNote = () => navigation.navigate('Notes', { autoAdd: true });
+  const addFuel = () => navigation.navigate('Vehicle', { addDate: date });
+  const emptyModules = [
+    !data.tasks.length && { icon: 'checkmark-circle-outline', color: C.iconTask, label: t('home.addTask'), onPress: addTask },
+    !data.places.length && { icon: 'location-outline', color: C.iconPlaces, label: t('home.addPlace'), onPress: () => nav('Places') },
+    !data.notes.length && { icon: 'document-text-outline', color: C.iconNotes, label: t('home.addNote'), onPress: addNote },
+    showMileage && !data.fuel.length && { icon: 'water-outline', color: C.online, label: t('ledger.add_fuel'), onPress: addFuel },
+  ].filter(Boolean);
 
-  return <View>
-    {data.error && <Text style={{ color: C.expense, marginBottom: Spacing.md }}>{t('ledger.overview_load_error')}</Text>}
+  if (data.error) {
+    return <Text accessibilityRole="alert" style={{ color: C.expense }}>{t('ledger.overview_load_error')}</Text>;
+  }
 
-    {topCategories.length > 0 && <View style={{ marginBottom: Spacing.md }}>
+  return <View style={{ gap: Spacing.md }}>
+    {topCategories.length > 0 && <View>
       <SectionHeader icon="cart" color={C.iconExpense} title={t('expense.expensesByCategory')} onSeeAll={() => nav('Expense')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         {topCategories.map((category, index) => {
@@ -57,9 +68,9 @@ export default function DayOverview({ date, navigation, refreshKey }) {
       </View>
     </View>}
 
-    <Card style={{ marginBottom: Spacing.lg }}>
+    {data.tasks.length > 0 && <Card>
       <SectionHeader icon="checkmark-circle" color={C.iconTask} title={t('home.tasks')} badge={pendingCount || undefined} onSeeAll={() => nav('Tasks')} />
-      {data.tasks.length === 0 ? <EmptyState icon="flag-outline" title={t('home.noTasks')} /> : data.tasks.slice(0, 3).map(task => {
+      {data.tasks.slice(0, 3).map(task => {
         const done = task.status === 'completed';
         return <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: C.divider }}>
           <TouchableOpacity onPress={() => complete(task.id)} disabled={done} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -72,39 +83,41 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         </View>;
       })}
       {data.tasks.length > 3 && <Button variant="ghost" size="sm" label={`+${data.tasks.length - 3}`} onPress={() => nav('Tasks')} />}
-      <Button variant="ghost" size="sm" icon="add" label={t('home.addTask')} onPress={() => navigation.navigate('Tasks', { autoAdd: true })} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
-    </Card>
+      <Button variant="ghost" size="sm" icon="add" label={t('home.addTask')} onPress={addTask} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
+    </Card>}
 
-    <Card style={{ marginBottom: Spacing.lg }}>
+    {data.places.length > 0 && <Card>
       <SectionHeader icon="location" color={C.iconPlaces} title={t('home.visitedPlaces')} badge={data.places.length || undefined} onSeeAll={() => nav('Places')} />
-      {data.places.length === 0 ? <EmptyState icon="map-outline" title={t('home.noPlaces')} /> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         {data.places.map(place => <View key={place.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%', borderRadius: Radius.full, paddingHorizontal: Spacing.md, paddingVertical: 7, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated }}>
           <IconBadge photoUri={place.icon_type === 'image' ? place.icon : undefined} emoji={place.icon_type !== 'image' ? (place.icon || '\uD83D\uDCCD') : undefined} size={22} color={C.iconPlaces} />
           <Text style={{ flexShrink: 1, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold, color: C.textPrimary }}>{place.name}</Text>
         </View>)}
-      </View>}
+      </View>
       <Button variant="ghost" size="sm" icon="add" label={t('home.addPlace')} onPress={() => nav('Places')} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
-    </Card>
+    </Card>}
 
-    <Card style={{ marginBottom: Spacing.lg }}>
+    {data.notes.length > 0 && <Card>
       <SectionHeader icon="document-text" color={C.iconNotes} title={t('home.notes')} badge={data.notes.length || undefined} onSeeAll={() => nav('Notes')} />
-      {data.notes.length === 0 ? <EmptyState icon="create-outline" title={t('home.noNotes')} /> : data.notes.slice(0, 2).map(note => <View key={note.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+      {data.notes.slice(0, 2).map(note => <View key={note.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
         <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 8, backgroundColor: C.iconNotes }} />
         <Text style={{ flex: 1, fontSize: Typography.sizes.base, lineHeight: 22, color: C.textSecondary }} numberOfLines={2}>{note.text}</Text>
       </View>)}
-      <Button variant="ghost" size="sm" icon="add" label={t('home.addNote')} onPress={() => navigation.navigate('Notes', { autoAdd: true })} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
-    </Card>
+      <Button variant="ghost" size="sm" icon="add" label={t('home.addNote')} onPress={addNote} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
+    </Card>}
 
-    {showMileage && <>
-      <Card style={{ marginBottom: Spacing.lg }}>
+    {showMileage && data.fuel.length > 0 && (
+      <Card>
         <SectionHeader icon="water" color={C.online} title={`${t('ledger.overview_daily_fuel')} · ${date}`} onSeeAll={() => nav('Vehicle')} />
-        {data.fuel.length === 0 ? <Text style={{ color: C.textSecondary, paddingVertical: Spacing.sm }}>{t('ledger.overview_fuel_empty')}</Text> : data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+        {data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
           <Text style={{ color: C.textSecondary }}>{Number(record.liters || 0).toLocaleString(numberLocale(i18n.language))} L · {Number(record.reading || 0).toLocaleString(numberLocale(i18n.language))} km</Text>
           <Text style={{ color: C.textPrimary, fontWeight: Typography.weights.bold }}>{money(record.amount, i18n.language)}</Text>
         </View>)}
-        <Button variant="ghost" size="sm" icon="add" label={t('ledger.add_fuel')} onPress={() => navigation.navigate('Vehicle', { addDate: date })} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
+        <Button variant="ghost" size="sm" icon="add" label={t('ledger.add_fuel')} onPress={addFuel} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
       </Card>
-      <Card style={{ marginBottom: Spacing.lg }}>
+    )}
+    {showMileage && data.vehicleStats.totalDistance > 0 && (
+      <Card>
         <SectionHeader mciIcon="motorbike" color={C.primary} title={t('ledger.overview_mileage_all_time')} onSeeAll={() => nav('Vehicle')} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md }}>
           {[[t('ledger.overview_average'), `${data.vehicleStats.totalAvg.toFixed(2)} km/L`], [t('ledger.overview_last_10'), data.vehicleStats.last10Avg.toFixed(2)], [t('ledger.overview_total_km'), Number(data.vehicleStats.totalDistance).toLocaleString(numberLocale(i18n.language))]].map(([label, value]) => <View key={label} style={{ flex: 1, alignItems: 'center' }}>
@@ -113,6 +126,12 @@ export default function DayOverview({ date, navigation, refreshKey }) {
           </View>)}
         </View>
       </Card>
-    </>}
+    )}
+    {emptyModules.length > 0 && <Card padding="none" elevation="none">
+      {emptyModules.map(({ icon, color, label, onPress }, index) => (
+        <Row key={icon} icon={icon} iconColor={color} label={label} onPress={onPress}
+          style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderTopWidth: index ? 1 : 0, borderTopColor: C.divider }} />
+      ))}
+    </Card>}
   </View>;
 }

@@ -24,6 +24,7 @@ export default function Input({ label, style, inputStyle, labelStyle, ...rest })
         </Text>
       )}
       <TextInput
+        accessibilityLabel={typeof label === 'string' ? label : undefined}
         placeholderTextColor={C.textMuted}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}

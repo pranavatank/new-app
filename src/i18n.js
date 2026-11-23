@@ -1,6 +1,5 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import * as Localization from 'expo-localization';
 
 import en from './locales/en.json';
 import gu from './locales/gu.json';
@@ -15,22 +14,7 @@ const resources = {
   gu: { translation: gu },
 };
 
-// BUG FIX: getLocales() returns full BCP-47 tags like "gu-IN", "en-US", "en-IN".
-// i18next resources are keyed as just "gu" / "en".
-// We must strip the region suffix, then verify it's a supported language.
-const getDeviceLanguage = () => {
-  try {
-    const locales = Localization.getLocales();
-    const tag = locales?.[0]?.languageTag || 'en';       // e.g. "gu-IN"
-    const code = tag.split('-')[0].toLowerCase();         // "gu"
-    return SUPPORTED_LANGUAGES[code] ? code : 'en';       // fallback to en
-  } catch {
-    return 'en';
-  }
-};
-
-// initialLanguage is resolved once at module init — synchronous, no race.
-export const initialLanguage = getDeviceLanguage();
+export const initialLanguage = 'gu';
 
 i18n
   .use(initReactI18next)

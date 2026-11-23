@@ -6,7 +6,7 @@ Working checkout `main`, last verified on 19 November 2026.
 
 - The app opens in the new daily book. Large, labelled actions start an expense or a note. Money received and locker movements have separate actions.
 - The floating bar opens Today, Month, Notes, and Tools. Today puts closing cash in the gradient card, lets you expand the breakdown, and has a direct Search action.
-- Switch English/Gujarati directly on the daily page. New book and purchase screens use Latin/100-style numbers in both languages.
+- Gujarati is the default for a fresh installation. The language switch on Today keeps an existing language preference. Ledger and recurring amounts accept Gujarati digits, and amounts display in the familiar 100-style format.
 - An expense is a new independent record. Adding ₹100 and then ₹60 for vegetables keeps both entries. Editing a row changes that row.
 - Create Tomato and Brinjal from the same Vegetables draft and enter an amount for each. Today and Month book show both item names. The batch writes both rows and rebuilds balances in one transaction.
 - A note needs only its text. The original Notes screen remains available, now with a visible add button and optional type selection.
@@ -24,11 +24,19 @@ Today and the original Home share day-wise module previews. Pending tasks carry 
 
 All 15 screens and React Navigation use the central light and dark palettes. The refresh uses shared cards, rows, headings, buttons, and ledger entries across Today, Month book, Tools, and Purchases. The source check verifies registered destinations, translated navigation labels, palette parity, and central color and typography usage. See [theme and component rules](THEME_AND_COMPONENTS.md).
 
-Old `days.deposit_today` values remain daily legacy receipts with unknown sources. New receipts are stored separately and are not copied into that field. Existing expense rows retain their category, item, payment and place relationships; new origin/time columns are added through repeat-safe migrations.
+## Wallet and home locker
 
-Cash balance includes carried cash + legacy receipts + new receipts + net locker-to-hand movements - cash expenses. Online spending does not reduce cash in hand. Internal locker movements are excluded from receipt/spending totals. Unknown locker opening cash remains unknown; a data API can set an opening amount, but a dedicated opening-balance setup screen is not included in this slice.
+1. **લોકરમાં રોકડ મૂકો** records outside cash from an ATM or another person. ₹8,000 adds ₹8,000 to the locker.
+2. **અંદરથી રોકડ લો** moves cash into the wallet. Taking ₹2,000 leaves ₹6,000 in the locker and ₹2,000 in the wallet.
+3. **ખર્ચ ઉમેરો** uses the wallet by default. Choose **લોકરમાંથી સીધી** for a bill paid directly from the locker. A monthly milk bill can use that source in **નિયમિત ખર્ચ**. When the app opens it records charges that are due. If the selected day is beyond the end of a month, it uses the last day of that month.
+4. **ઑનલાઇન · ફક્ત નોંધ** keeps online payments separate. They leave both cash balances and all cash-spending totals unchanged.
+5. **યાદ નથી** records the cash shortfall as a wallet expense. If the wallet should contain ₹500 and contains ₹450, enter ₹50.
 
-The analytics comparison is now called **Receipts less spending**. It subtracts both cash and online expenses, and is not presented as a complete household savings calculation. The native biometric policy is unchanged by this task; the earlier review's lock-settings limitation remains relevant.
+**વિગતો જુઓ** stays at the top of Today while the list scrolls. It opens the breakdown, the option to return wallet cash to the locker, and the opening locker amount for cash that was already there before the first entry. If older transfers make the opening amount unknown, the setup action also appears on Today.
+
+Old deposits and receipts still affect the wallet. The migration adds the movement account with a wallet default for existing rows. Existing cash, online and recurring records preserve their source. Prior transfers affect the two cash accounts in opposite directions. Reports subtract actual cash expenses from outside receipts, with online payments listed separately. JSON backup and Excel merge preserve movement sources and the locker opening balance. A backdated edit and a restore recalculate the carried wallet balance.
+
+The category editor and item editor use one shared sheet scroll area and keep the save action in the sheet footer. Existing categories display with Gujarati names, and a saved custom name stays as entered.
 
 ## Product memories
 
@@ -66,7 +74,9 @@ All three checks passed after the theme and navigation updates. The source check
 
 The independent review confirmed shared theme usage, item labels, atomic writes and selected-day previews. The follow-up improved contrast on the shared gradient and Vehicle header and isolated the test harnesses from Expo's production Babel configuration. Task completion uses the date it was marked complete. Vehicle drafts opened from Tools use today's date, and the selected-day shortcut sets the preview date. Editing the fuel date updates the adjacent odometer readings used for validation.
 
-The browser access host was unavailable and the native browser launch timed out. Browser interaction and physical Android verification remain pending, including Gujarati wrapping, large system text, keyboard-open Save, photo selection and persistence, biometrics, and JSON restore on a disposable installation.
+The Gujarati cash-flow follow-up passed the source, ledger and entry-form checks. The SQL.js tests cover the ₹8,000 deposit, ₹2,000 transfer, direct locker spending, online notes, forgotten cash, recurring posting, backdated corrections, PDF cash totals and JSON/Excel round trips.
+
+Edge with touch emulation at 360×740 and 320×568 verified the Gujarati entry flow, the fixed **વિગતો જુઓ** control, compact empty sections, all Tools destinations, and the category and item editors with Save in view. Expo exported Android, iOS and web bundles. Physical Android verification still includes the native keyboard, large system text, photo selection and persistence, biometrics, and file restore on a disposable installation.
 
 ## Android preview build
 

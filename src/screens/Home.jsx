@@ -13,7 +13,7 @@ import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 
-const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
 // ── Balance Card ──────────────────────────────────────────────────────────────
 
@@ -24,9 +24,9 @@ const BalanceCard = ({ dayData, onPress, t }) => {
 
   const bal  = dayData?.closing_balance ?? 0;
   const open = dayData?.opening_balance ?? 0;
-  const dep  = (dayData?.deposit_today ?? 0) + (dayData?.receipt_total ?? 0);
+  const locker = dayData?.locker_balance;
   const transfer = dayData?.transfer_net ?? 0;
-  const cash = dayData?.cash_spent      ?? 0;
+  const cash = dayData?.wallet_spent ?? 0;
   const onl  = dayData?.online_spent    ?? 0;
   const pos  = bal >= 0;
 
@@ -53,7 +53,7 @@ const BalanceCard = ({ dayData, onPress, t }) => {
         {/* Main balance */}
         <View style={bc.top}>
           <View>
-            <Text style={bc.lbl}>{t('home.cashBalance').toUpperCase()}</Text>
+            <Text style={bc.lbl}>{t('ledger.wallet_balance')}</Text>
             <Text style={[bc.bal, { color: pos ? C.incomeOnGradient : C.expenseOnGradient }]}>{fmt(bal)}</Text>
           </View>
           <View style={bc.circle}>
@@ -66,9 +66,9 @@ const BalanceCard = ({ dayData, onPress, t }) => {
         {/* 3-col breakdown */}
         <View style={bc.row}>
           {[
-            { l: t('home.opening'),   v: fmt(open),       c: C.gradientMuted },
-            { l: t('ledger.receipts'), v: '+'+fmt(dep),     c: C.incomeOnGradient },
-            { l: t('home.cashSpent'),v: '−'+fmt(cash),    c: C.expenseOnGradient },
+            { l: t('ledger.locker_balance'), v: locker == null ? t('ledger.unknown') : fmt(locker), c: C.textOnGradient },
+            { l: t('ledger.opening'), v: fmt(open), c: C.gradientMuted },
+            { l: t('ledger.wallet_spent'), v: '−'+fmt(cash), c: C.expenseOnGradient },
           ].map((x, i) => (
             <React.Fragment key={x.l}>
               {i > 0 && <View style={bc.pipe} />}
@@ -88,7 +88,7 @@ const BalanceCard = ({ dayData, onPress, t }) => {
         {onl > 0 && (
           <View style={bc.chip}>
             <Ionicons name="globe-outline" size={13} color={C.onlineOnGradient} />
-            <Text style={bc.chipTxt}>{t('home.online')}: {fmt(onl)}</Text>
+            <Text style={bc.chipTxt}>{t('ledger.online_spent')} · {fmt(onl)}</Text>
           </View>
         )}
 
@@ -169,7 +169,7 @@ export default function HomeScreen({ navigation }) {
         {/* ── BALANCE ────────────────────────────────────────────── */}
         <View style={s.secLblRow}>
           <Ionicons name="wallet" size={14} color={C.iconBalance} />
-          <Text style={[s.secLbl, { color: C.textSecondary }]}>{t('home.cashBalance').toUpperCase()}</Text>
+          <Text style={[s.secLbl, { color: C.textSecondary }]}>{t('ledger.wallet_balance')}</Text>
         </View>
         <BalanceCard dayData={dayData} onPress={() => navigation.navigate('Expense')} t={t} />
 
