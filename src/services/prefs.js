@@ -2,16 +2,18 @@
 // Uses expo-file-system (already a project dependency) — no new packages needed.
 
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 
 const PREFS_FILE = FileSystem.documentDirectory + 'hisab_prefs.json';
+const WEB_PREFS = 'rojnishi.preferences';
 
 let _cache = null; // in-memory cache to avoid repeated disk reads
 
 export const loadPrefs = async () => {
   if (_cache) return _cache;
   try {
-    const str = await FileSystem.readAsStringAsync(PREFS_FILE);
-    _cache = JSON.parse(str);
+    const str = Platform.OS === 'web' ? globalThis.localStorage.getItem(WEB_PREFS) : await FileSystem.readAsStringAsync(PREFS_FILE);
+    _cache = str ? JSON.parse(str) : {};
     return _cache;
   } catch {
     _cache = {};
@@ -23,7 +25,8 @@ export const savePrefs = async (updates) => {
   try {
     const existing = await loadPrefs();
     const merged   = { ...existing, ...updates };
-    await FileSystem.writeAsStringAsync(PREFS_FILE, JSON.stringify(merged));
+    if (Platform.OS === 'web') globalThis.localStorage.setItem(WEB_PREFS, JSON.stringify(merged));
+    else await FileSystem.writeAsStringAsync(PREFS_FILE, JSON.stringify(merged));
     _cache = merged;
   } catch (e) {
     console.warn('savePrefs failed:', e);

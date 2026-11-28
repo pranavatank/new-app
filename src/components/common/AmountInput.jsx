@@ -21,7 +21,7 @@ const defaultsByKind = {
 };
 
 export default function AmountInput({
-  value, onChangeText, style, history, limit = Infinity, step = 10, compact = false, ...props
+  value, onChangeText, style, history, limit = Infinity, step = 10, compact = false, centered = false, showSuggestions = true, ...props
 }) {
   const { t } = useTranslation();
   const { scale } = useTheme();
@@ -31,7 +31,7 @@ export default function AmountInput({
   const past = useMemo(() => kind
     ? getAmountHistory({ kind, date, id, categoryId, itemId, paymentType, category })
     : [], [kind, date, id, categoryId, itemId, paymentType, category]);
-  const suggestions = suggestAmounts(past, defaultsByKind[kind] || expenseDefaults, limit);
+  const suggestions = showSuggestions ? suggestAmounts(past, defaultsByKind[kind] || expenseDefaults, limit) : [];
   const parsed = parseCashAmount(value);
   const current = Number.isFinite(parsed) ? parsed : 0;
   const adjust = delta => onChangeText(String(Math.round(100 * Math.max(0, Math.min(limit, current + delta))) / 100));
@@ -42,11 +42,15 @@ export default function AmountInput({
         <IconButton icon="remove" label={t('ledger.decrease_amount', { step })} onPress={() => adjust(-step)} disabled={current <= 0} />
         <Input {...props} value={value} onChangeText={onChangeText} placeholder="0" keyboardType="decimal-pad"
           autoComplete="off" importantForAutofill="no" style={{ flex: 1, minWidth: 0 }}
+          inputStyle={[props.inputStyle, centered && { textAlign: 'center' }]}
+          labelStyle={[props.labelStyle, centered && { textAlign: 'center' }]}
+          labelRowStyle={centered ? { justifyContent: 'center' } : undefined}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
         <IconButton icon="add" label={t('ledger.increase_amount', { step })} onPress={() => adjust(step)} disabled={current >= limit} />
       </View>
       {(!compact || focused) && suggestions.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs,
+          justifyContent: centered ? 'center' : 'flex-start' }}>
           {suggestions.map(amount => (
             <Button key={amount} size="sm" variant={current === amount ? 'primary' : 'secondary'}
               label={'₹' + amount.toLocaleString('en-IN')} onPress={() => onChangeText(String(amount))} />

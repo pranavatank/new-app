@@ -13,9 +13,14 @@ import AmountInput from '../common/AmountInput';
 import Chip from '../common/Chip';
 import Button from '../common/Button';
 import Card from '../common/Card';
+import Row from '../common/Row';
+import IconBadge from '../common/IconBadge';
+import { money } from './LedgerEntryRow';
 
-const empty = { amount: '', note: '', text: '', categoryId: null, paymentType: 'cash', direction: 'in', expenseMode: 'items', itemAmounts: {}, newItem: '' };
+const empty = { amount: '', note: '', text: '', categoryId: null, paymentType: 'cash', direction: 'in', expenseMode: 'items', itemAmounts: {}, newItem: '', countedCash: '' };
 const isImageUri = value => typeof value === 'string' && /^(file:|content:|data:|https?:)/i.test(value);
+const logoProps = ({ icon, icon_type: iconType }) => icon &&
+  (iconType === 'image' || iconType === 'photo' || isImageUri(icon)) ? { photoUri: icon } : { emoji: icon };
 const makeInitial = entry => entry ? {
   ...empty,
   amount: entry.amount == null ? '' : String(entry.amount),
@@ -28,7 +33,7 @@ const makeInitial = entry => entry ? {
   itemAmounts: entry.item_id != null ? { [entry.item_id]: String(entry.amount ?? '') } : {},
 } : { ...empty };
 
-export default function LedgerEntryForm({ visible, mode, date, entry, onClose, onSaved }) {
+export default function LedgerEntryForm({ visible, mode, date, entry, onClose, onSaved, walletBalance, onForgotten, openingAmount }) {
   const { C, scale } = useTheme();
   const { t, i18n } = useTranslation();
   const { Typography, Spacing } = scaleTheme(scale);
@@ -62,16 +67,16 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   useEffect(() => {
     if (!visible || kind !== 'expense') return;
     try {
-      const list = getAllCategories();
+      const list = getAllCategories().filter(category => !onForgotten || category.name !== 'Forgotten');
       if (entry?.category_id && !list.some(c => Number(c.id) === Number(entry.category_id))) {
         list.unshift({ id: entry.category_id, name: entry.category_name || 'Other', icon: entry.icon, icon_type: entry.icon_type });
       }
       setCategories(list);
     } catch { setCategories([]); }
-  }, [visible, entry, kind]);
+  }, [visible, entry, kind, Boolean(onForgotten)]);
 
   useEffect(() => {
-    const initial = makeInitial(entry);
+    const initial = mode === 'locker_opening' && openingAmount != null ? { ...empty, amount: String(openingAmount) } : makeInitial(entry);
     initialForm.current = initial;
     setForm(initial);
     setChoosingCategory(false);
@@ -87,7 +92,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
         setItems(list);
       } catch { setItems([]); }
     } else setItems([]);
-  }, [entry, mode, date, visible]);
+  }, [entry, mode, date, visible, openingAmount]);
 
   const update = (key, value) => { setForm(current => ({ ...current, [key]: value })); setError(''); };
   const dirty = JSON.stringify(form) !== JSON.stringify(initialForm.current);
@@ -174,14 +179,24 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     finally { saveLock.current = false; setSaving(false); }
   };
 
-  const dateLabel = new Date(`${date}T00:00:00`).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dateLabel = date && new Date(`${date}T00:00:00`).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const category = categories.find(c => Number(c.id) === Number(form.categoryId));
   const pickingCategory = kind === 'expense' && (choosingCategory || !category);
-  const labelStyle = { color: C.textPrimary, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, marginBottom: Spacing.xs };
+  const labelStyle = { color: C.textPrimary, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, textAlign: 'center', marginBottom: Spacing.sm };
+  const centeredChips = { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm };
+  const chipStyle = { minHeight: 44, maxWidth: '100%', justifyContent: 'center' };
+  const actualCash = parseCashAmount(form.countedCash);
+  const missingCash = Number.isFinite(actualCash) && actualCash >= 0 && Number.isFinite(walletBalance)
+    ? Math.round((walletBalance - actualCash) * 100) / 100 : null;
+  const showCashHelper = kind === 'forgotten' && !entry && Number.isFinite(walletBalance);
+  const paymentOptions = [
+    ['cash', 'wallet-outline', C.primary],
+    ['locker', 'lock-closed-outline', C.online],
+    ['online', 'card-outline', C.iconTask],
+  ];
   const noteField = <Input value={form.note} onChangeText={v => update('note', v)} placeholder={t('ledger.optional_note')} />;
   const categoryChip = (c, index) => {
-    const emoji = c.icon_type !== 'image' && !isImageUri(c.icon) ? c.icon : null;
-    return <Chip key={c.id} size="md" emoji={emoji} color={C.accents[index % C.accents.length]} label={translateCategoryName(c.name, t)} active={Number(form.categoryId) === Number(c.id)} onPress={() => selectCategory(c.id)} style={{ marginRight: Spacing.xs, marginBottom: Spacing.xs, minHeight: 48, maxWidth: '100%' }} />;
+    return <Chip key={c.id} size="md" {...logoProps(c)} icon={c.icon ? undefined : 'cart-outline'} color={C.accents[index % C.accents.length]} label={translateCategoryName(c.name, t)} active={Number(form.categoryId) === Number(c.id)} onPress={() => selectCategory(c.id)} style={chipStyle} />;
   };
 
   const showSave = !pickingCategory && !showNewItem;
@@ -190,40 +205,49 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     {showSave && <Button label={saving ? t('ledger.saving') : t('common.save')} onPress={save} loading={saving} fullWidth />}
   </>;
   return <Sheet visible={visible} onClose={close} title={entry && kind === 'expense' ? t('common.edit') : title}
-    bodyKey={pickingCategory ? 'categories' : 'fields'} footer={showSave || error ? footer : undefined}>
-    <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{dateLabel}</Text>
+    bodyKey={pickingCategory ? 'categories' : kind} footer={showSave || error ? footer : undefined}>
+    {kind !== 'locker_opening' && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, textAlign: 'center', marginBottom: Spacing.md }}>{dateLabel}</Text>}
     {!!hint && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{hint}</Text>}
     {takingCash && <Text style={{ color: C.primary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{limitMessage(limit)}</Text>}
-    <View style={{ paddingBottom: Spacing.sm }}>
+    <View style={{ paddingBottom: Spacing.md, gap: Spacing.md }}>
       {kind === 'note' ? <Input value={form.text} onChangeText={v => update('text', v)} placeholder={t('ledger.note_placeholder')} multiline inputStyle={{ minHeight: 130, textAlignVertical: 'top' }} /> : <>
         {kind === 'expense' && <>
           {pickingCategory ? <>
             <Text accessibilityRole="header" style={labelStyle}>{t('ledger.choose_expense_category')}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{categories.map(categoryChip)}</View>
+            <View style={centeredChips}>{categories.map(categoryChip)}</View>
+            {!form.categoryId && onForgotten && <Card padding="none" elevation="none" style={{ backgroundColor: C.sandBg, borderWidth: 0, marginTop: Spacing.md, paddingHorizontal: Spacing.md }}>
+              <Row icon="help-circle-outline" iconColor={C.warning} label={t('ledger.add_forgotten')} subtitle={t('ledger.forgotten_short')} onPress={onForgotten} />
+            </Card>}
             {!!category && <Button label={t('common.cancel')} variant="ghost" size="sm" onPress={() => { setChoosingCategory(false); setError(''); }} />}
           </> : <>
-            <Card padding="sm" elevation="none" style={{ backgroundColor: C.primaryDim, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md }}>
-              <Text accessibilityRole="header" style={{ ...labelStyle, flexGrow: 1, marginBottom: 0 }}>{translateCategoryName(category.name, t)}</Text>
+            <Card padding="sm" elevation="none" style={{ backgroundColor: C.primaryDim, alignItems: 'center', borderWidth: 0, marginBottom: Spacing.md }}>
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+                <IconBadge {...logoProps(category)} icon="cart-outline" size={32} color={C.iconExpense} />
+                <Text accessibilityRole="header" style={{ ...labelStyle, marginBottom: 0, flexShrink: 1 }}>{translateCategoryName(category.name, t)}</Text>
+              </View>
               <Button label={t('ledger.change_expense_category')} icon="swap-horizontal-outline" variant="ghost" size="sm"
                 onPress={() => { setChoosingCategory(true); setError(''); }} />
             </Card>
             <Text style={labelStyle}>{t('ledger.payment')}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm }}>
-              {['cash', 'locker', 'online'].map(type => <Chip key={type} label={t(paymentLabel(type))}
-                active={form.paymentType === type} onPress={() => update('paymentType', type)} style={{ minHeight: 44, maxWidth: '100%' }} />)}
+            <View style={[centeredChips, { marginBottom: Spacing.md }]}>
+              {paymentOptions.map(([type, icon, color]) => <Chip key={type} icon={icon} color={color} label={t(paymentLabel(type))}
+                active={form.paymentType === type} onPress={() => update('paymentType', type)} style={chipStyle} />)}
             </View>
-            {form.paymentType === 'online' && <Text style={{ color: C.online, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{t('ledger.online_note_hint')}</Text>}
-            {!!items.length && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm }}>
-              <Chip label={t('ledger.expense_by_items')} active={form.expenseMode === 'items'} onPress={() => update('expenseMode', 'items')} style={{ minHeight: 44, maxWidth: '100%' }} />
-              <Chip label={t('ledger.category_total')} active={form.expenseMode === 'total'} onPress={() => update('expenseMode', 'total')} style={{ minHeight: 44, maxWidth: '100%' }} />
+            {form.paymentType === 'online' && <Text style={{ color: C.online, fontSize: Typography.sizes.sm, textAlign: 'center', marginBottom: Spacing.md }}>{t('ledger.online_note_hint')}</Text>}
+            {!!items.length && <View style={[centeredChips, { marginBottom: Spacing.md }]}>
+              <Chip label={t('ledger.expense_by_items')} active={form.expenseMode === 'items'} onPress={() => update('expenseMode', 'items')} style={chipStyle} />
+              <Chip label={t('ledger.category_total')} active={form.expenseMode === 'total'} onPress={() => update('expenseMode', 'total')} style={chipStyle} />
             </View>}
             {form.expenseMode === 'items' && items.length ? items.map(item => <View key={item.id} style={{ marginBottom: Spacing.sm }}>
-              <AmountInput compact={items.length > 1} history={history(item.id)} label={`${item.icon_type !== 'image' && !isImageUri(item.icon) ? `${item.icon || ''} ` : ''}${item.name}${item.inactive ? ` · ${t('ledger.inactive_item')}` : ''}`} value={form.itemAmounts[item.id] || ''} onChangeText={value => {
+              <AmountInput centered compact={items.length > 1} history={history(item.id)}
+                label={item.name + (item.inactive ? ' · ' + t('ledger.inactive_item') : '')}
+                labelLeading={<IconBadge {...logoProps(item)} icon="pricetag-outline" size={26} color={C.iconExpense} />}
+                value={form.itemAmounts[item.id] || ''} onChangeText={value => {
                 setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }));
                 setError('');
               }} />
-            </View>) : <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.xs }}>
+            </View>) : <AmountInput centered history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
+            <View style={[centeredChips, { marginTop: Spacing.xs }]}>
               {(!entry || !items.length) && !showNewItem && <Button label={t('ledger.add_item')} icon="add" variant="ghost" size="sm" onPress={() => setShowNewItem(true)} />}
               {!showNote && <Button label={t('ledger.optional_note')} icon="create-outline" variant="ghost" size="sm" onPress={() => setShowNote(true)} />}
             </View>
@@ -237,9 +261,17 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
             {showNote && noteField}
           </>}
         </>}
-        {kind !== 'expense' && <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount}
+        {showCashHelper && <Card padding="md" elevation="none" style={{ backgroundColor: C.sandBg, borderWidth: 0, gap: Spacing.sm }}>
+          <Text style={{ ...labelStyle, marginBottom: 0 }}>{t('ledger.wallet_expected', { amount: money(walletBalance, i18n.language) })}</Text>
+          <Input label={t('ledger.wallet_counted')} value={form.countedCash} placeholder="0" keyboardType="decimal-pad"
+            onChangeText={v => { setForm(current => ({ ...current, countedCash: v, amount: '' })); setError(''); }} />
+          {missingCash > 0 && <Button label={t('ledger.use_missing_cash', { amount: money(missingCash, i18n.language) })}
+            size="sm" variant="secondary" onPress={() => update('amount', String(missingCash))} />}
+          {missingCash !== null && missingCash <= 0 && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm }}>{t('ledger.no_missing_cash')}</Text>}
+        </Card>}
+        {kind !== 'expense' && <AmountInput centered history={kind === 'forgotten' ? null : history(null)} label={t('ledger.amount')} value={form.amount}
           onChangeText={v => update('amount', v)} step={takingCash || kind === 'deposit_locker' || kind === 'locker_opening' ? 100 : 10}
-          limit={takingCash ? limit ?? 0 : Infinity} />}
+          limit={takingCash ? limit ?? 0 : Infinity} showSuggestions={kind !== 'forgotten'} />}
         {kind !== 'locker_opening' && kind !== 'expense' && noteField}
       </>}
     </View>

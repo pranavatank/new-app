@@ -13,6 +13,7 @@ import { money } from '../components/ledger/LedgerEntryRow';
 import { parseCashAmount } from '../utils/cash';
 
 const CATEGORIES = ['appliances', 'clothes', 'other'];
+const CATEGORY_ICONS = ['tv-outline', 'shirt-outline', 'bag-handle-outline'];
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,7 +28,7 @@ const validDate = value => {
 const dateLabel = (value, locale) => validDate(value) ? new Date(`${value}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : value;
 const blank = () => ({ name: '', date: today(), category: 'other', amount: '', shop: '', details: '', image_uri: '' });
 
-function PurchaseForm({ visible, item, onClose, onSaved }) {
+function PurchaseForm({ visible, item, addDate, onClose, onSaved }) {
   const { C, scale } = useTheme();
   const { t } = useTranslation();
   const { Radius, Spacing, Typography } = scaleTheme(scale);
@@ -35,14 +36,16 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const initial = useRef(form);
   const saveLock = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
-    const value = item ? { name: item.name || '', date: item.date || today(), category: item.category || 'other', amount: item.amount == null ? '' : String(item.amount), shop: item.shop || '', details: item.details || '', image_uri: item.image_uri || '' } : blank();
+    const value = item ? { name: item.name || '', date: item.date || today(), category: item.category || 'other', amount: item.amount == null ? '' : String(item.amount), shop: item.shop || '', details: item.details || '', image_uri: item.image_uri || '' } : { ...blank(), date: addDate || today() };
     initial.current = value; setForm(value); setError('');
-  }, [visible, item]);
+    setShowDetails(Boolean(value.shop || value.details || value.image_uri));
+  }, [visible, item, addDate]);
 
   const update = (key, value) => { setForm(current => ({ ...current, [key]: value })); setError(''); };
   const dirty = JSON.stringify(form) !== JSON.stringify(initial.current);
@@ -100,15 +103,20 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
       {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginBottom: Spacing.sm }}>{error}</Text>}
       <Button label={saving ? t('purchases.saving') : t('common.save')} onPress={save} loading={saving} disabled={picking} fullWidth />
     </>}>
-      <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{t('purchases.independent')}</Text>
+      <Card padding="sm" elevation="none" style={{ backgroundColor: C.skyBg, borderWidth: 0, marginBottom: Spacing.md }}>
+        <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, textAlign: 'center' }}>{t('purchases.independent')}</Text>
+      </Card>
       <Input label={t('purchases.name')} style={field} value={form.name} onChangeText={value => update('name', value)} placeholder={t('purchases.namePlaceholder')} />
-      <Input label={t('purchases.date')} style={field} value={form.date} onChangeText={value => update('date', value)} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
-      <Text style={label}>{t('purchases.category')}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>
-        {CATEGORIES.map(category => <Chip key={category} active={form.category === category} onPress={() => update('category', category)} label={t('purchases.categories.' + category)} style={{ minHeight: 44, marginRight: Spacing.sm, marginBottom: Spacing.sm }} />)}
+      <Text style={[label, { textAlign: 'center' }]}>{t('purchases.category')}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm, marginBottom: Spacing.md }}>
+        {CATEGORIES.map((category, index) => <Chip key={category} icon={CATEGORY_ICONS[index]} active={form.category === category} onPress={() => update('category', category)} label={t('purchases.categories.' + category)} style={{ minHeight: 44, maxWidth: '100%' }} />)}
       </View>
-      <AmountInput label={t('purchases.amountOptional')} style={field} value={form.amount} onChangeText={value => update('amount', value)}
+      <Input label={t('purchases.date')} style={field} value={form.date} onChangeText={value => update('date', value.replace(/[૦-૯]/g, digit => String(digit.charCodeAt(0) - 0x0AE6)))} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
+      <AmountInput centered label={t('purchases.amountOptional')} style={field} value={form.amount} onChangeText={value => update('amount', value)}
         history={visible ? { kind: 'purchase', category: form.category, date: validDate(form.date) ? form.date : today(), id: item?.id } : null} />
+      <Button variant="ghost" size="sm" label={t('purchases.extraDetails')}
+        icon={showDetails ? 'chevron-up' : 'chevron-down'} accessibilityState={{ expanded: showDetails }} onPress={() => setShowDetails(value => !value)} />
+      {showDetails && <Card padding="sm" elevation="none" style={{ backgroundColor: C.bgElevated, borderWidth: 0 }}>
       <Input label={t('purchases.shopOptional')} style={field} value={form.shop} onChangeText={value => update('shop', value)} placeholder={t('purchases.shopPlaceholder')} />
       <Input label={t('purchases.detailsOptional')} style={field} inputStyle={{ minHeight: 90, textAlignVertical: 'top' }} value={form.details} onChangeText={value => update('details', value)} placeholder={t('purchases.detailsPlaceholder')} multiline />
       <Text style={label}>{t('purchases.photoOptional')}</Text>
@@ -121,11 +129,12 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
         <Button variant="secondary" icon="camera-outline" label={t('purchases.choosePhoto')} onPress={choosePhoto}
           loading={picking} style={{ marginBottom: Spacing.md }} />
       )}
+      </Card>}
     </Sheet>
   );
 }
 
-export default function Purchases({ navigation }) {
+export default function Purchases({ navigation, route }) {
   const { C, scale } = useTheme();
   const { Radius, Spacing, Typography } = scaleTheme(scale);
   const { t, i18n } = useTranslation();
@@ -136,6 +145,12 @@ export default function Purchases({ navigation }) {
   const locale = i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN';
   const load = useCallback(() => { try { setItems(getPurchases()); setLoadError(false); } catch (e) { setLoadError(true); } }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    if (!route?.params?.autoAdd) return;
+    setSelectedId(null);
+    setForm({ visible: true, item: null, addDate: route.params.addDate });
+    navigation.setParams({ autoAdd: false, addDate: undefined });
+  }, [navigation, route?.params?.autoAdd, route?.params?.addDate]));
   const selected = items.find(item => item.id === selectedId) || null;
   const openAdd = () => setForm({ visible: true, item: null });
   const openEdit = () => selected && setForm({ visible: true, item: selected });
@@ -217,7 +232,7 @@ export default function Purchases({ navigation }) {
           </ScrollView>
         </>
       )}
-      <PurchaseForm visible={form.visible} item={form.item} onClose={() => setForm(value => ({ ...value, visible: false }))} onSaved={onSaved} />
+      <PurchaseForm visible={form.visible} item={form.item} addDate={form.addDate} onClose={() => setForm(value => ({ ...value, visible: false }))} onSaved={onSaved} />
     </View>
   );
 }

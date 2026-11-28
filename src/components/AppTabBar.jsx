@@ -8,9 +8,9 @@ import { useTheme } from '../store/ThemeContext';
 
 const tabs = [
   { name: 'DailyBook', label: 'ledger.nav_today', icon: 'today', accent: 'iconHome' },
+  { name: 'Expense', label: 'ledger.nav_expense', icon: 'grid', accent: 'iconExpense' },
   { name: 'MonthlyLedger', label: 'ledger.nav_month', icon: 'book', accent: 'iconStats' },
-  { name: 'Notes', label: 'ledger.nav_notes', icon: 'document-text', accent: 'iconNotes' },
-  { name: 'FamilyTools', label: 'ledger.nav_tools', icon: 'grid', accent: 'iconPlaces' },
+  { name: 'FamilyTools', label: 'ledger.nav_tools', icon: 'options', accent: 'iconPlaces' },
 ];
 
 export default function AppTabBar({ state, navigation }) {

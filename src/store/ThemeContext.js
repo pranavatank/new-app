@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { AccessibilityInfo, Animated, Easing, Platform, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { LightColors, DarkColors } from '../constants/theme';
 import { setAppLanguage, initialLanguage, SUPPORTED_LANGUAGES } from '../i18n';
 import { loadPrefs, savePrefs } from '../services/prefs';
@@ -6,7 +7,14 @@ import { loadPrefs, savePrefs } from '../services/prefs';
 const ThemeContext = createContext(null);
 
 export const ThemeProvider = ({ children }) => {
-  const [isDark,   setIsDark]   = useState(false);
+  const systemTheme = useColorScheme();
+  const [themeMode, setThemeMode] = useState('system');
+  const isDark = themeMode === 'system' ? systemTheme === 'dark' : themeMode === 'dark';
+  const { width, height } = useWindowDimensions();
+  const [wipe, setWipe] = useState(null);
+  const expansion = useRef(new Animated.Value(0)).current;
+  const fade = useRef(new Animated.Value(1)).current;
+  const switching = useRef(false);
   const [language, setLanguage] = useState(initialLanguage);
   const [scale,    setScale]    = useState(1);
   const [showMileage, setShowMileage] = useState(false);
@@ -18,8 +26,10 @@ export const ThemeProvider = ({ children }) => {
       try {
         const prefs = await loadPrefs();
 
-        if (prefs.isDark !== undefined) {
-          setIsDark(prefs.isDark);
+        if (['system', 'light', 'dark'].includes(prefs.themeMode)) {
+          setThemeMode(prefs.themeMode);
+        } else if (typeof prefs.isDark === 'boolean') {
+          setThemeMode(prefs.isDark ? 'dark' : 'light');
         }
 
         if (prefs.language && SUPPORTED_LANGUAGES[prefs.language]) {
@@ -41,10 +51,34 @@ export const ThemeProvider = ({ children }) => {
     })();
   }, []);
 
-  const toggleTheme = async () => {
-    const next = !isDark;
-    setIsDark(next);
-    await savePrefs({ isDark: next });
+  const changeThemeMode = async mode => {
+    setThemeMode(mode);
+    await savePrefs({ themeMode: mode });
+  };
+
+  const toggleTheme = async origin => {
+    if (switching.current) return;
+    switching.current = true;
+    const next = isDark ? 'light' : 'dark';
+    const reduced = await AccessibilityInfo.isReduceMotionEnabled().catch(() => false);
+    if (!origin || reduced) {
+      switching.current = false;
+      await changeThemeMode(next);
+      return;
+    }
+    const diameter = 2 * Math.hypot(width, height);
+    const useNativeDriver = Platform.OS !== 'web';
+    expansion.setValue(0);
+    fade.setValue(1);
+    setWipe({ ...origin, diameter, color: next === 'dark' ? DarkColors.bg : LightColors.bg });
+    Animated.timing(expansion, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver }).start(({ finished }) => {
+      if (!finished) { setWipe(null); switching.current = false; return; }
+      changeThemeMode(next);
+      globalThis.requestAnimationFrame(() => Animated.timing(fade, { toValue: 0, duration: 170, useNativeDriver }).start(() => {
+        setWipe(null);
+        switching.current = false;
+      }));
+    });
   };
 
   const changeLanguage = async (langCode) => {
@@ -68,8 +102,14 @@ export const ThemeProvider = ({ children }) => {
   const C = isDark ? DarkColors : LightColors;
 
   return (
-    <ThemeContext.Provider value={{ C, isDark, toggleTheme, language, changeLanguage, scale, changeScale, showMileage, toggleMileage, ready }}>
-      {children}
+    <ThemeContext.Provider value={{ C, isDark, themeMode, changeThemeMode, toggleTheme, language, changeLanguage, scale, changeScale, showMileage, toggleMileage, ready }}>
+      <View style={{ flex: 1, overflow: 'hidden' }}>
+        {children}
+        {wipe && <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+          style={{ position: 'absolute', zIndex: 10, left: wipe.x - wipe.diameter / 2, top: wipe.y - wipe.diameter / 2,
+            width: wipe.diameter, height: wipe.diameter, borderRadius: wipe.diameter / 2, backgroundColor: wipe.color,
+            opacity: fade, transform: [{ scale: expansion }] }} />}
+      </View>
     </ThemeContext.Provider>
   );
 };

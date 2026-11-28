@@ -13,7 +13,7 @@ import { parseCashAmount } from '../utils/cash';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
-import { AmountInput, Card, Button, IconBadge, Sheet, Input, Chip, Badge } from '../components/common';
+import { AmountInput, Card, Button, IconBadge, IconButton, Sheet, Input, Chip } from '../components/common';
 import {
   getExpenseSummaryForDay,
   setExpenseAmount,
@@ -35,63 +35,8 @@ import {
 
 const fmt  = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const fmtN = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-
-// ── Balance Header ────────────────────────────────────────────────────────────
-
-const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
-  const bal  = dayData?.closing_balance ?? 0;
-  const transfer = dayData?.transfer_net ?? 0;
-  const cash = dayData?.wallet_spent ?? 0;
-  const locker = dayData?.locker_balance;
-  const onl  = dayData?.online_spent    ?? 0;
-  const pos  = bal >= 0;
-  const bh = balanceStyles(C);
-
-  return (
-    <Card gradient={C.gradients.balance} elevation="none" style={{ borderRadius: R.xl, padding: S.base, marginBottom: S.md, borderWidth: 0 }}>
-      <View style={bh.topRow}>
-        <View>
-          <Text style={[bh.lbl]}>{t('ledger.wallet_balance')}</Text>
-          <Text style={[bh.bal, { fontSize: T.sizes.hero, fontWeight: T.weights.black }, { color: pos ? C.incomeOnGradient : C.expenseOnGradient }]}>{fmt(bal)}</Text>
-        </View>
-        <View style={bh.circle}>
-          <Ionicons name="wallet" size={28} color={C.textOnGradient} />
-        </View>
-      </View>
-
-      <View style={bh.hr} />
-
-      <View style={bh.statsRow}>
-        {[
-          { l: t('ledger.locker_balance'), v: locker == null ? t('ledger.unknown') : fmt(locker), c: C.textOnGradient },
-          { l: t('ledger.wallet_spent'), v: '−' + fmt(cash), c: C.expenseOnGradient },
-          { l: t('ledger.online_spent'), v: fmt(onl), c: C.onlineOnGradient },
-        ].map((x, i) => (
-          <React.Fragment key={x.l}>
-            {i > 0 && <View style={bh.pipe} />}
-            <View style={bh.stat}>
-              <Text style={bh.statLbl}>{x.l}</Text>
-              <Text style={[bh.statVal, { fontSize: T.sizes.sm, fontWeight: T.weights.bold }, { color: x.c }]}>{x.v}</Text>
-            </View>
-          </React.Fragment>
-        ))}
-      </View>
-      {transfer !== 0 && <Text style={{ color: C.textOnGradient, marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.historical_cash_adjustment')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
-    </Card>
-  );
-};
-const balanceStyles = C => StyleSheet.create({
-  topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  lbl:      { fontSize: BaseTypography.sizes.caption, color: C.gradientMuted, letterSpacing: 2, fontWeight: BaseTypography.weights.bold, marginBottom: 6 },
-  bal:      { letterSpacing: -1.5 },
-  circle:   { width: 58, height: 58, borderRadius: 29, backgroundColor: C.gradientSubtle, alignItems: 'center', justifyContent: 'center' },
-  hr:       { height: 1, backgroundColor: C.gradientBorder, marginVertical: 20 },
-  statsRow: { flexDirection: 'row', alignItems: 'center' },
-  stat:     { flex: 1, alignItems: 'center' },
-  statLbl:  { fontSize: BaseTypography.sizes.caption, color: C.gradientMuted, fontWeight: BaseTypography.weights.semibold, letterSpacing: 0.5, marginBottom: 4 },
-  statVal:  {},
-  pipe:     { width: 1, height: 28, backgroundColor: C.gradientBorder },
-});
+const categoryLogo = cat => cat.icon_type === 'image' || cat.icon_type === 'photo'
+  ? { photoUri: cat.icon } : { emoji: cat.icon };
 
 // ── Deposit Row ───────────────────────────────────────────────────────────────
 
@@ -259,7 +204,7 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
       </View>
     }>
       <View style={{ alignItems: 'center', marginBottom: S.xs }}>
-        <IconBadge emoji={cat.icon} color={C.primary} size={56} />
+        <IconBadge {...categoryLogo(cat)} color={C.primary} size={56} />
       </View>
       <Text style={[s2b.title, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold, textAlign: 'center', marginTop: S.sm }]}>{translateCategoryName(cat.name, t)}</Text>
       <Text style={[s2b.sub, { color: C.textSecondary, fontSize: T.sizes.sm, textAlign: 'center', marginBottom: S.lg }]}>{t('expense.enterAmount')}</Text>
@@ -549,7 +494,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
       activeOpacity={0.82}
     >
       {active && <View style={[{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 }, { backgroundColor: accentColor }]} />}
-      <IconBadge emoji={cat.icon} color={accentColor} size={50} style={{ marginBottom: 6, marginTop: 4 }} />
+      <IconBadge {...categoryLogo(cat)} color={accentColor} size={50} style={{ marginBottom: 6, marginTop: 4 }} />
       <Text style={{ fontSize: T.sizes.sm, fontWeight: T.weights.semibold, textAlign: 'center', marginBottom: 2, color: C.textPrimary }}>{displayName}</Text>
       <Text style={[{ fontSize: T.sizes.sm, fontWeight: T.weights.black, marginBottom: 8 }, { color: active ? accentColor : C.textMuted }]}>
         {active ? fmt(total) : '—'}
@@ -600,6 +545,8 @@ export default function ExpenseScreen({ navigation }) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [amtSheet,    setAmtSheet]    = useState({ visible: false, cat: null, cashAmt: 0 });
   const [showManage,  setShowManage]  = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [hoverHelp, setHoverHelp] = useState(false);
 
   const reload = useCallback(() => {
     try { refreshDayData(selectedDate); } catch (e) { console.error('reload:', e); }
@@ -676,7 +623,7 @@ export default function ExpenseScreen({ navigation }) {
   };
 
   const categories = summary.map((r, idx) => ({
-    id: r.category_id, name: r.name, icon: r.icon, sort_order: r.sort_order,
+    id: r.category_id, name: r.name, icon: r.icon, icon_type: r.icon_type, sort_order: r.sort_order,
     total: r.total,
     color: C.accents[idx % C.accents.length],
   }));
@@ -691,26 +638,29 @@ export default function ExpenseScreen({ navigation }) {
       <ScrollView style={s.scroll} contentContainerStyle={[s.content, { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: S.base }]} showsVerticalScrollIndicator={false}>
 
         {/* Balance header */}
-        <BalanceHeader dayData={dayData} C={C} T={T} S={S} R={R} t={t} />
+        <Card padding="sm" elevation="none" style={{ backgroundColor: C.skyBg, borderWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.md }}>
+          {[
+            [t('ledger.wallet_balance'), fmt(dayData?.closing_balance)],
+            [t('ledger.locker_balance'), dayData?.locker_balance == null ? t('ledger.unknown') : fmt(dayData.locker_balance)],
+            [t('ledger.cash_spent'), fmt(dayData?.cash_spent ?? totalSpent)],
+          ].map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: '28%', gap: S.xs }}>
+            <Text style={{ color: C.textSecondary, fontSize: T.sizes.sm }}>{label}</Text>
+            <Text style={{ color: C.primary, fontSize: T.sizes.base, fontWeight: T.weights.bold }}>{value}</Text>
+          </View>)}
+        </Card>
 
         {/* Deposit row */}
         {!!dayData?.deposit_today && <DepositRow deposit={dayData.deposit_today} onPress={() => setShowDeposit(true)} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />}
 
-        {/* Expenses header */}
-        <View style={s.secHdr}>
-          <Text style={[s.secLbl, { color: C.textSecondary }]}>{t('expense.expensesByCategory').toUpperCase()}</Text>
-          {totalSpent > 0 && (
-            <Badge label={`${t('expense.total')} ${fmt(totalSpent)}`} color={C.primary} />
-          )}
-        </View>
-
-        <Text style={[s.hint, { color: C.textMuted }]}>{t('expense.tapToEnter')}</Text>
-        <Text style={[s.hint, { color: C.textSecondary }]}>{t('book.gridScope')}</Text>
-        <View style={{ flexDirection: 'row', gap: S.sm, marginBottom: S.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.md, zIndex: 1 }}>
           <Button label={t('expense.manageCategories')} size="sm" variant="secondary" onPress={() => setShowManage(true)} style={{ flex: 1 }} />
           <Button label={t('expenseItems.title')} size="sm" variant="secondary" onPress={() => navigation.navigate('ExpenseItems')} style={{ flex: 1 }} />
+          <IconButton icon="bulb-outline" label={t('expense.gridHelp')} onPress={() => { setHoverHelp(false); setShowHelp(true); }}
+            onHoverIn={() => setHoverHelp(true)} onHoverOut={() => setHoverHelp(false)} />
+          {hoverHelp && <Card padding="sm" style={{ position: 'absolute', top: '100%', right: 0, width: '85%' }}>
+            <Text style={{ color: C.textPrimary, fontSize: T.sizes.sm }}>{t('expense.tapToEnter')}</Text>
+          </Card>}
         </View>
-        <Button label={t('book.openDaily')} size="sm" variant="ghost" onPress={() => navigation.navigate('DailyBook')} style={{ alignSelf: 'flex-start', marginBottom: S.sm }} />
 
         {/* Category grid */}
         <View style={[s.grid, { gap: S.sm }]}>
@@ -734,6 +684,12 @@ export default function ExpenseScreen({ navigation }) {
 
       </ScrollView>
 
+      <Sheet visible={showHelp} title={t('expense.gridHelp')} onClose={() => setShowHelp(false)}>
+        <View style={{ gap: S.md, paddingBottom: S.md }}>
+          <Text style={{ color: C.textPrimary, fontSize: T.sizes.base }}>{t('expense.tapToEnter')}</Text>
+          <Text style={{ color: C.textSecondary, fontSize: T.sizes.base }}>{t('book.gridScope')}</Text>
+        </View>
+      </Sheet>
       <DepositSheet
         visible={showDeposit}
         date={selectedDate}
@@ -768,8 +724,5 @@ const s = StyleSheet.create({
   root:      { flex: 1 },
   scroll:    { flex: 1 },
   content:   {},
-  secHdr:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  secLbl:    { fontSize: BaseTypography.sizes.xs, fontWeight: BaseTypography.weights.bold, letterSpacing: 1.5 },
-  hint:      { fontSize: BaseTypography.sizes.xs, marginBottom: 12 },
   grid:      { flexDirection: 'row', flexWrap: 'wrap' },
 });

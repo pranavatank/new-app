@@ -136,14 +136,14 @@ export default function DayNavigator() {
 
   const handlePrev = () => {
     const now = Date.now();
-    if (now - lastClickRef.current < 500) return;
+    if (now - lastClickRef.current < 230) return;
     lastClickRef.current = now;
     goToPrevDay();
   };
 
   const handleNext = () => {
     const now = Date.now();
-    if (now - lastClickRef.current < 500) return;
+    if (now - lastClickRef.current < 230) return;
     lastClickRef.current = now;
     goToNextDay();
   };

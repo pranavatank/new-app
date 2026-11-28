@@ -40,22 +40,14 @@ export default function DayOverview({ date, navigation, refreshKey }) {
   const topCategories = data.expenses.filter(row => Number(row.total) > 0)
     .sort((a, b) => b.total - a.total).slice(0, 5);
   const nav = screen => navigation.navigate(screen);
-  const addTask = () => navigation.navigate('Tasks', { autoAdd: true });
-  const addNote = () => navigation.navigate('Notes', { autoAdd: true });
   const addFuel = () => navigation.navigate('Vehicle', { addDate: date });
-  const emptyModules = [
-    !data.tasks.length && { icon: 'checkmark-circle-outline', color: C.iconTask, label: t('home.addTask'), onPress: addTask },
-    !data.places.length && { icon: 'location-outline', color: C.iconPlaces, label: t('home.addPlace'), onPress: () => nav('Places') },
-    !data.notes.length && { icon: 'document-text-outline', color: C.iconNotes, label: t('home.addNote'), onPress: addNote },
-    showMileage && !data.fuel.length && { icon: 'water-outline', color: C.online, label: t('ledger.add_fuel'), onPress: addFuel },
-  ].filter(Boolean);
 
   if (data.error) {
     return <Text accessibilityRole="alert" style={{ color: C.expense }}>{t('ledger.overview_load_error')}</Text>;
   }
 
   return <View style={{ gap: Spacing.md }}>
-    {topCategories.length > 0 && <View>
+    {topCategories.length > 0 && <Card padding="md" elevation="none" style={{ borderWidth: 0 }}>
       <SectionHeader icon="cart" color={C.iconExpense} title={t('expense.expensesByCategory')} onSeeAll={() => nav('Expense')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         {topCategories.map((category, index) => {
@@ -66,7 +58,7 @@ export default function DayOverview({ date, navigation, refreshKey }) {
           </TouchableOpacity>;
         })}
       </View>
-    </View>}
+    </Card>}
 
     {data.tasks.length > 0 && <Card>
       <SectionHeader icon="checkmark-circle" color={C.iconTask} title={t('home.tasks')} badge={pendingCount || undefined} onSeeAll={() => nav('Tasks')} />
@@ -83,7 +75,6 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         </View>;
       })}
       {data.tasks.length > 3 && <Button variant="ghost" size="sm" label={`+${data.tasks.length - 3}`} onPress={() => nav('Tasks')} />}
-      <Button variant="ghost" size="sm" icon="add" label={t('home.addTask')} onPress={addTask} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
     </Card>}
 
     {data.places.length > 0 && <Card>
@@ -94,7 +85,6 @@ export default function DayOverview({ date, navigation, refreshKey }) {
           <Text style={{ flexShrink: 1, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold, color: C.textPrimary }}>{place.name}</Text>
         </View>)}
       </View>
-      <Button variant="ghost" size="sm" icon="add" label={t('home.addPlace')} onPress={() => nav('Places')} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
     </Card>}
 
     {data.notes.length > 0 && <Card>
@@ -103,7 +93,6 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 8, backgroundColor: C.iconNotes }} />
         <Text style={{ flex: 1, fontSize: Typography.sizes.base, lineHeight: 22, color: C.textSecondary }} numberOfLines={2}>{note.text}</Text>
       </View>)}
-      <Button variant="ghost" size="sm" icon="add" label={t('home.addNote')} onPress={addNote} style={{ marginTop: Spacing.sm, alignSelf: 'center' }} />
     </Card>}
 
     {showMileage && data.fuel.length > 0 && (
@@ -127,9 +116,18 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         </View>
       </Card>
     )}
-    {emptyModules.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
-      {emptyModules.map(({ icon, color, label, onPress }) => <ActionTile key={icon} icon={icon} color={color} label={label} onPress={onPress}
-        style={{ flexBasis: '46%' }} />)}
-    </View>}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
+      {[
+        ['Tasks', t('home.addTask'), 'checkbox-outline', C.iconTask, C.onlineBg],
+        ['Places', t('home.addPlace'), 'location-outline', C.iconPlaces, C.skyBg],
+        ['Purchases', t('purchases.addTitle'), 'bag-handle-outline', C.warning, C.sandBg],
+        ['Notes', t('home.addNote'), 'document-text-outline', C.iconNotes, C.expenseBg],
+      ].map(([screen, label, icon, color, background]) => (
+        <ActionTile key={screen} label={label} icon={icon} color={color} background={background} style={{ flexBasis: '44%' }}
+          onPress={() => navigation.navigate(screen, { autoAdd: true, ...(screen === 'Purchases' ? { addDate: date } : {}) })} />
+      ))}
+    </View>
+    {showMileage && !data.fuel.length && <Button variant="ghost" size="sm" icon="add"
+      label={t('ledger.add_fuel')} onPress={addFuel} />}
   </View>;
 }

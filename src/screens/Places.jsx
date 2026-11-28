@@ -236,7 +236,7 @@ const vrStyles = (Typography, Spacing) => StyleSheet.create({
 
 // ── Main Places Screen ────────────────────────────────────────────────────────
 
-export default function PlacesScreen() {
+export default function PlacesScreen({ route, navigation }) {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
@@ -256,6 +256,12 @@ export default function PlacesScreen() {
   }, [selectedDate]);
 
   useFocusEffect(load);
+  useFocusEffect(useCallback(() => {
+    if (!route?.params?.autoAdd) return;
+    setEditPlace(null);
+    setShowModal(true);
+    navigation.setParams({ autoAdd: false });
+  }, [navigation, route?.params?.autoAdd]));
 
   const handleToggle = (place) => {
     const dayId = getOrCreateDay(selectedDate).id;

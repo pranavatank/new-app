@@ -19,7 +19,7 @@ const compiledCash = babel.transformFileSync(path.resolve('src/utils/cash.js'), 
 }).code;
 vm.runInThisContext(`(function(exports){${compiledCash}\n})`)(cashModule.exports);
 
-function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }], mode = 'expense') {
+function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 'Tomato' }, { id: 11, category_id: 1, name: 'Brinjal' }], mode = 'expense', options = {}) {
   let cursor = 0, changed = false, tree;
   const slots = [], effects = [], calls = [], alerts = [];
   const categories = [{ id: 1, name: 'Vegetables' }, { id: 2, name: 'Fruit' }];
@@ -63,13 +63,14 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     if (id.includes('db/queries')) return query;
     if (id.includes('db/ledger')) return ledger;
     if (id.includes('utils/cash')) return cashModule.exports;
+    if (id === './LedgerEntryRow') return { money: value => '₹' + value };
     if (id.includes('defaultCategories')) return { translateCategoryName: name => name };
     if (id.includes('/common/')) return { __esModule: true, default: id.split('/').pop() };
     throw new Error(`Unexpected form dependency ${id}`);
   };
   const module = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`)(localRequire, module, module.exports);
-  const props = { visible: true, mode, date: '2026-11-09', entry, onClose() {}, onSaved() {} };
+  const props = { visible: true, mode, date: '2026-11-09', entry, onClose() {}, onSaved() {}, ...options };
   const render = () => {
     for (let pass = 0; pass < 10; pass++) {
       cursor = 0; changed = false;
@@ -137,6 +138,24 @@ assert.equal(quick.hasButton('common.save'), false);
 quick.press('Vegetables');
 quick.save();
 assert.equal(quick.calls[0].data.amount, 150, 'Reopening the category preserves the draft and entry mode');
+
+const forgotten = harness(null, [], 'forgotten', { walletBalance: 500 });
+forgotten.input('ledger.wallet_counted', '૪૫૦');
+forgotten.button('ledger.use_missing_cash');
+assert.equal(forgotten.calls.length, 0, 'Counting only fills the suggested amount');
+forgotten.input('ledger.wallet_counted', '૫૦૦');
+assert.equal(forgotten.hasButton('ledger.use_missing_cash'), false);
+forgotten.save();
+assert.equal(forgotten.calls.length, 0, 'A changed count clears a stale shortage');
+forgotten.input('ledger.wallet_counted', '૪૫૦');
+forgotten.button('ledger.use_missing_cash');
+forgotten.save();
+assert.equal(forgotten.calls[0].data.amount, 50);
+assert.equal(forgotten.calls[0].data.forgotten, true);
+
+const starting = harness(null, [], 'locker_opening', { openingAmount: 1500 });
+starting.save();
+assert.deepEqual(starting.calls[0], { name: 'setLockerOpeningBalance', data: 1500 });
 
 const edit = harness({ id: 80, kind: 'expense', category_id: 1, category_name: 'Vegetables', amount: 70, item_id: null });
 edit.press('ledger.expense_by_items');

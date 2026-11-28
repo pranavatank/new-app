@@ -4,12 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Layout, scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
-export default function IconButton({ icon, label, onPress, style, disabled = false, accessibilityState }) {
+export default function IconButton({ icon, label, onPress, style, disabled = false, accessibilityState, onHoverIn, onHoverOut }) {
   const { C, scale } = useTheme();
   const { Radius } = scaleTheme(scale);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ ...accessibilityState, disabled }}
-      aria-expanded={accessibilityState?.expanded} onPress={onPress} disabled={disabled}
+      aria-expanded={accessibilityState?.expanded} onPress={onPress} disabled={disabled} onHoverIn={onHoverIn} onHoverOut={onHoverOut}
       style={({ pressed }) => [{
         width: Layout.touchTarget,
         height: Layout.touchTarget,

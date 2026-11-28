@@ -7,12 +7,12 @@ import { useTheme } from '../store/ThemeContext';
 
 const groups = [
   ['everyday', [
+    ['Notes', 'notes', 'document-text-outline', 'iconNotes'],
     ['Tasks', 'tasks', 'checkbox-outline', 'iconTask'],
     ['Places', 'places', 'location-outline', 'iconPlaces'],
     ['Purchases', 'purchases', 'bag-handle-outline', 'iconExpense'],
   ]],
   ['money', [
-    ['Expense', 'expense', 'cart-outline', 'iconExpense'],
     ['ExpenseItems', 'expenseItems', 'pricetag-outline', 'iconExpense'],
     ['Recurring', 'recurring', 'repeat-outline', 'iconBalance'],
     ['Analytics', 'analytics', 'bar-chart-outline', 'iconStats'],

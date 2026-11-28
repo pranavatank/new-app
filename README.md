@@ -2,7 +2,7 @@
 
 A React Native (Expo) cash book with separate wallet and home-locker balances, online payment notes, tasks, places, and bike mileage. Data is stored offline in a local SQLite database.
 
-**લોકરમાં રોકડ મૂકો** records outside cash in the home locker. **અંદરથી રોકડ લો** transfers it to the wallet. Pay cash expenses from the wallet or directly from the locker, and use **યાદ નથી** to record a wallet cash shortfall. Online payments are kept as notes. See the [cash-book workflow](docs/IMPLEMENTATION_NOTES.md#wallet-and-home-locker).
+**લોકરમાં રોકડ મૂકો** records outside cash in the home locker. **અંદરથી રોકડ લો** transfers it to the wallet. Pay cash expenses from the wallet or directly from the locker, and use **યાદ નથી** to record a wallet cash shortfall. Online payments are kept as notes. See the [app guide](docs/APP_GUIDE.md).
 
 ## Tech stack
 
@@ -77,14 +77,14 @@ src/
 | **Tasks**        | Pending/completed task list with overdue tracking                                                                                                               |
 | **Places**       | Saved places, mark visited for the day, favorites, custom emoji-or-photo icons                                                                                  |
 | **Notes**        | Daily journal entries with a mood tag                                                                                                                           |
-| **Analytics**    | Monthly summary — category breakdown, daily trend chart, top spending days, deposit/spend/savings donut                                                         |
+| **Analytics**    | Monthly cash spending and comparison, wallet vs. locker spending, weekly trend, categories, and links to the highest-spend days                             |
 | **Vehicle**      | Bike fuel log and mileage tracking, with an optional preview on Today                                                                                           |
 | **Recurring**    | Scheduled cash expenses and online payment notes                                                                                                               |
 | **Purchases**    | Purchase records with optional photos                                                                                                                          |
 | **Search**       | Find matching expenses, notes, and tasks                                                                                                                       |
 | **Settings**     | Theme, language, text size, biometric toggle, bike-mileage toggle, JSON/Excel/PDF export & import, clear data                                                   |
 
-The bottom bar has four destinations: **Today**, **Month**, **Notes**, and **Tools**. Tools links to tasks, places, purchases, expenses, items, recurring expenses, analytics, vehicle, search, and settings.
+The bottom bar has four destinations (**Today**, **Expenses**, **Month**, and **Tools**). Expenses opens the category grid. Today keeps the two locker actions and a floating **+** for quick expenses. Small shortcuts at the bottom open add forms for tasks, places, purchases, and notes.
 
 ## Shared component library (`src/components/common/`)
 

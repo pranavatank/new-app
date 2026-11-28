@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Switch,
   StatusBar,
   Alert,
   ActivityIndicator,
@@ -14,23 +13,27 @@ import {
   Platform,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Constants from "expo-constants";
 import {
   AntDesign,
   MaterialCommunityIcons,
   Ionicons,
 } from "@expo/vector-icons";
-import { scaleTheme } from "../constants/theme";
+import { Layout, scaleTheme } from "../constants/theme";
 import { useTheme } from "../store/ThemeContext";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 import { exportToExcel, importFromExcel } from "../services/excelService";
 import { exportToJSON, importFromJSON } from "../services/backupService";
 import { exportToPDF } from "../services/pdfService";
 import { getDB } from "../db/schema";
+import { getLockerOpeningBalance } from "../db/queries";
+import LedgerEntryForm from "../components/ledger/LedgerEntryForm";
+import { money } from "../components/ledger/LedgerEntryRow";
 import {
   Card,
   Button,
+  Chip,
   Sheet,
   Row,
   SectionHeader,
@@ -43,7 +46,8 @@ export default function SettingsScreen() {
   const {
     C,
     isDark,
-    toggleTheme,
+    themeMode,
+    changeThemeMode,
     language,
     changeLanguage,
     scale,
@@ -52,13 +56,19 @@ export default function SettingsScreen() {
     toggleMileage,
   } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showDeveloperModal, setShowDeveloperModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showLockerOpening, setShowLockerOpening] = useState(false);
+  const [opening, setOpening] = useState(null);
+  const loadOpening = useCallback(() => {
+    try { setOpening(getLockerOpeningBalance()); } catch { setOpening(null); }
+  }, []);
+  useFocusEffect(useCallback(() => { loadOpening(); }, [loadOpening]));
 
   const handleExport = async (type) => {
     setShowExportModal(false);
@@ -102,6 +112,7 @@ export default function SettingsScreen() {
                   ? await importFromJSON()
                   : await importFromExcel();
               if (result) {
+                loadOpening();
                 Alert.alert(
                   t(type === 'json' ? 'book.restoreDone' : 'book.mergeDone'),
                   `Imported:\n• ${result.days} days\n• ${result.expenses} expenses\n• ${result.tasks} tasks\n• ${result.notes} notes\n• ${result.places} places\n• ${result.categories || 0} categories`,
@@ -149,6 +160,7 @@ export default function SettingsScreen() {
                 try { db.execSync('ROLLBACK;'); } catch (_) {}
                 throw error;
               }
+              loadOpening();
               Alert.alert(
                 "✅ Complete",
                 `Backup saved: ${fileName}\n\nAll data cleared.`,
@@ -167,13 +179,6 @@ export default function SettingsScreen() {
   const handleLanguageChange = (code) => {
     if (code === language) return;
     changeLanguage(code);
-    Alert.alert(
-      code === "gu" ? "ભાષા બદલી" : "Language Changed",
-      code === "gu"
-        ? "ભાષા ગુજરાતીમાં બદલી ગઈ છે."
-        : "Language changed to English.",
-      [{ text: "OK" }],
-    );
   };
 
   const handleScaleChange = (newScale) => {
@@ -198,28 +203,37 @@ export default function SettingsScreen() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ padding: Spacing.base }}
+        contentContainerStyle={{ width: "100%", maxWidth: Layout.contentWidth, alignSelf: "center", padding: Spacing.base }}
         showsVerticalScrollIndicator={false}
       >
+        <SectionHeader title={t("settings.cashBook")} icon="wallet-outline" color={C.primary} />
+        <Card padding="sm" elevation="none" style={{ backgroundColor: C.skyBg, borderWidth: 0 }}>
+          <Row icon="lock-closed-outline" iconColor={C.primary} label={t("ledger.add_locker_opening")}
+            subtitle={opening == null ? t("settings.openingNotSet") : t("settings.openingAmount", { amount: money(opening, i18n.language) })}
+            onPress={() => setShowLockerOpening(true)} />
+          <Row icon="repeat-outline" iconColor={C.online} label={t("recurring.title")}
+            subtitle={t("recurring.settingsSub")} onPress={() => navigation.navigate("Recurring")} />
+        </Card>
+
         {/* ── APPEARANCE ── */}
         <SectionHeader
           title={t("settings.appearance")}
           icon={isDark ? "moon" : "sunny"}
           color={isDark ? C.primarySoft : C.warning}
-          style={{ marginTop: Spacing.md }}
+          style={{ marginTop: Spacing.lg }}
         />
-        <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
-          <Row
-            icon={isDark ? "moon" : "sunny"}
-            iconColor={isDark ? C.primarySoft : C.warning}
-            label={isDark ? t("settings.darkMode") : t("settings.lightMode")}
-            subtitle={
-              isDark ? t("settings.darkModeSub") : t("settings.lightModeSub")
-            }
-            onPress={toggleTheme}
-            switchValue={isDark}
-            onSwitchChange={toggleTheme}
-          />
+        <Card padding="md" elevation="none" style={{ borderWidth: 0, gap: Spacing.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }}>
+            {[
+              ["system", "phone-portrait-outline", "settings.systemMode"],
+              ["light", "sunny-outline", "settings.lightMode"],
+              ["dark", "moon-outline", "settings.darkMode"],
+            ].map(([mode, icon, label]) => <Chip key={mode} icon={icon} label={t(label)} size="md"
+              active={themeMode === mode} onPress={() => changeThemeMode(mode)} style={{ minHeight: Layout.touchTarget }} />)}
+          </View>
+          <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm }}>
+            {t(themeMode === "system" ? "settings.systemModeSub" : isDark ? "settings.darkModeSub" : "settings.lightModeSub")}
+          </Text>
         </Card>
 
         {/* ── TEXT SIZE ── */}
@@ -232,20 +246,22 @@ export default function SettingsScreen() {
         <Card style={{ marginTop: 0 }}>
           <View style={{ flexDirection: "row", gap: Spacing.sm }}>
             {[
-              { value: 0.9, label: "S" },
-              { value: 1.0, label: "M" },
-              { value: 1.1, label: "L" },
+              { value: 0.9, label: t("settings.textSmall") },
+              { value: 1.0, label: t("settings.textMedium") },
+              { value: 1.1, label: t("settings.textLarge") },
             ].map(({ value, label }) => {
               const active = scale === value;
               return (
                 <TouchableOpacity
                   key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   style={[
                     st.segBtn,
                     {
                       borderColor: active ? C.primary : C.border,
                       backgroundColor: active ? C.primaryDim : C.transparent,
-                      paddingVertical: Spacing.md,
+                      paddingVertical: Spacing.sm,
                       borderRadius: Radius.lg,
                       gap: 4,
                     },
@@ -255,7 +271,7 @@ export default function SettingsScreen() {
                 >
                   <Text
                     style={{
-                      fontSize: Typography.sizes.lg,
+                      fontSize: Typography.sizes.base,
                       fontWeight: Typography.weights.bold,
                       color: active ? C.primary : C.textPrimary,
                     }}
@@ -280,7 +296,7 @@ export default function SettingsScreen() {
 
         {/* ── LANGUAGE ── */}
         <SectionHeader
-          title="Language / ભાષા"
+          title={t("settings.language")}
           icon="language-outline"
           color={C.iconSettings}
           style={{ marginTop: Spacing.xl }}
@@ -292,6 +308,8 @@ export default function SettingsScreen() {
               return (
                 <TouchableOpacity
                   key={code}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   style={[
                     st.segBtn,
                     {
@@ -305,7 +323,6 @@ export default function SettingsScreen() {
                   onPress={() => handleLanguageChange(code)}
                   activeOpacity={0.8}
                 >
-                  <Text style={{ fontSize: Typography.sizes.xl }}>{meta.flag}</Text>
                   <Text
                     style={{
                       fontSize: Typography.sizes.sm,
@@ -373,7 +390,7 @@ export default function SettingsScreen() {
           />
         </Card>
 
-        {/* ── SECURITY ── */}
+        {Platform.OS !== "web" && <>
         <SectionHeader
           title={t("settings.security")}
           icon="shield-checkmark-outline"
@@ -386,38 +403,23 @@ export default function SettingsScreen() {
             iconColor={C.online}
             label={t("settings.biometric")}
             subtitle={t("settings.biometricSub")}
-            right={
-              <Switch
-                value={true}
-                trackColor={{ false: C.bgElevated, true: C.primary }}
-                thumbColor={C.primarySoft}
-                disabled
-              />
-            }
           />
         </Card>
+        </>}
 
         {/* ── FEATURES ── */}
         <SectionHeader
-          title="Features"
+          title={t("settings.features")}
           icon="options-outline"
           color={C.iconSettings}
           style={{ marginTop: Spacing.xl }}
         />
         <Card padding="none" style={{ paddingHorizontal: Spacing.base }}>
           <Row
-            icon="repeat-outline"
-            iconColor={C.primary}
-            label={t("recurring.title")}
-            subtitle={t("recurring.settingsSub")}
-            onPress={() => navigation.navigate("Recurring")}
-          />
-          <Divider />
-          <Row
             mciIcon="motorbike"
             iconColor={C.iconExpense}
-            label="Bike Mileage Tracking"
-            subtitle="Show bike mileage card on home screen"
+            label={t("settings.mileage")}
+            subtitle={t("settings.mileageSub")}
             onPress={toggleMileage}
             switchValue={showMileage}
             onSwitchChange={toggleMileage}
@@ -450,6 +452,9 @@ export default function SettingsScreen() {
         </Card>
 
       </ScrollView>
+
+      <LedgerEntryForm visible={showLockerOpening} mode="locker_opening" openingAmount={opening}
+        onSaved={loadOpening} onClose={() => setShowLockerOpening(false)} />
 
       {/* Export Sheet */}
       <Sheet
@@ -647,7 +652,7 @@ export default function SettingsScreen() {
       </Sheet>
 
       {/* About Sheet */}
-      <Sheet visible={showAboutModal} onClose={() => setShowAboutModal(false)}>
+      <Sheet visible={showAboutModal} onClose={() => setShowAboutModal(false)} title={t("settings.about")}>
         <View style={{ alignItems: "center", paddingVertical: Spacing.md }}>
           <Image
             source={require("../../assets/logo.png")}
@@ -695,14 +700,12 @@ export default function SettingsScreen() {
               marginBottom: Spacing.lg,
             }}
           >
-            A simple and elegant app to manage your daily expenses, tasks, and
-            family activities. Track your cash flow, set reminders, and keep
-            notes all in one place.
+            {t("settings.aboutDescription")}
           </Text>
 
           <Button
             variant="primary"
-            label="Close"
+            label={t("common.close")}
             onPress={() => setShowAboutModal(false)}
           />
         </View>

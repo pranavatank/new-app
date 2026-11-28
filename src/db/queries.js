@@ -59,10 +59,15 @@ const walletClosing = (opening, day, activity) => Math.round(100 * (
   opening + day.deposit_today + activity.wallet_receipts + activity.transfer_net - activity.wallet_spent
 )) / 100;
 
+export const getLockerOpeningBalance = () => {
+  const opening = getDB().getFirstSync("SELECT value FROM ledger_settings WHERE key='locker_opening';");
+  return opening ? Number(opening.value) : null;
+};
+
 export const getLockerBalance = (date, includeDay = true) => {
   const db = getDB();
   const comparison = includeDay ? '<=' : '<';
-  const opening = db.getFirstSync("SELECT value FROM ledger_settings WHERE key='locker_opening';");
+  const opening = getLockerOpeningBalance();
   const movements = db.getFirstSync(
     "SELECT COALESCE(SUM(CASE WHEN m.kind='transfer' THEN -signed_amount ELSE signed_amount END),0) net, " +
     "COUNT(CASE WHEN m.kind='transfer' THEN 1 END) transfers FROM " +
@@ -70,12 +75,12 @@ export const getLockerBalance = (date, includeDay = true) => {
     "JOIN days d ON d.id=m.day_id WHERE d.date " + comparison + " ? AND (m.kind='transfer' OR (m.kind='receipt' AND m.account='locker'));",
     [date]
   );
-  if (!opening && movements.transfers) return null;
+  if (opening == null && movements.transfers) return null;
   const spending = db.getFirstSync(
     "SELECT COALESCE(SUM(e.amount),0) total FROM expenses e JOIN days d ON d.id=e.day_id WHERE e.payment_type='locker' AND d.date " + comparison + " ?;",
     [date]
   ).total;
-  return Math.round(100 * (Number(opening?.value || 0) + movements.net - spending)) / 100;
+  return Math.round(100 * ((opening ?? 0) + movements.net - spending)) / 100;
 };
 
 export const getDayData = (date) => {
@@ -143,7 +148,7 @@ export const getExpenseSummaryForDay = (dayId) => {
   const db = getDB();
   return db.getAllSync(
     `SELECT 
-       c.id as category_id, c.name, c.icon, c.sort_order,
+       c.id as category_id, c.name, c.icon, c.icon_type, c.sort_order,
        COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
        COALESCE(SUM(CASE WHEN e.payment_type='cash' AND e.origin='legacy' AND e.item_id IS NULL THEN e.amount ELSE 0 END), 0) as editable_cash_total,
@@ -471,6 +476,11 @@ export const getDailyTotals = (year, month) => {
        COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as cash_total,
        COALESCE(SUM(CASE WHEN e.payment_type='online' THEN e.amount ELSE 0 END), 0) as online_total,
        COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') THEN e.amount ELSE 0 END), 0) as total,
+       COALESCE(SUM(CASE WHEN e.payment_type='cash' THEN e.amount ELSE 0 END), 0) as wallet_total,
+       COALESCE(SUM(CASE WHEN e.payment_type='locker' THEN e.amount ELSE 0 END), 0) as locker_total,
+       COALESCE(SUM(CASE WHEN e.payment_type IN ('cash','locker') AND e.origin='recurring' THEN e.amount ELSE 0 END), 0) as recurring_total,
+       COALESCE(SUM(CASE WHEN e.payment_type='cash' AND e.origin='forgotten' THEN e.amount ELSE 0 END), 0) as forgotten_total,
+       COUNT(CASE WHEN e.payment_type IN ('cash','locker') THEN 1 END) as cash_count,
        d.deposit_today
      FROM days d
      LEFT JOIN expenses e ON e.day_id = d.id

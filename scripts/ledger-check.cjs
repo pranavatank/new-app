@@ -289,6 +289,11 @@ const initSqlJs = require('sql.js');
   assert.equal(cashMonth.totals.online_spent, 550);
   const cashTotals = queries.getMonthTotals(2026, 1);
   assert.deepEqual([cashTotals.deposited, cashTotals.cash_spent, cashTotals.online_spent], [8000, 1450, 550]);
+  const [analyticsDay] = queries.getDailyTotals(2026, 1).filter(day => day.date === cashDate);
+  assert.deepEqual(
+    [analyticsDay.wallet_total, analyticsDay.locker_total, analyticsDay.online_total, analyticsDay.forgotten_total],
+    [250, 1200, 550, 50],
+  );
 
   ledger.saveMovement({ id: withdrawn, date: cashDate, kind: 'transfer', amount: 2100, direction: 'in' });
   assert.deepEqual(balances('2026-02-01'), [1850, 4700]);

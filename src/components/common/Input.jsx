@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
-export default function Input({ label, style, inputStyle, labelStyle, onFocus, onBlur, ...rest }) {
+export default function Input({ label, style, inputStyle, labelStyle, labelLeading, labelRowStyle, onFocus, onBlur, ...rest }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const [focused, setFocused] = useState(false);
@@ -11,17 +11,20 @@ export default function Input({ label, style, inputStyle, labelStyle, onFocus, o
   return (
     <View style={style}>
       {!!label && (
-        <Text
+        <View style={[{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.xs }, labelRowStyle]}>
+          {labelLeading}
+          <Text
           style={[{
             fontWeight: Typography.weights.bold,
             color: C.textSecondary,
-            marginBottom: Spacing.xs,
+            flexShrink: 1,
             letterSpacing: 0.3,
             fontSize: Typography.sizes.sm,
           }, labelStyle]}
         >
-          {label}
-        </Text>
+            {label}
+          </Text>
+        </View>
       )}
       <TextInput
         accessibilityLabel={typeof label === 'string' ? label : undefined}
