@@ -144,6 +144,7 @@ So for consecutive fill-ups (oldest → newest), `mileage = (readingN − readin
 ## Building
 
 Use the EAS preview profile to build a standalone Android APK. The phone can install that APK directly. Expo Go and Android Studio are unnecessary for the cloud build and installation.
+The preview APK includes ARM64 and 32-bit ARM for physical Android phones. The preview profile increments the Android version code so a build signed with the existing key can update an older installation in place.
 
 ```bash
 npx eas-cli@latest build --platform android --profile preview

@@ -6,7 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';

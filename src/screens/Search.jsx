@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import useAppStore from '../store/useAppStore';

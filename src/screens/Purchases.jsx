@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert, BackHandler, Platform, StatusBar } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { AmountInput, Button, Card, Chip, EmptyState, IconBadge, Input, ScreenHeader, Sheet } from '../components/common';
 import { Layout, scaleTheme } from '../constants/theme';

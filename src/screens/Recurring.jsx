@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
 import { translateCategoryName } from '../constants/defaultCategories';

@@ -14,7 +14,7 @@ const extensionOf = (uri) => {
   return /^[a-zA-Z0-9]{1,8}$/.test(ext||'') ? ext : 'jpg';
 };
 
-export const exportToJSON = async () => {
+export const createJSONBackup = async () => {
   const db=getDB(), data=Object.fromEntries(TABLES.map(t=>[t,safeRows(db,t)])), assets={};
   for (const table of TABLES) for (const row of data[table]||[]) for (const key of ASSET_COLUMNS) {
     const uri=row[key];
@@ -30,7 +30,12 @@ export const exportToJSON = async () => {
   const fileName=`hisab_backup_${stamp}_${Math.random().toString(16).slice(2,8)}.json`;
   const fileUri=FileSystem.documentDirectory+fileName;
   await FileSystem.writeAsStringAsync(fileUri,JSON.stringify(backup));
-  await Sharing.shareAsync(fileUri,{mimeType:'application/json',dialogTitle:'Export Rojnishi Backup'});
+  return fileName;
+};
+
+export const exportToJSON = async () => {
+  const fileName = await createJSONBackup();
+  await Sharing.shareAsync(FileSystem.documentDirectory + fileName, { mimeType:'application/json', dialogTitle:'Export Rojnishi Backup' });
   return fileName;
 };
 
@@ -94,11 +99,16 @@ const restoreAll = async (db,backup) => {
   return Object.fromEntries(TABLES.map(t=>[t,rows[t].length]));
 };
 
-export const importFromJSON = async () => {
+export const importFromJSON = async (beforeRestore) => {
   const result=await DocumentPicker.getDocumentAsync({type:'application/json',copyToCacheDirectory:true});
   if (result.canceled) return null;
-  const content=await FileSystem.readAsStringAsync(result.assets[0].uri);
-  return restoreAll(getDB(),JSON.parse(content));
+  const backup = JSON.parse(await FileSystem.readAsStringAsync(result.assets[0].uri));
+  const db = getDB();
+  if (beforeRestore) {
+    validateBackup(db, backup);
+    await beforeRestore();
+  }
+  return restoreAll(db, backup);
 };
 
 export const restoreFromJSONData = (backup) => restoreAll(getDB(),backup);

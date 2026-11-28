@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Layout, scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 

@@ -37,6 +37,7 @@
       "expo-local-authentication",
       "expo-splash-screen",
       "expo-system-ui",
+      "./scripts/with-phone-abis.cjs",
       [
         "expo-build-properties",
         {

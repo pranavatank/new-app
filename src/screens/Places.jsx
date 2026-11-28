@@ -4,7 +4,7 @@ import {
   Alert, Platform, StatusBar,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { scaleTheme, makeShadow } from '../constants/theme';

@@ -4,7 +4,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { getOrCreateDay, setExpenseAmount, recalculateBalance, getAllCategories, getAllVehicleRecords, addVehicleRecord, updateVehicleRecord, deleteVehicleRecord, getVehicleStats } from '../db/queries';

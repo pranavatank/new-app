@@ -9,6 +9,10 @@
       "distribution": "internal"
     },
     "preview": {
+      "autoIncrement": true,
+      "env": {
+        "ROJNISHI_PHONE_APK": "1"
+      },
       "android": {
         "buildType": "apk"
       }

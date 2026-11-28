@@ -10,6 +10,10 @@ const initSqlJs = require('sql.js');
   const raw = new SQL.Database();
   let spreadsheetContent='';
   let printedHtml='';
+  let pickedJSON;
+  let pickerCanceled = false;
+  const files = new Map();
+  const shared = [];
   const db = {
     execSync(sql) { raw.run(sql); },
     runSync(sql, params=[]) { raw.run(sql,params); },
@@ -26,10 +30,24 @@ const initSqlJs = require('sql.js');
   const mockRequire = (specifier, fromFile) => {
     if (specifier === 'expo-sqlite') return { openDatabaseSync: () => db };
     if (specifier === 'react-native') return { Platform: { OS: 'android' } };
-    if (specifier === 'expo-file-system') return { EncodingType:{Base64:'base64'},documentDirectory:'memory://',async makeDirectoryAsync(){},async writeAsStringAsync(uri,data){if(String(uri).endsWith('.xlsx')) spreadsheetContent=data;},async readAsStringAsync(){return spreadsheetContent} };
-    if (specifier === 'expo-sharing') return { async shareAsync(){} };
+    if (specifier === 'expo-file-system') return {
+      EncodingType: { Base64: 'base64' },
+      documentDirectory: 'memory://',
+      async makeDirectoryAsync() {},
+      async writeAsStringAsync(uri, data) {
+        files.set(uri, data);
+        if (uri.endsWith('.xlsx')) spreadsheetContent = data;
+      },
+      async readAsStringAsync(uri) { return uri === 'memory://synthetic.xlsx' ? spreadsheetContent : files.get(uri); },
+    };
+    if (specifier === 'expo-sharing') return { async shareAsync(uri, options) { shared.push({ uri, options }); } };
     if (specifier === 'expo-print') return { async printToFileAsync({html}){printedHtml=html;return {uri:'memory://report.pdf'}} };
-    if (specifier === 'expo-document-picker') return { async getDocumentAsync(){return {canceled:false,assets:[{uri:'memory://synthetic.xlsx'}]}} };
+    if (specifier === 'expo-document-picker') return {
+      async getDocumentAsync({ type }) {
+        if (pickerCanceled) return { canceled: true, assets: null };
+        return { canceled: false, assets: [{ uri: type === 'application/json' ? pickedJSON : 'memory://synthetic.xlsx' }] };
+      },
+    };
     if (specifier.includes('defaultCategories')) return { DEFAULT_CATEGORIES: [{name:'Food',icon:'🍲',sort_order:1}] };
     if (!specifier.startsWith('.')) return require(specifier);
     const target = path.resolve(path.dirname(fromFile),specifier) + (path.extname(specifier) ? '' : '.js');
@@ -354,6 +372,27 @@ const initSqlJs = require('sql.js');
     { amount: 99, itemId, paymentType: 'online' },
   ]));
   assert.equal(queries.getItemExpenses(dayId, vegetables, 'cash')[0].amount, 25, 'A later grid error rolls back earlier edits');
+  const photo = 'file:///fixture-receipt.png';
+  const photoData = Buffer.from('fixture photo').toString('base64');
+  files.set(photo, photoData);
+  const purchase = ledger.savePurchase({ date: veggieDate, name: 'Backup receipt', image_uri: photo });
+  const filename = await backup.exportToJSON();
+  pickedJSON = 'memory://' + filename;
+  assert.equal(shared.at(-1).uri, pickedJSON);
+  assert.equal(shared.at(-1).options.mimeType, 'application/json');
+  assert.equal(JSON.parse(files.get(pickedJSON)).assets[photo].base64, photoData);
+  ledger.deletePurchase(purchase);
+  const shareCount = shared.length;
+  await backup.importFromJSON(async () => {
+    assert.equal(db.getFirstSync('SELECT id FROM purchases WHERE id=?', [purchase]), null);
+    await backup.createJSONBackup();
+  });
+  const restoredPhoto = db.getFirstSync('SELECT image_uri FROM purchases WHERE id=?', [purchase]).image_uri;
+  assert.equal(files.get(restoredPhoto), photoData, 'Import restores local images as fresh files');
+  assert.equal(shared.length, shareCount, 'Recovery backup should not open the share sheet');
+  pickerCanceled = true;
+  assert.equal(await backup.importFromJSON(() => assert.fail('A cancelled picker should not write a backup')), null);
+  assert.equal(await excel.importFromExcel(() => assert.fail('A cancelled picker should not write a backup')), null);
   console.log('ledger-check: actual schema/query/ledger/restore APIs passed synthetic SQL.js assertions');
   raw.close();
 })().catch(e=>{console.error(e);process.exitCode=1});

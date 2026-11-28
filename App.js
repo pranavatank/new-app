@@ -16,7 +16,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SplashScreen from "expo-splash-screen";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import AppTabBar from "./src/components/AppTabBar";
 
 import { ThemeProvider, useTheme } from "./src/store/ThemeContext";

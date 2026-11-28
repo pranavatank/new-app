@@ -38,7 +38,7 @@ For example, putting ₹8,000 in the locker and taking ₹2,000 leaves ₹6,000 
 ## Appearance and backups
 
 - The sun or moon beside Search on Today changes appearance with a circular transition when motion is enabled. Select **System** in Settings to follow the device again.
-- The device stores the book locally. Export JSON for a complete backup, Excel for a spreadsheet or supported merge, and PDF for monthly reports.
+- The device stores the book locally. Export JSON for a complete backup with local images, Excel for a spreadsheet or supported merge, and PDF for monthly reports. Import saves a local recovery copy before changing the book.
 - The ledger supports historical records and backdated balance corrections. Multi-item expense posting and related balance updates use one database transaction.
 
 ## Development reference

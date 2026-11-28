@@ -15,16 +15,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Constants from "expo-constants";
-import {
-  AntDesign,
-  MaterialCommunityIcons,
-  Ionicons,
-} from "@expo/vector-icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Layout, scaleTheme } from "../constants/theme";
 import { useTheme } from "../store/ThemeContext";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 import { exportToExcel, importFromExcel } from "../services/excelService";
-import { exportToJSON, importFromJSON } from "../services/backupService";
+import { createJSONBackup, exportToJSON, importFromJSON } from "../services/backupService";
 import { exportToPDF } from "../services/pdfService";
 import { getDB } from "../db/schema";
 import { getLockerOpeningBalance } from "../db/queries";
@@ -105,12 +103,10 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              // Keep a recovery copy before replacing IDs/relationships from a backup.
-              await exportToJSON();
               const result =
                 type === "json"
-                  ? await importFromJSON()
-                  : await importFromExcel();
+                  ? await importFromJSON(createJSONBackup)
+                  : await importFromExcel(createJSONBackup);
               if (result) {
                 loadOpening();
                 Alert.alert(

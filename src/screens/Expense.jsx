@@ -6,7 +6,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Layout, Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { parseCashAmount } from '../utils/cash';

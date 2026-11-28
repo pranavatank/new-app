@@ -189,7 +189,7 @@ export const exportToExcel = async () => {
 };
 
 // Import from Excel as a duplicate-safe merge.
-export const importFromExcel = async () => {
+export const importFromExcel = async (beforeMerge) => {
   const DocumentPicker = require("expo-document-picker");
   const result = await DocumentPicker.getDocumentAsync({
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -204,6 +204,7 @@ export const importFromExcel = async () => {
   });
 
   const wb = XLSX.read(fileContent, { type: "base64" });
+  await beforeMerge?.();
   db.execSync('BEGIN TRANSACTION;');
   try {
   let imported = {

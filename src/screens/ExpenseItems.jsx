@@ -6,7 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { scaleTheme } from '../constants/theme';
 import { translateCategoryName } from '../constants/defaultCategories';
 import { useTheme } from '../store/ThemeContext';
