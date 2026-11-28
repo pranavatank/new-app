@@ -11,6 +11,7 @@ import { useTheme } from '../store/ThemeContext';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
 import { paymentLabel } from '../utils/cash';
+import { formatLedgerDate } from '../utils/dateUtils';
 import {
   Card, Input, Chip, Badge, Row, IconBadge, EmptyState, SectionHeader, ScreenHeader,
 } from '../components/common';
@@ -20,19 +21,12 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 280;
 const EMPTY_RESULTS = { expenses: [], notes: [], tasks: [] };
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const fmtAmount = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-const fmtDate = (ds) => {
-  if (!ds) return '';
-  const [y, m, d] = ds.split('-').map(Number);
-  if (!y || !m || !d) return ds;
-  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
-};
-
 export default function SearchScreen({ navigation }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const fmtDate = value => formatLedgerDate(value, i18n.language);
   const { C, scale } = useTheme();
   const { Spacing } = scaleTheme(scale);
   const st = styles(scale);

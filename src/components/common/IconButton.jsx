@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Layout, scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
-export default function IconButton({ icon, label, onPress, style }) {
+export default function IconButton({ icon, label, onPress, style, disabled = false }) {
   const { C, scale } = useTheme();
   const { Radius } = scaleTheme(scale);
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} onPress={onPress} disabled={disabled}
       style={({ pressed }) => [{
         width: Layout.touchTarget,
         height: Layout.touchTarget,
@@ -16,6 +16,7 @@ export default function IconButton({ icon, label, onPress, style }) {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: pressed ? C.primaryDim : C.bgElevated,
+        opacity: disabled ? 0.45 : 1,
       }, style]}>
       <Ionicons name={icon} size={22} color={C.primary} />
     </Pressable>

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Alert, StatusBar, useWindowDimensions, Image,
+  Alert, StatusBar, useWindowDimensions, Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import { parseCashAmount } from '../utils/cash';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
-import { Card, Button, IconBadge, Sheet, Input, Chip, Badge } from '../components/common';
+import { AmountInput, Card, Button, IconBadge, Sheet, Input, Chip, Badge } from '../components/common';
 import {
   getExpenseSummaryForDay,
   setExpenseAmount,
@@ -76,7 +76,7 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
           </React.Fragment>
         ))}
       </View>
-      {transfer !== 0 && <Text style={{ color: C.textOnGradient, marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.locker_out')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
+      {transfer !== 0 && <Text style={{ color: C.textOnGradient, marginTop: S.md, fontSize: T.sizes.sm }}>{t(transfer > 0 ? 'ledger.locker_in' : 'ledger.historical_cash_adjustment')}: {transfer > 0 ? '+' : '−'}{fmt(Math.abs(transfer))}</Text>}
     </Card>
   );
 };
@@ -122,9 +122,8 @@ const dr = StyleSheet.create({
 
 // ── Deposit Sheet ─────────────────────────────────────────────────────────────
 
-const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, T, S, R, t }) => {
+const DepositSheet = ({ visible, date, current, onSave, onDelete, onClose, C, T, S, t }) => {
   const [val, setVal] = useState('');
-  const PRESETS = [500, 1000, 2000, 5000, 10000];
 
   React.useEffect(() => {
     if (visible) setVal(current > 0 ? String(current) : '');
@@ -144,52 +143,24 @@ const DepositSheet = ({ visible, current, onSave, onDelete, onClose, C, T, S, R,
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('expense.depositTitle')}>
-      <Text style={[s2.sub, { color: C.textSecondary, fontSize: T.sizes.sm, marginBottom: S.lg }]}>{t('expense.depositPrompt')}</Text>
-
-      <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: R.lg, paddingHorizontal: S.base, marginBottom: S.base }]}>
-        <Text style={[s2.rupee, { color: C.primary, fontSize: T.sizes.xl, fontWeight: T.weights.black }]}>₹</Text>
-        <TextInput
-          style={[s2.input, { color: C.textPrimary, fontSize: T.sizes.xxl, fontWeight: T.weights.black }]}
-          value={val}
-          onChangeText={setVal}
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={C.textMuted}
-          autoFocus
-          selectTextOnFocus
-        />
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s2.presets, { gap: S.sm, paddingBottom: S.base }]}>
-        {PRESETS.map(p => (
-          <Chip
-            key={p}
-            label={`₹${fmtN(p)}`}
-            color={C.income}
-            active={val === String(p)}
-            onPress={() => setVal(String(p))}
-          />
-        ))}
-      </ScrollView>
-
+    <Sheet visible={visible} onClose={onClose} title={t('expense.depositTitle')} footer={
       <View style={[s2.btnRow, { gap: S.sm }]}>
-        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
         {current > 0 && (
           <Button label={t('common.delete')} variant="danger" onPress={handleDelete} style={{ flex: 1 }} />
         )}
-        <Button label={t('expense.saveDeposit')} variant="primary" onPress={save} style={{ flex: 1 }} />
+        <Button label={t('expense.saveDeposit')} onPress={save} style={{ flex: 1 }} />
       </View>
+    }>
+      <Text style={[s2.sub, { color: C.textSecondary, fontSize: T.sizes.sm, marginBottom: S.lg }]}>{t('expense.depositPrompt')}</Text>
+
+      <AmountInput label={t('ledger.amount')} value={val} onChangeText={setVal} step={100}
+        history={visible ? { kind: 'legacy_deposit', date } : null} style={{ marginBottom: S.md }} />
+
     </Sheet>
   );
 };
 const s2 = StyleSheet.create({
-  sub:     {},
-  inputRow:{ flexDirection: 'row', alignItems: 'center', borderWidth: 2 },
-  rupee:   { marginRight: 6 },
-  input:   { flex: 1, paddingVertical: 14 },
-  presets: { flexDirection: 'row' },
-  btnRow:  { flexDirection: 'row' },
+  sub:     {},  btnRow:  { flexDirection: 'row' },
 });
 
 // ── Amount Entry Sheet ────────────────────────────────────────────────────────
@@ -281,7 +252,12 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose}>
+    <Sheet visible={visible} onClose={onClose} footer={
+      <View style={[s2.btnRow, { gap: S.sm }]}>
+        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
+        <Button label={t('common.save')} onPress={showItems ? saveItems : save} style={{ flex: 1 }} />
+      </View>
+    }>
       <View style={{ alignItems: 'center', marginBottom: S.xs }}>
         <IconBadge emoji={cat.icon} color={C.primary} size={56} />
       </View>
@@ -377,19 +353,9 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
         </View>
       ) : (
         <>
-          <View style={[s2.inputRow, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: R.lg, paddingHorizontal: S.base, marginBottom: S.base }]}>
-            <Text style={[s2.rupee, { color: C.primary, fontSize: T.sizes.xl, fontWeight: T.weights.black }]}>₹</Text>
-            <TextInput
-              style={[s2.input, { color: C.textPrimary, fontSize: T.sizes.xxl, fontWeight: T.weights.black }]}
-              value={val}
-              onChangeText={setVal}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={C.textMuted}
-              autoFocus
-              selectTextOnFocus
-            />
-          </View>
+          <AmountInput label={t('ledger.amount')} value={val} onChangeText={setVal}
+            history={visible ? { kind: 'expense', categoryId: cat?.id, itemId: editingItemId, paymentType: pType, date: selectedDate } : null}
+            style={{ marginBottom: S.md }} />
           {items.length > 0 && (
             <TouchableOpacity
               style={[sa.showItemsBtn, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.md, padding: S.sm, marginBottom: S.base }]}
@@ -402,10 +368,6 @@ const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shado
         </>
       )}
 
-      <View style={[s2.btnRow, { gap: S.sm }]}>
-        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-        <Button label={t('common.save')} variant="primary" onPress={showItems ? saveItems : save} style={{ flex: 1 }} />
-      </View>
     </Sheet>
   );
 };
@@ -774,6 +736,7 @@ export default function ExpenseScreen({ navigation }) {
 
       <DepositSheet
         visible={showDeposit}
+        date={selectedDate}
         current={dayData?.deposit_today || 0}
         onSave={handleDepositSave}
         onDelete={handleDepositDelete}

@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 
-export default function Input({ label, style, inputStyle, labelStyle, ...rest }) {
+export default function Input({ label, style, inputStyle, labelStyle, onFocus, onBlur, ...rest }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const [focused, setFocused] = useState(false);
@@ -26,8 +26,8 @@ export default function Input({ label, style, inputStyle, labelStyle, ...rest })
       <TextInput
         accessibilityLabel={typeof label === 'string' ? label : undefined}
         placeholderTextColor={C.textMuted}
-        onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
-        onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
+        onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+        onBlur={(e) => { setFocused(false); onBlur?.(e); }}
         style={[
           styles.base,
           {

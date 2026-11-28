@@ -674,7 +674,7 @@ export default function SettingsScreen() {
               marginBottom: Spacing.xs,
             }}
           >
-            Family Cash Ledger
+            {t("auth.familyLedger")}
           </Text>
           <Text
             style={{

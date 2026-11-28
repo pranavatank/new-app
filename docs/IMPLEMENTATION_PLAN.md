@@ -92,3 +92,9 @@ Preserve existing wallet entries and English preferences. Accept Gujarati amount
 The Android screenshot audit informed a shared coastal-blue palette, a more compact Today screen, and a single-scroll category manager with pinned actions. Today replaces the duplicate Home route. Version 2.0.0 keeps the existing app identity and data on the device. See the [screen-by-screen audit](IMPLEMENTATION_NOTES.md#rojnishi-20-visual-audit--28-november-2026).
 
 The release check on the phone is to open the amount keyboard in Add Expense and scroll the Arrange list to its last category in a signed 2.0 Android build.
+
+### Live Gujarati cash-entry follow-up · 28 November 2026
+
+Today opens the original category grid directly. Shared money fields offer local suggestions and plus/minus controls. Cash moves from the locker to the wallet with an enforced withdrawal limit. Existing cash adjustments remain read-only. Fuel entry keeps the odometer arrows alongside direct entry.
+
+The app was restarted and checked on the connected phone using Expo Go. A signed preview APK is a separate release check.

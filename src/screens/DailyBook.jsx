@@ -26,6 +26,7 @@ export default function DailyBook({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const add = mode => setForm({ visible: true, mode, entry: null });
   const edit = entry => {
+    if (entry.kind === 'transfer' && entry.direction === 'out') return;
     if (entry.kind === 'legacy_receipt') { navigation.navigate('Expense'); return; }
     setForm({ visible: true, mode: null, entry });
   };
@@ -67,13 +68,9 @@ export default function DailyBook({ navigation }) {
         <SummaryRow label={t('ledger.outside_cash')} value={displayMoney(day.locker_receipts)} divider />
         <SummaryRow label={t('ledger.wallet_spent')} value={displayMoney(day.wallet_spent)} divider />
         <SummaryRow label={t('ledger.locker_spent')} value={displayMoney(day.locker_spent)} divider />
-        {entries.filter(e => e.kind === 'transfer').map(e => <SummaryRow key={`transfer-${e.id}`} label={e.direction === 'out' ? t('ledger.locker_out') : t('ledger.locker_in')} value={`${e.direction === 'out' ? '−' : '+'}${money(e.amount, i18n.language)}`} divider />)}
-        {ledger && !ledger.error && (
-          <View style={{ gap: Spacing.xs, marginTop: Spacing.sm }}>
-            <Button size="sm" variant="secondary" label={t('ledger.add_return_locker')} onPress={() => add('return_locker')} />
-            {lockerBalance != null && <Button size="sm" variant="ghost" label={t('ledger.add_locker_opening')} onPress={() => add('locker_opening')} />}
-          </View>
-        )}
+        {entries.filter(e => e.kind === 'transfer').map(e => <SummaryRow key={`transfer-${e.id}`} label={e.direction === 'out' ? t('ledger.historical_cash_adjustment') : t('ledger.locker_in')} value={`${e.direction === 'out' ? '−' : '+'}${money(e.amount, i18n.language)}`} divider />)}
+        {ledger && !ledger.error && lockerBalance != null &&
+          <Button size="sm" variant="ghost" label={t('ledger.add_locker_opening')} onPress={() => add('locker_opening')} />}
       </Card>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.xs }}>
         <Text accessibilityRole="header" style={{ color: C.textPrimary, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.heavy }}>Rojnishi</Text>
@@ -109,7 +106,10 @@ export default function DailyBook({ navigation }) {
           <ActionTile label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.income} onPress={() => add('deposit_locker')} />
           <ActionTile label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.primary} onPress={() => add('take_locker')} />
         </View>
-        <Button size="sm" variant="ghost" icon="help-circle-outline" label={t('ledger.add_forgotten')} onPress={() => add('forgotten')} style={{ alignSelf: 'flex-start' }} />
+        <View style={actionRow}>
+          <ActionTile label={t('ledger.tool_expense')} icon="grid-outline" onPress={() => navigation.navigate('Expense')} />
+          <ActionTile label={t('ledger.add_forgotten')} icon="help-circle-outline" onPress={() => add('forgotten')} />
+        </View>
       </View>
       {ledger && !ledger.error && (cashEntries.length > 0 || onlineNotes.length === 0) && <Card padding="md" elevation="none">
         <SectionHeader icon="list" title={t('ledger.entries')} />

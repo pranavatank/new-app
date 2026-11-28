@@ -41,6 +41,38 @@ const mappedExpenses = (date, dayId) => getDB().getAllSync(`
 const movementEntries = (date, dayId) => getDB().getAllSync(
   'SELECT id,kind,amount,direction,account,note,created_at FROM ledger_movements WHERE day_id=? ORDER BY id;', [dayId]
 ).map((row) => ({ ...row, date }));
+
+export const getAmountHistory = ({ kind, date = '9999-12-31', id = null, categoryId = null, itemId = null, paymentType = 'cash', category = '' }) => {
+  const db = getDB();
+  let rows;
+  if (kind === 'deposit_locker' || kind === 'take_locker' || kind === 'legacy_wallet_receipt') {
+    const movementKind = kind === 'take_locker' ? 'transfer' : 'receipt';
+    const account = kind === 'deposit_locker' ? 'locker' : 'wallet';
+    rows = db.getAllSync(`
+      SELECT m.amount FROM ledger_movements m JOIN days d ON d.id=m.day_id
+      WHERE m.kind=? AND m.account=? AND m.direction='in' AND d.date<=? AND m.id IS NOT ?
+      ORDER BY d.date DESC, m.id DESC LIMIT 24;`, [movementKind, account, date, id]);
+  } else if (kind === 'legacy_deposit') {
+    rows = db.getAllSync('SELECT deposit_today amount FROM days WHERE date < ? AND deposit_today > 0 ORDER BY date DESC LIMIT 24;', [date]);
+  } else if (kind === 'purchase') {
+    rows = db.getAllSync('SELECT amount FROM purchases WHERE category=? AND date<=? AND id IS NOT ? AND amount>0 ORDER BY date DESC, id DESC LIMIT 24;', [category, date, id]);
+  } else if (kind === 'fuel_total' || kind === 'fuel_price') {
+    const column = kind === 'fuel_total' ? 'amount' : 'price_per_liter';
+    rows = db.getAllSync(`
+      SELECT ${column} amount FROM vehicle_records WHERE date<=? AND id IS NOT ? AND ${column}>0
+      ORDER BY date DESC, id DESC LIMIT 24;`, [date, id]);
+  } else if (kind === 'forgotten' || (['expense', 'recurring'].includes(kind) && categoryId != null)) {
+    const origin = kind === 'forgotten' ? 'forgotten' : kind === 'recurring' ? 'recurring' : null;
+    rows = db.getAllSync(`
+      SELECT e.amount FROM expenses e JOIN days d ON d.id=e.day_id
+      WHERE d.date<=? AND e.id IS NOT ? AND e.amount>0
+        AND (? IS NULL OR e.category_id=?) AND e.item_id IS ? AND e.payment_type=?
+        AND (? IS NULL OR e.origin=?)
+      ORDER BY d.date DESC, e.id DESC LIMIT 24;`,
+      [date, id, categoryId, categoryId, itemId, paymentType, origin, origin]);
+  } else return [];
+  return rows.map(row => row.amount);
+};
 const timeValue = (value) => {
   if (!value) return null;
   const normalized=String(value).includes('T') ? String(value) : String(value).replace(' ','T');
@@ -182,15 +214,56 @@ export const saveExpenseBatch = ({date,categoryId,paymentType='cash',note='',ite
   });
 };
 
+export const getLockerWithdrawalLimit = (date, excludingId = null) => {
+  const balance = getLockerBalance(date);
+  if (balance == null) return null;
+  const db = getDB();
+  const edited = excludingId == null ? null : db.getFirstSync(
+    "SELECT m.amount, d.date FROM ledger_movements m JOIN days d ON d.id=m.day_id WHERE m.id=? AND m.kind='transfer' AND m.direction='in';",
+    [excludingId]
+  );
+  let available = balance + (edited && edited.date <= date ? edited.amount : 0);
+  let limit = available;
+  // A backdated withdrawal must also leave enough cash for days already recorded after it.
+  const laterActivity = db.getAllSync(`
+    SELECT date, SUM(delta) delta FROM (
+      SELECT d.date, CASE WHEN m.kind='transfer' THEN
+        CASE WHEN m.direction='in' THEN -m.amount ELSE m.amount END
+        ELSE CASE WHEN m.direction='in' THEN m.amount ELSE -m.amount END END delta
+      FROM ledger_movements m JOIN days d ON d.id=m.day_id
+      WHERE d.date > ? AND m.id IS NOT ?
+        AND (m.kind='transfer' OR (m.kind='receipt' AND m.account='locker'))
+      UNION ALL
+      SELECT d.date, -e.amount FROM expenses e JOIN days d ON d.id=e.day_id
+      WHERE d.date > ? AND e.payment_type='locker'
+    ) GROUP BY date ORDER BY date;`, [date, edited ? excludingId : null, date]);
+  for (const { delta } of laterActivity) {
+    available += delta;
+    limit = Math.min(limit, available);
+  }
+  return Math.max(0, Math.round(limit * 100) / 100);
+};
+
+const validateWithdrawal = (date, amount, excludingId) => {
+  const limit = getLockerWithdrawalLimit(date, excludingId);
+  if (limit == null || amount > limit) {
+    throw Object.assign(new Error('Locker withdrawal exceeds available cash'), { code: 'LOCKER_LIMIT', limit });
+  }
+};
+
 export const saveMovement = ({ id, date, kind, amount, direction, account, note='' }) => {
   const db = getDB();
   return atomic(db, () => {
   const day = dayFor(date), value = positiveAmount(amount);
   if (!['receipt','transfer'].includes(kind) || !['in','out'].includes(direction)) throw new Error('Invalid movement kind or direction');
-  const old = id == null ? null : db.getFirstSync('SELECT day_id,account FROM ledger_movements WHERE id=?;', [id]);
+  const old = id == null ? null : db.getFirstSync('SELECT day_id,account,kind,direction FROM ledger_movements WHERE id=?;', [id]);
   if (id != null && !old) throw new Error('Movement entry not found');
   const target = kind === 'transfer' ? 'wallet' : account ?? old?.account ?? 'wallet';
   if (!['wallet','locker'].includes(target)) throw new Error('Invalid cash account');
+  if ((kind === 'transfer' && direction !== 'in') || (old?.kind === 'transfer' && old.direction === 'out')) {
+    throw new Error('Historical cash adjustments are read-only');
+  }
+  if (kind === 'transfer') validateWithdrawal(date, value, id);
   if (!old && kind === 'receipt' && target === 'locker') {
     db.runSync("INSERT OR IGNORE INTO ledger_settings(key,value) SELECT 'locker_opening','0' WHERE NOT EXISTS (SELECT 1 FROM ledger_movements WHERE kind='transfer');");
   }
@@ -229,6 +302,7 @@ export const removeLedgerEntry = ({ kind,id,date }) => {
     if (row) db.runSync('DELETE FROM notes WHERE id=?;', [id]);
   } else if (kind==='receipt' || kind==='transfer') {
     row = db.getFirstSync('SELECT * FROM ledger_movements WHERE id=? AND kind=?;', [id,kind]);
+    if (row?.kind === 'transfer' && row.direction === 'out') throw new Error('Historical cash adjustments are read-only');
     if (row) db.runSync('DELETE FROM ledger_movements WHERE id=?;', [id]);
   } else if (kind==='legacy_receipt') {
     row = db.getFirstSync('SELECT * FROM days WHERE id=?;', [id]);
@@ -247,7 +321,10 @@ export const restoreLedgerEntry = (snapshot) => {
   if (snapshot.kind==='expense') db.runSync('INSERT INTO expenses(id,day_id,category_id,item_id,amount,payment_type,place_id,note,origin,created_at) VALUES(?,?,?,?,?,?,?,?,?,?);',
     [r.id,day.id,r.category_id,r.item_id??null,r.amount,r.payment_type,r.place_id??null,r.note??null,r.origin??'entry',r.created_at??null]);
   else if (snapshot.kind==='note') db.runSync('INSERT INTO notes(id,day_id,text,mood,created_at) VALUES(?,?,?,?,?);',[r.id,day.id,r.text,r.mood,r.created_at]);
-  else if (snapshot.kind==='receipt'||snapshot.kind==='transfer') db.runSync('INSERT INTO ledger_movements(id,day_id,kind,amount,direction,account,note,created_at) VALUES(?,?,?,?,?,?,?,?);',[r.id,day.id,r.kind,r.amount,r.direction,r.account??'wallet',r.note,r.created_at]);
+  else if (snapshot.kind==='receipt'||snapshot.kind==='transfer') {
+    if (r.kind === 'transfer' && r.direction === 'in') validateWithdrawal(snapshot.date, r.amount);
+    db.runSync('INSERT INTO ledger_movements(id,day_id,kind,amount,direction,account,note,created_at) VALUES(?,?,?,?,?,?,?,?);',[r.id,day.id,r.kind,r.amount,r.direction,r.account??'wallet',r.note,r.created_at]);
+  }
   else if (snapshot.kind==='legacy_receipt') db.runSync('UPDATE days SET deposit_today=? WHERE id=?;',[r.deposit_today,day.id]);
   recalculateBalance(day.id,snapshot.date);
   return true;

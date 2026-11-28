@@ -13,3 +13,4 @@ export { default as IconButton } from './IconButton';
 export { default as FAB } from './FAB';
 export { default as ActionTile } from './ActionTile';
 export { default as SummaryRow } from './SummaryRow';
+export { default as AmountInput } from './AmountInput';

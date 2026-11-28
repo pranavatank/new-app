@@ -23,6 +23,7 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
   const { t, i18n } = useTranslation();
   const isNote = entry.kind === 'note';
   const isTransfer = entry.kind === 'transfer';
+  const historical = isTransfer && entry.direction === 'out';
   const isExpense = entry.kind === 'expense';
   const onlineNote = entry.payment_type === 'online';
   const outgoing = (isExpense && !onlineNote) || entry.direction === 'out';
@@ -39,7 +40,7 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
     icon = 'cart-outline';
     tint = C.iconExpense;
   } else if (isTransfer) {
-    title = t(outgoing ? 'ledger.locker_out' : 'ledger.locker_in');
+    title = t(outgoing ? 'ledger.historical_cash_adjustment' : 'ledger.locker_in');
     icon = 'lock-closed-outline';
     tint = C.primary;
   } else if (entry.kind === 'legacy_receipt') {
@@ -68,7 +69,7 @@ export default function LedgerEntryRow({ entry, onEdit, onDelete }) {
           {(onlineNote ? '' : outgoing ? '−' : '+') + money(entry.amount, i18n.language)}
         </Text>}
       </View>
-      {(onEdit || onDelete) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: Spacing.xs }}>
+      {!historical && (onEdit || onDelete) && <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: Spacing.xs }}>
         {onEdit && <Button variant="secondary" label={t('common.edit')} icon="pencil-outline" size="sm" onPress={() => onEdit(entry)} />}
         {onDelete && <Button variant="ghost" label={t('common.delete')} icon="trash-outline" size="sm" onPress={() => onDelete(entry)} />}
       </View>}

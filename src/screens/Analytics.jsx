@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { translateCategoryName } from '../constants/defaultCategories';
+import { formatLedgerDate } from '../utils/dateUtils';
 import { Card, IconBadge, EmptyState } from '../components/common';
 import {
   getMonthlySummary,
@@ -19,7 +20,6 @@ import {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -318,14 +318,11 @@ const pb = StyleSheet.create({
 
 // ── Top Spending Days ─────────────────────────────────────────────────────────
 
-const TopDays = ({ topDays, C, T, S, R, Shadow, t }) => {
+const TopDays = ({ topDays, C, T, S, R, Shadow, t, language }) => {
   if (topDays.length === 0) return null;
   const maxVal = topDays[0]?.total || 1;
 
-  const formatDay = (ds) => {
-    const [y, m, d] = ds.split('-').map(Number);
-    return `${d} ${MONTHS[m - 1]}`;
-  };
+  const formatDay = ds => formatLedgerDate(ds, language, { day: 'numeric', month: 'short' });
 
   const RANK_ICONS = ['trophy', 'medal', 'medal', 'ribbon', 'ribbon'];
 
@@ -454,7 +451,7 @@ export default function AnalyticsScreen() {
             />
 
             {/* Top Spending Days */}
-            <TopDays topDays={topDays} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
+            <TopDays language={i18n.language} topDays={topDays} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
 
             {/* Quick insight footer */}
             <View style={[s.insightCard, { gap: S.sm, padding: S.base, borderRadius: R.xl, marginTop: S.xs, backgroundColor: C.primaryDim, borderColor: C.primary + '40' }]}>

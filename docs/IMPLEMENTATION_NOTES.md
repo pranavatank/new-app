@@ -14,7 +14,7 @@ The baseline captures came from the installed Android app and include app destin
 | Expense items and recurring bills | Add is in the header, leaving the list free of space reserved for a floating button. Recurring Save stays in the footer and monthly date buttons have larger touch targets. |
 | Tasks and Places | Task edit and delete targets are larger. Places puts Add in the header and localizes the example field. Both editors keep their save actions in the footer. |
 | Analytics and Search | The spending chart shows days with cash spending and category rows show a single cash total. Search cards name the payment source and have no fixed scroll tail. |
-| Vehicle | Empty fuel history shows one empty state. The fuel form uses a decimal odometer field that accepts Gujarati digits. Its calendar and record labels follow the app language. |
+| Vehicle | Empty fuel history shows one empty state. The fuel form has a digit-by-digit odometer and direct entry that accepts Gujarati digits. Its calendar and record labels follow the app language. |
 | Settings | Removed a fixed blank scroll tail. Both version labels read the release version from Expo config. |
 
 The shared sheet uses the Android dialog's keyboard resize behavior. The backdrop sits behind the panel as a separate touch target, and the body scrolls between the title and footer. [Android keyboard insets](https://developer.android.com/develop/ui/views/layout/sw-keyboard)
@@ -51,7 +51,19 @@ All 14 screens and React Navigation use the central light and dark palettes. The
 4. **ઑનલાઇન · ફક્ત નોંધ** keeps online payments separate. They leave both cash balances and all cash-spending totals unchanged.
 5. **યાદ નથી** records the cash shortfall as a wallet expense. If the wallet should contain ₹500 and contains ₹450, enter ₹50.
 
-**વિગતો જુઓ** stays at the top of Today while the list scrolls. It opens the breakdown, the option to return wallet cash to the locker, and the opening locker amount for cash that was already there before the first entry. If older transfers make the opening amount unknown, the setup action also appears on Today.
+**વિગતો જુઓ** stays at the top of Today while the list scrolls. It opens the breakdown and the opening locker amount for cash that was already there before the first entry. If older transfers make the opening amount unknown, set it before taking cash. Earlier cash adjustments remain in the ledger and balances as read-only history.
+
+**પ્રકાર પ્રમાણે ખર્ચ** opens the original category grid directly from Today. The quick **ખર્ચ ઉમેરો** entry remains beside the other daily actions.
+
+Amount fields share manual input, suggested amounts, and plus/minus controls. Initial expense suggestions are ₹50, ₹100, and ₹200. Once five comparable entries exist, the app uses three representative values from the most recent 24. It learns separately for a category, item, and payment source, and keeps separate histories for locker deposits and withdrawals. Suggestions stay on the device and only fill the field.
+
+The withdrawal sheet shows the most cash available. Buttons respect that maximum and the database checks typed amounts before recording an entry. For a backdated withdrawal, the cap also protects later recorded locker payments and withdrawals.
+
+Vehicle fuel entry has the digit-by-digit odometer arrows and a direct reading option. Both use the same reading and the existing date-based validation.
+
+The Gujarati phone audit covered all 14 destinations in Expo Go. It found English date labels in Tasks, Search and Analytics, untranslated default category names in recurring entries, and an English title in About. Those screens now use the app language. The expense grid and purchase form use the shared sheet footer so their save actions stay separate from the extra amount controls.
+
+After restarting over USB, the live app opened the grid from Today, filled an amount from a suggestion, adjusted it in both directions, and kept Save visible with the Android keyboard open. The withdrawal limit and odometer controls were checked on the phone. A SQLite fixture verified history-based suggestions, historical balance compatibility, and rejection of an over-limit withdrawal before any ledger changes.
 
 Old deposits and receipts still affect the wallet. The migration adds the movement account with a wallet default for existing rows. Existing cash, online and recurring records preserve their source. Prior transfers affect the two cash accounts in opposite directions. Reports subtract actual cash expenses from outside receipts, with online payments listed separately. JSON backup and Excel merge preserve movement sources and the locker opening balance. A backdated edit and a restore recalculate the carried wallet balance.
 

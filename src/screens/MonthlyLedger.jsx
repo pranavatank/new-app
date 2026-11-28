@@ -72,7 +72,7 @@ export default function MonthlyLedger({ navigation }) {
               ...(data.totals.wallet_receipts ? [['receipts', data.totals.wallet_receipts]] : []),
               ['outside_cash', data.totals.locker_receipts],
               ['locker_in', data.totals.transfer_in],
-              ['locker_out', data.totals.transfer_out],
+              ['historical_cash_adjustment', data.totals.transfer_out ? -data.totals.transfer_out : 0],
               ['wallet_spent', data.totals.wallet_spent],
               ['locker_spent', data.totals.locker_spent],
             ].filter(([name, value]) => name === 'closing' || name === 'locker_balance' || value !== 0).map(([name, value], index) =>

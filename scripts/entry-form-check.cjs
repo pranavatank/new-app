@@ -49,7 +49,10 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     getAllCategoryItems: id => items.filter(item => item.category_id === Number(id)),
     addCategoryItem: (categoryId, name) => items.push({ id: items.length + 10, category_id: categoryId, name }),
   };
-  const ledger = Object.fromEntries(['saveExpense', 'saveExpenseBatch', 'saveMovement', 'saveDailyNote', 'setLockerOpeningBalance'].map(name => [name, data => calls.push({ name, data })]));
+  const ledger = {
+    ...Object.fromEntries(['saveExpense', 'saveExpenseBatch', 'saveMovement', 'saveDailyNote', 'setLockerOpeningBalance'].map(name => [name, data => calls.push({ name, data })])),
+    getLockerWithdrawalLimit: () => 8000,
+  };
   const t = key => key;
   const localRequire = id => {
     if (id === 'react') return React;
@@ -91,7 +94,12 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
   return {
     calls, alerts,
     press(label) { control('Chip', props => props.label === label).onPress(); render(); },
-    input(label, value) { control('Input', props => props.label?.includes(label)).onChangeText(value); render(); },
+    input(label, value) {
+      const input = find(node => ['Input', 'AmountInput'].includes(node.type) && node.props?.label?.includes(label), tree);
+      assert.ok(input, `Missing field ${label}`);
+      input.props.onChangeText(value);
+      render();
+    },
     addItem(name) {
       this.input('ledger.new_item', name);
       control('Button', props => props.label === 'ledger.add_item').onPress();
@@ -100,6 +108,10 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     save() { control('Button', props => props.label === 'common.save').onPress(); render(); },
   };
 }
+const overdraw = harness(null, [], 'take_locker');
+overdraw.input('ledger.amount', '૮૦૦૧');
+overdraw.save();
+assert.equal(overdraw.calls.length, 0, 'The form rejects a manual amount above the cap');
 
 const shopping = harness(null, []);
 shopping.press('Vegetables');

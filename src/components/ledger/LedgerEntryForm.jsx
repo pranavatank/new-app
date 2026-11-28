@@ -5,10 +5,11 @@ import { useTheme } from '../../store/ThemeContext';
 import { scaleTheme } from '../../constants/theme';
 import { getAllCategories, getAllCategoryItems, addCategoryItem } from '../../db/queries';
 import { translateCategoryName } from '../../constants/defaultCategories';
-import { saveExpense, saveExpenseBatch, saveMovement, saveDailyNote, setLockerOpeningBalance } from '../../db/ledger';
+import { getLockerWithdrawalLimit, saveExpense, saveExpenseBatch, saveMovement, saveDailyNote, setLockerOpeningBalance } from '../../db/ledger';
 import { parseCashAmount, paymentLabel } from '../../utils/cash';
 import Sheet from '../common/Sheet';
 import Input from '../common/Input';
+import AmountInput from '../common/AmountInput';
 import Chip from '../common/Chip';
 import Button from '../common/Button';
 import Card from '../common/Card';
@@ -42,12 +43,18 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     entry?.origin === 'forgotten' ? 'forgotten' :
     entry?.kind === 'note' ? 'note' :
     entry?.kind === 'receipt' ? (entry.account === 'locker' ? 'deposit_locker' : 'legacy_wallet_receipt') :
-    entry?.kind === 'transfer' ? (entry.direction === 'out' ? 'return_locker' : 'take_locker') :
+    entry?.kind === 'transfer' ? 'take_locker' :
     'expense'
   );
   const title = t(`ledger.add_${kind}`);
-  const hint = ['deposit_locker', 'take_locker', 'return_locker', 'forgotten', 'locker_opening'].includes(kind)
+  const hint = ['deposit_locker', 'take_locker', 'forgotten', 'locker_opening'].includes(kind)
     ? t(`ledger.${kind}_hint`) : null;
+  const takingCash = kind === 'take_locker';
+  const limit = useMemo(() => visible && takingCash ? getLockerWithdrawalLimit(date, entry?.id) : null,
+    [visible, takingCash, date, entry?.id]);
+  const limitMessage = value => value == null ? t('ledger.withdrawal_opening_needed')
+    : t('ledger.withdrawal_available', { amount: '₹' + value.toLocaleString('en-IN') });
+  const history = itemId => visible ? { kind, date, id: entry?.id, categoryId: form.categoryId, itemId, paymentType: form.paymentType } : null;
 
   useEffect(() => {
     if (!visible || kind !== 'expense') return;
@@ -119,6 +126,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     const amount = parseCashAmount(form.amount);
     if (kind === 'locker_opening' && (!Number.isFinite(amount) || amount < 0)) { setError(t('ledger.locker_opening_required')); return; }
     if (!['note','expense','locker_opening'].includes(kind) && (!Number.isFinite(amount) || amount <= 0)) { setError(t('ledger.amount_required')); return; }
+    if (takingCash && (limit == null || Math.round(amount * 100) / 100 > limit)) { setError(limitMessage(limit)); return; }
     if (kind === 'expense') {
       if (form.expenseMode === 'total' && (!Number.isFinite(amount) || amount <= 0)) { setError(t('ledger.amount_required')); return; }
       if (form.expenseMode === 'items' && (!filledItems.length || filledItems.some(x => !Number.isFinite(x.amount) || x.amount <= 0))) { setError(t('ledger.item_amount_required')); return; }
@@ -146,12 +154,12 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
           id: entry?.id, date, amount, note: form.note.trim(),
           kind: isReceipt ? 'receipt' : 'transfer',
           account: kind === 'deposit_locker' ? 'locker' : 'wallet',
-          direction: entry?.direction ?? (kind === 'return_locker' ? 'out' : 'in'),
+          direction: isReceipt ? entry?.direction ?? 'in' : 'in',
         });
       }
       onSaved?.();
       const blank = { ...empty }; setForm(blank); initialForm.current = blank; setItems([]); onClose();
-    } catch { setError(t('ledger.save_failed')); }
+    } catch (failure) { setError(failure.code === 'LOCKER_LIMIT' ? limitMessage(failure.limit) : t('ledger.save_failed')); }
     finally { saveLock.current = false; setSaving(false); }
   };
 
@@ -168,6 +176,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   return <Sheet visible={visible} onClose={close} title={entry && kind === 'expense' ? t('common.edit') : title} footer={footer}>
     <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{dateLabel}</Text>
     {!!hint && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{hint}</Text>}
+    {takingCash && <Text style={{ color: C.primary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{limitMessage(limit)}</Text>}
     <View style={{ paddingBottom: Spacing.sm }}>
       {kind === 'note' ? <Input value={form.text} onChangeText={v => update('text', v)} placeholder={t('ledger.note_placeholder')} multiline inputStyle={{ minHeight: 130, textAlignVertical: 'top' }} /> : <>
         {kind === 'expense' && <>
@@ -180,14 +189,14 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
             </View>
             {form.expenseMode === 'items' ? <>
               {items.map(item => <View key={item.id} style={{ marginBottom: Spacing.sm }}>
-                <Input label={`${item.icon_type !== 'image' && !isImageUri(item.icon) ? `${item.icon || ''} ` : ''}${item.name}${item.inactive ? ` · ${t('ledger.inactive_item')}` : ''}`} value={form.itemAmounts[item.id] || ''} onChangeText={value => setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }))} placeholder="0" keyboardType="decimal-pad" />
+                <AmountInput compact history={history(item.id)} label={`${item.icon_type !== 'image' && !isImageUri(item.icon) ? `${item.icon || ''} ` : ''}${item.name}${item.inactive ? ` · ${t('ledger.inactive_item')}` : ''}`} value={form.itemAmounts[item.id] || ''} onChangeText={value => setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }))} />
               </View>)}
               {(!entry || !items.length) && <Card padding="md" elevation="none" style={{ marginBottom: Spacing.sm }}>
                 {!items.length && <Text style={{ color: C.textSecondary, marginBottom: Spacing.sm }}>{t('ledger.no_category_items')}</Text>}
                 <Input value={form.newItem} onChangeText={v => update('newItem', v)} label={t('ledger.new_item')} placeholder={t('ledger.item_name')} />
                 <Button label={t('ledger.add_item')} icon="add" onPress={addItem} style={{ marginTop: Spacing.sm }} />
               </Card>}
-            </> : <Input label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} placeholder="0" keyboardType="decimal-pad" inputStyle={{ fontSize: Typography.sizes.xl, fontWeight: Typography.weights.heavy }} />}
+            </> : <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
           </>}
           <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold, marginVertical: Spacing.sm }}>{t('ledger.payment')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm }}>
@@ -196,7 +205,9 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
           </View>
           {form.paymentType === 'online' && <Text style={{ color: C.textSecondary, marginBottom: Spacing.sm }}>{t('ledger.online_note_hint')}</Text>}
         </>}
-        {kind !== 'expense' && <Input label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} placeholder="0" keyboardType="decimal-pad" inputStyle={{ fontSize: Typography.sizes.xl, fontWeight: Typography.weights.heavy }} />}
+        {kind !== 'expense' && <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount}
+          onChangeText={v => update('amount', v)} step={takingCash || kind === 'deposit_locker' || kind === 'locker_opening' ? 100 : 10}
+          limit={takingCash ? limit ?? 0 : Infinity} />}
         {kind !== 'locker_opening' && <Input value={form.note} onChangeText={v => update('note', v)} placeholder={t('ledger.optional_note')} />}
       </>}
     </View>

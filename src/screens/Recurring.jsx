@@ -11,7 +11,7 @@ import { translateCategoryName } from '../constants/defaultCategories';
 import { useTheme } from '../store/ThemeContext';
 import { parseCashAmount, paymentLabel } from '../utils/cash';
 import {
-  Card, Button, Sheet, Input, Chip, Badge, IconBadge,
+  AmountInput, Card, Button, Sheet, Input, Chip, Badge, IconBadge,
   EmptyState, SectionHeader, ScreenHeader,
 } from '../components/common';
 import {
@@ -186,7 +186,7 @@ export default function RecurringScreen() {
               numberOfLines={1}
               style={{ fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, color: C.textPrimary }}
             >
-              {rule.item_name ? `${rule.category_name} · ${rule.item_name}` : rule.category_name}
+              {translateCategoryName(rule.category_name, t)}{rule.item_name ? ' · ' + rule.item_name : ''}
             </Text>
             <View style={s.metaRow}>
               <Ionicons name="repeat" size={12} color={C.textSecondary} style={{ marginRight: 4 }} />
@@ -342,13 +342,11 @@ export default function RecurringScreen() {
           </>
         )}
 
-        <Input
+        <AmountInput
           label={t('recurring.amount')}
           value={amount}
           onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          placeholder="0"
-          placeholderTextColor={C.textMuted}
+          history={sheetOpen ? { kind: 'recurring', categoryId, itemId, paymentType } : null}
           style={{ marginTop: Spacing.base }}
         />
 

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Typography as BaseTypography, scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
+import { formatLedgerDate } from '../utils/dateUtils';
 import useAppStore from '../store/useAppStore';
 import { Card, Button, Sheet, Input, Chip, Badge, EmptyState } from '../components/common';
 import {
@@ -29,14 +30,6 @@ const toDateString = (d) =>
 
 const todayStr = () => toDateString(new Date());
 
-const formatDate = (ds) => {
-  if (!ds) return '';
-  const [y, m, d] = ds.split('-').map(Number);
-  const date = new Date(y, m-1, d);
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${d} ${MONTHS[m-1]} ${y}`;
-};
-
 const getDaysOverdue = (startDate) => {
   const today = new Date(); today.setHours(0,0,0,0);
   const start = new Date(startDate + 'T00:00:00'); start.setHours(0,0,0,0);
@@ -46,10 +39,8 @@ const getDaysOverdue = (startDate) => {
 
 // ── Add / Edit Task Modal ─────────────────────────────────────────────────────
 
-const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
 const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
 
@@ -107,7 +98,7 @@ const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
         activeOpacity={0.75}
       >
         <Ionicons name="calendar-outline" size={16} color={C.primary} />
-        <Text style={[m.dateText, { color: C.primary, fontSize: Typography.sizes.sm }]}>{formatDate(startDate)}</Text>
+        <Text style={[m.dateText, { color: C.primary, fontSize: Typography.sizes.sm }]}>{formatLedgerDate(startDate, i18n.language)}</Text>
         <Ionicons name={showCal ? 'chevron-up' : 'chevron-down'} size={14} color={C.primary} />
       </TouchableOpacity>
 
@@ -118,13 +109,13 @@ const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
             <TouchableOpacity onPress={prevCal} style={[m.calNav, { backgroundColor: C.bgInput }]}>
               <Ionicons name="chevron-back" size={18} color={C.primary} />
             </TouchableOpacity>
-            <Text style={[m.calMonth, { color: C.textPrimary, fontSize: Typography.sizes.sm }]}>{MONTHS_FULL[calMonth]} {calYear}</Text>
+            <Text style={[m.calMonth, { color: C.textPrimary, fontSize: Typography.sizes.sm }]}>{formatLedgerDate(new Date(calYear, calMonth, 1), i18n.language, { month: 'long', year: 'numeric' })}</Text>
             <TouchableOpacity onPress={nextCal} style={[m.calNav, { backgroundColor: C.bgInput }]}>
               <Ionicons name="chevron-forward" size={18} color={C.primary} />
             </TouchableOpacity>
           </View>
           <View style={m.calDayRow}>
-            {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>(
+            {Array.from({ length: 7 }, (_, index) => formatLedgerDate(new Date(2024, 0, 7 + index), i18n.language, { weekday: 'short' })).map(d=>(
               <Text key={d} style={[m.calDayHd, { color: C.textMuted }]}>{d}</Text>
             ))}
           </View>
@@ -171,7 +162,7 @@ const m = StyleSheet.create({
 // ── Task Card ─────────────────────────────────────────────────────────────────
 
 const TaskCard = ({ task, onComplete, onEdit, onDelete }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
 
@@ -200,7 +191,7 @@ const TaskCard = ({ task, onComplete, onEdit, onDelete }) => {
         <View style={tc.body}>
           <Text style={[tc.taskTitle, { color: C.textPrimary, fontSize: Typography.sizes.base, marginBottom: Spacing.xs }]}>{task.title}</Text>
           <View style={[tc.meta, { gap: Spacing.xs }]}>
-            <Chip icon="calendar-outline" color={C.textSecondary} label={`${t('common.from')} ${formatDate(task.start_date)}`} />
+            <Chip icon="calendar-outline" color={C.textSecondary} label={`${t('common.from')} ${formatLedgerDate(task.start_date, i18n.language)}`} />
             {isOverdue && (
               <Chip
                 icon="alert-circle"
@@ -254,7 +245,7 @@ const tc = StyleSheet.create({
 // ── Completed Task Row ────────────────────────────────────────────────────────
 
 const CompletedRow = ({ task, onDelete, onRevert }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography, Spacing } = scaleTheme(scale);
 
@@ -266,7 +257,7 @@ const CompletedRow = ({ task, onDelete, onRevert }) => {
       <View style={cr.info}>
         <Text style={[cr.title, { color: C.textSecondary, fontSize: Typography.sizes.sm }]}>{task.title}</Text>
         <Text style={[cr.date, { color: C.textMuted, fontSize: Typography.sizes.xs }]}>
-          {t('tasks.completed')} {task.completed_date ? formatDate(task.completed_date) : ''}
+          {t('tasks.completed')} {task.completed_date ? formatLedgerDate(task.completed_date, i18n.language) : ''}
         </Text>
       </View>
       <TouchableOpacity onPress={()=>onDelete(task.id)}>

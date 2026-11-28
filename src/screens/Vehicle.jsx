@@ -8,9 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { getOrCreateDay, setExpenseAmount, recalculateBalance, getAllCategories, getAllVehicleRecords, addVehicleRecord, updateVehicleRecord, deleteVehicleRecord, getVehicleStats } from '../db/queries';
-import { Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader } from '../components/common';
+import { AmountInput, Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader } from '../components/common';
 import { getOdometerNeighbors } from '../utils/vehicleRecords';
 import { parseCashAmount } from '../utils/cash';
+import OdometerInput from '../components/OdometerInput';
 
 const toISODate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -321,7 +322,7 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
         />
 
         <View style={[am.section, { marginBottom: Spacing.md }]}>
-          <Input label={t('vehicle.odometer')} value={reading} onChangeText={setReading} keyboardType="decimal-pad" />
+          <OdometerInput value={reading} onChange={setReading} />
           <View style={[am.infoBox, { backgroundColor: C.primaryDim, marginTop: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg }]}>
             <Text style={[am.infoText, { color: C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>
               {t('vehicle.lastReading', { reading: lastReadingDisplay, distance: distanceDisplay })}
@@ -345,23 +346,22 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
 
         {/* Price Per Liter */}
         <View style={{ marginBottom: Spacing.md }}>
-          <Input
+          <AmountInput
             label={t('vehicle.price')}
             value={pricePerLiter}
             onChangeText={handlePriceChange}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
+            step={1}
+            history={visible ? { kind: 'fuel_price', date: isoDate, id: editingRecord?.id } : null}
           />
         </View>
 
         {/* Total Amount */}
         <View style={{ marginBottom: Spacing.xs }}>
-          <Input
+          <AmountInput
             label={t('vehicle.amount')}
             value={totalAmount}
             onChangeText={handleAmountChange}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
+            history={visible ? { kind: 'fuel_total', date: isoDate, id: editingRecord?.id } : null}
           />
         </View>
         <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginBottom: Spacing.md }]}>{t('vehicle.amountHint')}</Text>

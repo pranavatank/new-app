@@ -4,12 +4,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, Chip, EmptyState, IconBadge, Input, ScreenHeader, Sheet } from '../components/common';
+import { AmountInput, Button, Card, Chip, EmptyState, IconBadge, Input, ScreenHeader, Sheet } from '../components/common';
 import { Layout, scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { getPurchases, savePurchase, deletePurchase } from '../db/ledger';
 import { persistPurchaseImage } from '../services/purchaseImages';
 import { money } from '../components/ledger/LedgerEntryRow';
+import { parseCashAmount } from '../utils/cash';
 
 const CATEGORIES = ['appliances', 'clothes', 'other'];
 const today = () => {
@@ -23,7 +24,6 @@ const validDate = value => {
   const date = new Date(y, m - 1, d);
   return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
 };
-const numberValue = value => Number(String(value).replace(/[૦-૯]/g, digit => String('૦૧૨૩૪૫૬૭૮૯'.indexOf(digit))).replace(/[,\s]/g, ''));
 const dateLabel = (value, locale) => validDate(value) ? new Date(`${value}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : value;
 const blank = () => ({ name: '', date: today(), category: 'other', amount: '', shop: '', details: '', image_uri: '' });
 
@@ -82,7 +82,7 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
     if (saveLock.current) return;
     if (!form.name.trim()) { setError(t('purchases.nameRequired')); return; }
     if (!validDate(form.date)) { setError(t('purchases.dateInvalid')); return; }
-    const amount = form.amount.trim() ? numberValue(form.amount) : null;
+    const amount = form.amount.trim() ? parseCashAmount(form.amount) : null;
     if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) { setError(t('purchases.amountInvalid')); return; }
     saveLock.current = true; setSaving(true); setError('');
     try {
@@ -96,7 +96,10 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
   const label = { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.xs };
   const field = { marginBottom: Spacing.md };
   return (
-    <Sheet visible={visible} onClose={close} title={item ? t('purchases.editTitle') : t('purchases.addTitle')}>
+    <Sheet visible={visible} onClose={close} title={item ? t('purchases.editTitle') : t('purchases.addTitle')} footer={<>
+      {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginBottom: Spacing.sm }}>{error}</Text>}
+      <Button label={saving ? t('purchases.saving') : t('common.save')} onPress={save} loading={saving} disabled={picking} fullWidth />
+    </>}>
       <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{t('purchases.independent')}</Text>
       <Input label={t('purchases.name')} style={field} value={form.name} onChangeText={value => update('name', value)} placeholder={t('purchases.namePlaceholder')} />
       <Input label={t('purchases.date')} style={field} value={form.date} onChangeText={value => update('date', value)} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
@@ -104,7 +107,8 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>
         {CATEGORIES.map(category => <Chip key={category} active={form.category === category} onPress={() => update('category', category)} label={t('purchases.categories.' + category)} style={{ minHeight: 44, marginRight: Spacing.sm, marginBottom: Spacing.sm }} />)}
       </View>
-      <Input label={t('purchases.amountOptional')} style={field} value={form.amount} onChangeText={value => update('amount', value)} placeholder={t('purchases.amountPlaceholder')} keyboardType="decimal-pad" />
+      <AmountInput label={t('purchases.amountOptional')} style={field} value={form.amount} onChangeText={value => update('amount', value)}
+        history={visible ? { kind: 'purchase', category: form.category, date: validDate(form.date) ? form.date : today(), id: item?.id } : null} />
       <Input label={t('purchases.shopOptional')} style={field} value={form.shop} onChangeText={value => update('shop', value)} placeholder={t('purchases.shopPlaceholder')} />
       <Input label={t('purchases.detailsOptional')} style={field} inputStyle={{ minHeight: 90, textAlignVertical: 'top' }} value={form.details} onChangeText={value => update('details', value)} placeholder={t('purchases.detailsPlaceholder')} multiline />
       <Text style={label}>{t('purchases.photoOptional')}</Text>
@@ -117,8 +121,6 @@ function PurchaseForm({ visible, item, onClose, onSaved }) {
         <Button variant="secondary" icon="camera-outline" label={t('purchases.choosePhoto')} onPress={choosePhoto}
           loading={picking} style={{ marginBottom: Spacing.md }} />
       )}
-      {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{error}</Text>}
-      <Button label={saving ? t('purchases.saving') : t('common.save')} onPress={save} loading={saving} disabled={picking} fullWidth />
     </Sheet>
   );
 }

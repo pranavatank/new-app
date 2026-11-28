@@ -17,3 +17,10 @@ export const formatDateWithDay = (date, short = true) => {
   
   return `${dayName}, ${day} ${month}`;
 };
+
+export function formatLedgerDate(value, language, options = { day: 'numeric', month: 'short', year: 'numeric' }) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString(language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', options);
+}
