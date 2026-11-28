@@ -8,8 +8,9 @@ import DayNavigator from '../components/DayNavigator';
 import DayOverview from '../components/DayOverview';
 import LedgerEntryRow, { money } from '../components/ledger/LedgerEntryRow';
 import LedgerEntryForm from '../components/ledger/LedgerEntryForm';
+import CashBalanceCard from '../components/ledger/CashBalanceCard';
 import { getDayLedger, removeLedgerEntry, restoreLedgerEntry } from '../db/ledger';
-import { Card, ActionTile, SummaryRow, Button, FAB, IconBadge, IconButton, SectionHeader } from '../components/common';
+import { Card, ActionTile, SummaryRow, Button, FAB, IconButton, SectionHeader } from '../components/common';
 import { Layout, scaleTheme } from '../constants/theme';
 
 export default function DailyBook({ navigation }) {
@@ -25,7 +26,7 @@ export default function DailyBook({ navigation }) {
   const transition = useRef(new Animated.Value(1)).current;
   const [direction, setDirection] = useState(1);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const { Typography, Spacing, Radius } = scaleTheme(scale);
+  const { Typography, Spacing } = scaleTheme(scale);
   const actionRow = { flexDirection: 'row', gap: Spacing.sm };
   const load = useCallback(() => {
     try { setLedger({ ...getDayLedger(selectedDate), date: selectedDate }); }
@@ -111,22 +112,7 @@ export default function DailyBook({ navigation }) {
         </View>
       </View>
       {!!ledger?.error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base }}>{t('ledger.load_failed')}</Text>}
-      <Card gradient={C.gradients.balance} padding="base" elevation="none" style={{ borderWidth: 0, gap: Spacing.sm }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold }}>{t('ledger.wallet_balance')}</Text>
-            <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.hero, fontWeight: Typography.weights.black }}>{displayMoney(day.closing_balance)}</Text>
-          </View>
-          <IconBadge icon="wallet-outline" color={C.textOnGradient} size={42} style={{ backgroundColor: C.gradientSubtle }} />
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between',
-          backgroundColor: C.gradientSubtle, borderRadius: Radius.md, padding: Spacing.sm, columnGap: Spacing.sm }}>
-          <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.sm }}>{t('ledger.locker_balance')}</Text>
-          <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }}>
-            {ledger?.error ? '—' : lockerBalance == null ? t('ledger.unknown') : displayMoney(lockerBalance)}
-          </Text>
-        </View>
-      </Card>
+      <CashBalanceCard wallet={day.closing_balance} locker={lockerBalance} spent={day.cash_spent} unavailable={!ledger || ledger.error} />
       <View style={actionRow}>
           <ActionTile vertical label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.iconPlaces} background={C.skyBg} onPress={() => add('deposit_locker')} />
           <ActionTile vertical label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.online} background={C.onlineBg} onPress={() => add('take_locker')} />

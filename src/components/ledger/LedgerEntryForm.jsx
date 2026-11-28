@@ -45,6 +45,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   const [choosingCategory, setChoosingCategory] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [showNewItem, setShowNewItem] = useState(false);
+  const [activeItemId, setActiveItemId] = useState(null);
   const initialForm = useRef(empty);
   const saveLock = useRef(false);
   const kind = mode || (
@@ -82,6 +83,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     setChoosingCategory(false);
     setShowNote(!!initial.note);
     setShowNewItem(false);
+    setActiveItemId(null);
     setError('');
     if (initial.categoryId) {
       try {
@@ -190,9 +192,9 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     ? Math.round((walletBalance - actualCash) * 100) / 100 : null;
   const showCashHelper = kind === 'forgotten' && !entry && Number.isFinite(walletBalance);
   const paymentOptions = [
-    ['cash', 'wallet-outline', C.primary],
-    ['locker', 'lock-closed-outline', C.online],
-    ['online', 'card-outline', C.iconTask],
+    ['cash', 'wallet-outline', C.primary, t('ledger.wallet_short')],
+    ['locker', 'lock-closed-outline', C.online, t('ledger.locker_short')],
+    ['online', 'card-outline', C.iconTask, t('ledger.online_short')],
   ];
   const noteField = <Input value={form.note} onChangeText={v => update('note', v)} placeholder={t('ledger.optional_note')} />;
   const categoryChip = (c, index) => {
@@ -206,7 +208,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   </>;
   return <Sheet visible={visible} onClose={close} title={entry && kind === 'expense' ? t('common.edit') : title}
     bodyKey={pickingCategory ? 'categories' : kind} footer={showSave || error ? footer : undefined}>
-    {kind !== 'locker_opening' && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, textAlign: 'center', marginBottom: Spacing.md }}>{dateLabel}</Text>}
+    {kind !== 'locker_opening' && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, textAlign: 'center', marginBottom: Spacing.sm }}>{dateLabel}</Text>}
     {!!hint && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{hint}</Text>}
     {takingCash && <Text style={{ color: C.primary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{limitMessage(limit)}</Text>}
     <View style={{ paddingBottom: Spacing.md, gap: Spacing.md }}>
@@ -220,8 +222,9 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
             </Card>}
             {!!category && <Button label={t('common.cancel')} variant="ghost" size="sm" onPress={() => { setChoosingCategory(false); setError(''); }} />}
           </> : <>
-            <Card padding="sm" elevation="none" style={{ backgroundColor: C.primaryDim, alignItems: 'center', borderWidth: 0, marginBottom: Spacing.md }}>
-              <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+            <Card padding="xs" elevation="none" style={{ backgroundColor: C.primaryDim, flexDirection: 'row', alignItems: 'center',
+              flexWrap: 'wrap', gap: Spacing.xs, borderWidth: 0, marginBottom: Spacing.sm }}>
+              <View style={{ flexGrow: 1, flexBasis: 120, flexDirection: 'row', gap: Spacing.xs, alignItems: 'center' }}>
                 <IconBadge {...logoProps(category)} icon="cart-outline" size={32} color={C.iconExpense} />
                 <Text accessibilityRole="header" style={{ ...labelStyle, marginBottom: 0, flexShrink: 1 }}>{translateCategoryName(category.name, t)}</Text>
               </View>
@@ -229,24 +232,25 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
                 onPress={() => { setChoosingCategory(true); setError(''); }} />
             </Card>
             <Text style={labelStyle}>{t('ledger.payment')}</Text>
-            <View style={[centeredChips, { marginBottom: Spacing.md }]}>
-              {paymentOptions.map(([type, icon, color]) => <Chip key={type} icon={icon} color={color} label={t(paymentLabel(type))}
-                active={form.paymentType === type} onPress={() => update('paymentType', type)} style={chipStyle} />)}
+            <View style={[centeredChips, { marginBottom: Spacing.sm }]}>
+              {paymentOptions.map(([type, icon, color, label]) => <Chip key={type} icon={icon} color={color} label={label}
+                accessibilityLabel={t(paymentLabel(type))} active={form.paymentType === type} onPress={() => update('paymentType', type)}
+                style={[chipStyle, { flexGrow: 1, flexBasis: '28%', minWidth: 72, paddingHorizontal: Spacing.xs }]} />)}
             </View>
             {form.paymentType === 'online' && <Text style={{ color: C.online, fontSize: Typography.sizes.sm, textAlign: 'center', marginBottom: Spacing.md }}>{t('ledger.online_note_hint')}</Text>}
-            {!!items.length && <View style={[centeredChips, { marginBottom: Spacing.md }]}>
+            {!!items.length && <View style={[centeredChips, { marginBottom: Spacing.xs }]}>
               <Chip label={t('ledger.expense_by_items')} active={form.expenseMode === 'items'} onPress={() => update('expenseMode', 'items')} style={chipStyle} />
               <Chip label={t('ledger.category_total')} active={form.expenseMode === 'total'} onPress={() => update('expenseMode', 'total')} style={chipStyle} />
             </View>}
-            {form.expenseMode === 'items' && items.length ? items.map(item => <View key={item.id} style={{ marginBottom: Spacing.sm }}>
-              <AmountInput centered compact={items.length > 1} history={history(item.id)}
+            {form.expenseMode === 'items' && items.length ? items.map(item =>
+              <AmountInput key={item.id} inline compact={items.length > 1} history={history(item.id)} style={{ paddingVertical: Spacing.xs }}
+                showCompactSuggestions={activeItemId === item.id} onFocus={() => setActiveItemId(item.id)}
                 label={item.name + (item.inactive ? ' · ' + t('ledger.inactive_item') : '')}
                 labelLeading={<IconBadge {...logoProps(item)} icon="pricetag-outline" size={26} color={C.iconExpense} />}
                 value={form.itemAmounts[item.id] || ''} onChangeText={value => {
                 setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }));
                 setError('');
-              }} />
-            </View>) : <AmountInput centered history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
+              }} />) : <AmountInput centered history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
             <View style={[centeredChips, { marginTop: Spacing.xs }]}>
               {(!entry || !items.length) && !showNewItem && <Button label={t('ledger.add_item')} icon="add" variant="ghost" size="sm" onPress={() => setShowNewItem(true)} />}
               {!showNote && <Button label={t('ledger.optional_note')} icon="create-outline" variant="ghost" size="sm" onPress={() => setShowNote(true)} />}

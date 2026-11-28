@@ -1,5 +1,5 @@
 ﻿import { getDB } from './schema';
-import { getDayData, getLockerBalance, getOrCreateDay, recalculateBalance } from './queries';
+import { getDayData, getLockerBalance, getOrCreateDay, recalculateBalance, setExpenseAmount } from './queries';
 
 const validDate = (date) => {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -27,6 +27,16 @@ const atomic = (db, work) => {
     try { db.execSync('ROLLBACK;'); } catch (_) {}
     throw error;
   }
+};
+
+export const saveGridAmounts = (dayId, categoryId, changes) => {
+  if (!changes.length) return;
+  const db = getDB();
+  atomic(db, () => {
+    for (const { amount, itemId, paymentType } of changes) {
+      setExpenseAmount(dayId, categoryId, amount, paymentType, itemId);
+    }
+  });
 };
 
 const mappedExpenses = (date, dayId) => getDB().getAllSync(`

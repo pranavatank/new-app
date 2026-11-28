@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, IconButton, Row, ScreenHeader, SectionHeader, SummaryRow } from '../components/common';
 import LedgerEntryRow, { money } from '../components/ledger/LedgerEntryRow';
+import CashBalanceCard from '../components/ledger/CashBalanceCard';
 import { Layout, scaleTheme } from '../constants/theme';
 import { getMonthLedger } from '../db/ledger';
 import { useTheme } from '../store/ThemeContext';
@@ -64,24 +65,13 @@ export default function MonthlyLedger({ navigation }) {
         </Card>
         {error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base }}>{t('ledger.load_failed')}</Text>}
         {!!data && (
-          <Card padding="md" elevation="none" style={{ borderWidth: 0 }}>
-            <SectionHeader icon="analytics-outline" title={t('ledger.month_summary')} color={C.iconStats} style={{ marginBottom: Spacing.sm }} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
-              {[
-                ['closing', data.closing_balance, C.primaryDim, C.primary],
-                ['locker_balance', data.locker_balance, C.onlineBg, C.online],
-              ].map(([label, value, backgroundColor, color]) => (
-                <View key={label} style={{ backgroundColor, borderRadius: Radius.lg, padding: Spacing.md, flexGrow: 1, flexBasis: '44%', gap: Spacing.xs }}>
-                  <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm }}>{t('ledger.' + label)}</Text>
-                  <Text style={{ color, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }}>{value == null ? t('ledger.unknown') : amount(value)}</Text>
-                </View>
-              ))}
-            </View>
+          <View>
+            <CashBalanceCard month wallet={data.closing_balance} locker={data.locker_balance} spent={data.totals.cash_spent} />
             {(days.length > 0 || !!data.opening_balance) && <Button
               label={t(showDetails ? 'ledger.hide_breakdown' : 'ledger.show_breakdown')}
               icon={showDetails ? 'chevron-up' : 'chevron-down'} size="sm" variant="ghost"
               accessibilityState={{ expanded: showDetails }} onPress={() => setExpandedMonth(showDetails ? null : month)} />}
-            {showDetails && [
+            {showDetails && <Card padding="sm" elevation="none" style={{ borderWidth: 0 }}>{[
               ['opening', data.opening_balance],
               ...(legacyReceipts ? [['cash_receipts', legacyReceipts]] : []),
               ...(data.totals.wallet_receipts ? [['receipts', data.totals.wallet_receipts]] : []),
@@ -90,10 +80,11 @@ export default function MonthlyLedger({ navigation }) {
               ['historical_cash_adjustment', data.totals.transfer_out ? -data.totals.transfer_out : 0],
               ['wallet_spent', data.totals.wallet_spent],
               ['locker_spent', data.totals.locker_spent],
+              ['online_spent', data.totals.online_spent],
             ].filter(([name, value]) => name === 'opening' || value !== 0).map(([name, value]) =>
               <SummaryRow key={name} label={t('ledger.' + name)} value={value == null ? t('ledger.unknown') : amount(value)} />
-            )}
-          </Card>
+            )}</Card>}
+          </View>
         )}
         {!!data && days.length === 0 && (
           <Card padding="md" elevation="none" style={{ borderWidth: 0 }}>

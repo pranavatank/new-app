@@ -8,7 +8,7 @@ import { useTheme } from '../../store/ThemeContext';
  * Small filter/tag pill. Used for category chips, mood tags, overdue/pending
  * task tags, etc.
  */
-export default function Chip({ label, icon, emoji, photoUri, color, active, onPress, style, wrap = true, size = 'sm' }) {
+export default function Chip({ label, accessibilityLabel = label, icon, emoji, photoUri, color, active, onPress, style, wrap = true, size = 'sm' }) {
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
   const tint = color || C.primary;
@@ -18,7 +18,7 @@ export default function Chip({ label, icon, emoji, photoUri, color, active, onPr
     <Wrapper
       activeOpacity={0.75}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? label : undefined}
+      accessibilityLabel={onPress ? accessibilityLabel : undefined}
       accessibilityState={onPress && active != null ? { selected: active } : undefined}
       aria-pressed={onPress && active != null ? active : undefined}
       onPress={onPress}

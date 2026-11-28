@@ -654,15 +654,14 @@ export default function SettingsScreen() {
       {/* About Sheet */}
       <Sheet visible={showAboutModal} onClose={() => setShowAboutModal(false)} title={t("settings.about")}>
         <View style={{ alignItems: "center", paddingVertical: Spacing.md }}>
-          <Image
-            source={require("../../assets/logo.png")}
-            style={{
-              width: 100,
-              height: 100,
-              marginBottom: Spacing.sm,
-            }}
-            resizeMode="contain"
-          />
+          {/* The notebook sits at the center of a wide transparent canvas. */}
+          <View style={{ width: 174, height: 190, alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: Spacing.sm }}>
+            <Image
+              source={require("../../assets/logo.png")}
+              style={{ width: 450, height: 245, flexShrink: 0 }}
+              resizeMode="contain"
+            />
+          </View>
           <Text
             style={{
               fontSize: Typography.sizes.xxl,

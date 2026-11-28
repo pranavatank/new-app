@@ -337,6 +337,23 @@ const initSqlJs = require('sql.js');
   assert.equal(history.length, 10, 'Same category and payment source history excludes future entries and online notes');
   assert.deepEqual(suggestAmounts(history, defaults), [120, 150, 170]);
   assert.deepEqual(suggestAmounts(history, defaults, 145), [120, 145]);
+  queries.addCategoryItem(vegetables, 'Tomato', '🍅');
+  const itemId = queries.getAllCategoryItems(vegetables)[0].id;
+  const dayId = queries.getOrCreateDay(veggieDate).id;
+  ledger.saveGridAmounts(dayId, vegetables, [
+    { amount: 25, itemId: null, paymentType: 'cash' },
+    { amount: 40, itemId, paymentType: 'cash' },
+    { amount: 60, itemId, paymentType: 'online' },
+  ]);
+  assert.deepEqual(queries.getItemExpenses(dayId, vegetables, 'cash').map(row => row.amount), [25, 40]);
+  assert.equal(queries.getItemExpenses(dayId, vegetables, 'online')[0].amount, 60);
+  assert.equal(ledger.getAmountHistory({ kind: 'expense', categoryId: vegetables, date: veggieDate }).length, 11);
+  db.execSync("CREATE TRIGGER reject_test_grid_amount BEFORE UPDATE ON expenses WHEN NEW.amount = 99 BEGIN SELECT RAISE(ABORT, 'test grid failure'); END;");
+  assert.throws(() => ledger.saveGridAmounts(dayId, vegetables, [
+    { amount: 55, itemId: null, paymentType: 'cash' },
+    { amount: 99, itemId, paymentType: 'online' },
+  ]));
+  assert.equal(queries.getItemExpenses(dayId, vegetables, 'cash')[0].amount, 25, 'A later grid error rolls back earlier edits');
   console.log('ledger-check: actual schema/query/ledger/restore APIs passed synthetic SQL.js assertions');
   raw.close();
 })().catch(e=>{console.error(e);process.exitCode=1});

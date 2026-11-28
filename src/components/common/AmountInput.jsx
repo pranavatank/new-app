@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getAmountHistory } from '../../db/ledger';
 import { parseCashAmount, suggestAmounts } from '../../utils/cash';
-import { scaleTheme } from '../../constants/theme';
+import { Layout, scaleTheme } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import Button from './Button';
 import IconButton from './IconButton';
@@ -21,11 +21,12 @@ const defaultsByKind = {
 };
 
 export default function AmountInput({
-  value, onChangeText, style, history, limit = Infinity, step = 10, compact = false, centered = false, showSuggestions = true, ...props
+  value, onChangeText, style, history, limit = Infinity, step = 10, compact = false, centered = false, inline = false,
+  showSuggestions = true, showCompactSuggestions, label, labelLeading, onFocus, ...props
 }) {
   const { t } = useTranslation();
-  const { scale } = useTheme();
-  const { Spacing } = scaleTheme(scale);
+  const { C, scale } = useTheme();
+  const { Spacing, Typography } = scaleTheme(scale);
   const [focused, setFocused] = useState(false);
   const { kind, date, id, categoryId, itemId, paymentType, category } = history || {};
   const past = useMemo(() => kind
@@ -35,22 +36,34 @@ export default function AmountInput({
   const parsed = parseCashAmount(value);
   const current = Number.isFinite(parsed) ? parsed : 0;
   const adjust = delta => onChangeText(String(Math.round(100 * Math.max(0, Math.min(limit, current + delta))) / 100));
+  const stepLabel = action => inline && label
+    ? t('ledger.' + action + '_item_amount', { item: label, step })
+    : t('ledger.' + action + '_amount', { step });
 
   return (
     <View style={style}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.xs }}>
-        <IconButton icon="remove" label={t('ledger.decrease_amount', { step })} onPress={() => adjust(-step)} disabled={current <= 0} />
-        <Input {...props} value={value} onChangeText={onChangeText} placeholder="0" keyboardType="decimal-pad"
-          autoComplete="off" importantForAutofill="no" style={{ flex: 1, minWidth: 0 }}
-          inputStyle={[props.inputStyle, centered && { textAlign: 'center' }]}
-          labelStyle={[props.labelStyle, centered && { textAlign: 'center' }]}
-          labelRowStyle={centered ? { justifyContent: 'center' } : undefined}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
-        <IconButton icon="add" label={t('ledger.increase_amount', { step })} onPress={() => adjust(step)} disabled={current >= limit} />
+      <View style={inline && { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.xs }}>
+        {inline && <View style={{ flexGrow: 1, flexBasis: 96, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+          {labelLeading}
+          <Text style={{ flexShrink: 1, color: C.textPrimary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }}>{label}</Text>
+        </View>}
+        <View style={{ flexDirection: 'row', alignItems: inline ? 'center' : 'flex-end', gap: Spacing.xs,
+          ...(inline && { flexGrow: 1, flexBasis: 148 }) }}>
+          <IconButton icon="remove" label={stepLabel('decrease')} onPress={() => adjust(-step)} disabled={current <= 0} />
+          <Input {...props} label={inline ? undefined : label} accessibilityLabel={props.accessibilityLabel ?? label} labelLeading={labelLeading}
+            value={value} onChangeText={onChangeText} placeholder="0" keyboardType="decimal-pad"
+            autoComplete="off" importantForAutofill="no" style={{ flex: 1, minWidth: 0 }}
+            inputStyle={[props.inputStyle, centered && { textAlign: 'center' },
+              inline && { minHeight: Layout.touchTarget, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, textAlign: 'center' }]}
+            labelStyle={[props.labelStyle, centered && { textAlign: 'center' }]}
+            labelRowStyle={centered ? { justifyContent: 'center' } : undefined}
+            onFocus={event => { setFocused(true); onFocus?.(event); }} onBlur={() => setFocused(false)} />
+          <IconButton icon="add" label={stepLabel('increase')} onPress={() => adjust(step)} disabled={current >= limit} />
+        </View>
       </View>
-      {(!compact || focused) && suggestions.length > 0 && (
+      {(!compact || (showCompactSuggestions ?? focused)) && suggestions.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs,
-          justifyContent: centered ? 'center' : 'flex-start' }}>
+          justifyContent: centered || inline ? 'center' : 'flex-start' }}>
           {suggestions.map(amount => (
             <Button key={amount} size="sm" variant={current === amount ? 'primary' : 'secondary'}
               label={'₹' + amount.toLocaleString('en-IN')} onPress={() => onChangeText(String(amount))} />

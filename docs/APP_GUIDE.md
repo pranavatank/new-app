@@ -14,10 +14,10 @@ For example, putting ₹8,000 in the locker and taking ₹2,000 leaves ₹6,000 
 
 ## Daily and monthly use
 
-- **Today** shows the wallet first, the locker balance, and the selected day’s entries. Tap the date for the calendar or use the arrows. **વિગતો જુઓ** keeps the balance breakdown accessible while scrolling. Row actions support editing and deleting individual entries. Undo is available after deletion.
+- **Today** and **Expenses** share a wallet card with the locker balance and the selected day’s cash spending. Tap the date for the calendar or use the arrows. **વિગતો જુઓ** keeps the balance breakdown accessible while scrolling. Row actions support editing and deleting individual entries. Undo is available after deletion.
 - The floating **+** starts a quick expense. Pick a category and payment source, then enter one total or item amounts. You can add an optional note. Amount suggestions use comparable past entries, and Gujarati digits work in amount fields.
 - **Expenses** opens the category grid. The bulb explains grid controls. Manage categories and their items from the header. The grid’s common-amount editor changes its own records. Quick expenses remain separate individual entries, and category totals include both.
-- **Month** shows wallet and locker balances, entries, and online notes for a selected month. Tap a day to open it in Today.
+- **Month** shows the wallet, locker, and cash spending for the selected month in one glance. Expand details for cash movements and online notes. Tap a day to open it in Today.
 - The shortcuts at the bottom of Today open the Add Task, Add Place, Add Purchase, and Add Note forms. Tools also opens their full lists.
 
 ## Tools

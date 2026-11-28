@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, StatusBar, useWindowDimensions, Image,
@@ -11,6 +11,8 @@ import { Layout, Typography as BaseTypography, scaleTheme, makeShadow } from '..
 import { useTheme } from '../store/ThemeContext';
 import { parseCashAmount } from '../utils/cash';
 import DayNavigator from '../components/DayNavigator';
+import CashBalanceCard from '../components/ledger/CashBalanceCard';
+import { saveGridAmounts } from '../db/ledger';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
 import { AmountInput, Card, Button, IconBadge, IconButton, Sheet, Input, Chip } from '../components/common';
@@ -108,235 +110,111 @@ const s2 = StyleSheet.create({
   sub:     {},  btnRow:  { flexDirection: 'row' },
 });
 
-// ── Amount Entry Sheet ────────────────────────────────────────────────────────
+// ── Category Amount Sheet ─────────────────────────────────────────────────────
 
-const AmountSheet = ({ visible, cat, cashAmt, onSave, onClose, C, T, S, R, Shadow, t, dayId, selectedDate, onReload }) => {
-  const [val,   setVal]   = useState('');
-  const [pType, setPType] = useState('cash');
+const GRID_PAYMENT_TYPES = ['cash', 'online'];
+
+const AmountSheet = ({ visible, cat, onClose, C, T, S, t, dayId, selectedDate, onReload }) => {
+  const [payment, setPayment] = useState('cash');
+  const [mode, setMode] = useState('total');
   const [items, setItems] = useState([]);
-  const [showItems, setShowItems] = useState(false);
-  const [itemAmounts, setItemAmounts] = useState({});
-  const [editingItemId, setEditingItemId] = useState(null);
+  const [activeItemId, setActiveItemId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState('');
+  const original = useRef(null);
 
-  React.useEffect(() => {
-    if (visible && cat) {
-      setVal(cashAmt > 0 ? String(cashAmt) : '');
-      setPType('cash');
-      setEditingItemId(null);
-      try {
-        const categoryItems = getAllCategoryItems(cat.id);
-        setItems(categoryItems);
-        setShowItems(categoryItems.length > 0);
-
-        if (dayId && categoryItems.length > 0) {
-          const itemExpenses = getItemExpenses(dayId, cat.id, 'cash');
-          const amounts = {};
-          itemExpenses.forEach(exp => {
-            if (exp.item_id) amounts[exp.item_id] = exp.amount;
-          });
-          setItemAmounts(amounts);
-        } else {
-          setItemAmounts({});
-        }
-      } catch (e) {
-        setItems([]);
-        setShowItems(false);
-        setItemAmounts({});
-      }
-    }
-  }, [visible, cat, dayId]);
-
-  // Cash and online are independent editable records; switching must reload the
-  // selected mode rather than saving a cash draft into the online amount.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!visible || !cat || !dayId) return;
+    original.current = null;
+    setDraft(null);
+    setError('');
+    setPayment('cash');
+    setActiveItemId(null);
     try {
-      const records = getItemExpenses(dayId, cat.id, pType);
-      const common = records.filter(row => !row.item_id).reduce((sum, row) => sum + row.amount, 0);
-      setVal(common > 0 ? String(common) : '');
-      setItemAmounts(Object.fromEntries(records.filter(row => row.item_id).map(row => [row.item_id, row.amount])));
-      setEditingItemId(null);
-    } catch (e) {
-      Alert.alert(t('ledger.error'), t('book.saveError'));
+      const categoryItems = getAllCategoryItems(cat.id);
+      const amounts = Object.fromEntries(GRID_PAYMENT_TYPES.map(type => {
+        const entries = getItemExpenses(dayId, cat.id, type);
+        const totals = entries.reduce((values, entry) => {
+          const key = entry.item_id ?? 'total';
+          values[key] = (values[key] || 0) + entry.amount;
+          return values;
+        }, {});
+        return [type, Object.fromEntries(Object.entries(totals).map(([key, amount]) => [key, String(amount)]))];
+      }));
+      setItems(categoryItems);
+      setMode(categoryItems.length ? 'items' : 'total');
+      original.current = amounts;
+      setDraft(amounts);
+    } catch {
+      setError(t('ledger.load_failed'));
     }
-  }, [visible, cat?.id, dayId, pType]);
+  }, [visible, cat, dayId, t]);
 
   if (!cat) return null;
 
+  const update = (key, value) => {
+    setDraft(current => ({ ...current, [payment]: { ...current[payment], [key]: value } }));
+    setError('');
+  };
+  const changes = draft ? GRID_PAYMENT_TYPES.flatMap(type =>
+    Object.entries(draft[type]).filter(([key, value]) => value !== (original.current[type][key] ?? ''))
+      .map(([key, value]) => ({
+        paymentType: type,
+        itemId: key === 'total' ? null : Number(key),
+        amount: value.trim() ? parseCashAmount(value) : 0,
+      })),
+  ) : [];
+  const close = () => {
+    if (!changes.length) { onClose(); return; }
+    Alert.alert(t('ledger.unsaved_title'), t('ledger.unsaved_body'), [
+      { text: t('ledger.keep_editing'), style: 'cancel' },
+      { text: t('ledger.discard'), style: 'destructive', onPress: onClose },
+    ]);
+  };
   const save = () => {
-    const n = parseCashAmount(val);
-    if (!Number.isFinite(n) || n < 0 || Math.abs(Math.round(n * 100) - n * 100) > 0.00001) { Alert.alert(t('ledger.error'), t('book.invalidAmount')); return; }
-    if (editingItemId) {
-      setItemAmounts(prev => ({ ...prev, [editingItemId]: isNaN(n) ? 0 : Math.max(0, n) }));
-      setEditingItemId(null);
-      setShowItems(true);
-      setVal('');
-    } else {
-      if (onSave(n, pType) !== false) onClose();
+    if (!draft || !dayId) return;
+    if (changes.some(({ amount }) => !Number.isFinite(amount) || amount < 0 || Math.abs(Math.round(amount * 100) - amount * 100) > 0.00001)) {
+      setError(t('book.invalidAmount'));
+      return;
     }
-  };
-
-  const handleItemStep = (itemId, currentAmt, delta) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newAmt = Math.max(0, currentAmt + delta);
-    setItemAmounts(prev => ({ ...prev, [itemId]: newAmt }));
-  };
-
-  const saveItems = () => {
-    if (!dayId) return;
     try {
-      Object.entries(itemAmounts).forEach(([itemId, amount]) => {
-        setExpenseAmount(dayId, cat.id, amount, pType, parseInt(itemId), null);
-      });
-      recalculateBalance(dayId, selectedDate);
+      saveGridAmounts(dayId, cat.id, changes);
       onReload();
       onClose();
-    } catch (e) {
-      console.error('saveItems:', e);
+    } catch {
+      setError(t('book.saveError'));
     }
   };
 
-  return (
-    <Sheet visible={visible} onClose={onClose} footer={
-      <View style={[s2.btnRow, { gap: S.sm }]}>
-        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-        <Button label={t('common.save')} onPress={showItems ? saveItems : save} style={{ flex: 1 }} />
+  const options = { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: S.xs };
+  const chip = { minHeight: 44, paddingHorizontal: S.sm, maxWidth: '100%' };
+  const history = itemId => visible ? { kind: 'expense', categoryId: cat.id, itemId, paymentType: payment, date: selectedDate } : null;
+  const selected = draft?.[payment];
+  return <Sheet visible={visible} onClose={close} title={translateCategoryName(cat.name, t)}
+    titleLeading={<IconBadge {...categoryLogo(cat)} icon="cart-outline" color={C.iconExpense} size={36} />}
+    footer={<>
+    {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: T.sizes.sm, marginBottom: S.xs }}>{error}</Text>}
+    <Button label={t('common.save')} fullWidth onPress={save} disabled={!draft} />
+  </>}>
+    {selected && <View style={{ gap: S.sm, paddingBottom: S.sm }}>
+      <View style={options}>
+        <Chip label={t('ledger.cash')} icon="wallet-outline" active={payment === 'cash'} onPress={() => setPayment('cash')} style={chip} />
+        <Chip label={t('ledger.online')} icon="card-outline" active={payment === 'online'} onPress={() => setPayment('online')} style={chip} />
       </View>
-    }>
-      <View style={{ alignItems: 'center', marginBottom: S.xs }}>
-        <IconBadge {...categoryLogo(cat)} color={C.primary} size={56} />
-      </View>
-      <Text style={[s2b.title, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold, textAlign: 'center', marginTop: S.sm }]}>{translateCategoryName(cat.name, t)}</Text>
-      <Text style={[s2b.sub, { color: C.textSecondary, fontSize: T.sizes.sm, textAlign: 'center', marginBottom: S.lg }]}>{t('expense.enterAmount')}</Text>
-
-      <View style={[sa.toggle, { backgroundColor: C.bgElevated, borderRadius: R.lg, marginBottom: S.base }]}>
-        {[
-          { k: 'cash', icon: 'cash-outline', lbl: t('ledger.cash') },
-          { k: 'online', icon: 'globe-outline', lbl: t('ledger.online') },
-        ].map(({ k, icon, lbl }) => (
-          <TouchableOpacity
-            key={k}
-            style={[sa.toggleBtn, pType === k && { backgroundColor: C.primary, borderRadius: R.md }]}
-            onPress={() => setPType(k)}
-          >
-            <Ionicons name={icon} size={16} color={pType === k ? C.textOnPrimary : C.textSecondary} style={{ marginRight: 6 }} />
-            <Text style={[sa.toggleTxt, { fontSize: T.sizes.sm, fontWeight: T.weights.bold, color: pType === k ? C.textOnPrimary : C.textSecondary }]}>{lbl}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {showItems ? (
-        <View>
-          <View style={[sa.itemsGrid, { gap: S.sm, marginBottom: S.base }]}>
-            {items.map((item) => {
-              const amt = itemAmounts[item.id] || 0;
-              const isActive = amt > 0;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    sa.itemCard,
-                    {
-                      borderRadius: R.xl, padding: S.sm,
-                      backgroundColor: C.bgCard,
-                      borderColor: isActive ? C.primary : C.border,
-                      borderWidth: isActive ? 2 : 1,
-                    },
-                    Shadow.sm,
-                  ]}
-                  onPress={() => {
-                    setEditingItemId(item.id);
-                    setVal(String(amt || 0));
-                    setShowItems(false);
-                  }}
-                  activeOpacity={0.82}
-                >
-                  {isActive && <View style={[sa.activeDot, { backgroundColor: C.primary }]} />}
-
-                  <IconBadge
-                    photoUri={item.icon_type === 'image' ? item.icon : undefined}
-                    emoji={item.icon_type !== 'image' ? item.icon : undefined}
-                    color={C.primary}
-                    size={50}
-                    style={{ marginBottom: 6, marginTop: 4 }}
-                  />
-
-                  <Text style={[sa.itemName, { color: C.textPrimary, fontSize: T.sizes.xs, fontWeight: T.weights.semibold }]} numberOfLines={1}>{item.name}</Text>
-
-                  <Text style={[sa.itemAmt, { fontSize: T.sizes.sm, fontWeight: T.weights.black, color: isActive ? C.primary : C.textMuted }]}>
-                    {isActive ? fmt(amt) : '—'}
-                  </Text>
-
-                  <View style={[sa.itemStepper, { backgroundColor: C.bgElevated, borderRadius: R.full }]}>
-                    <TouchableOpacity
-                      style={sa.stepBtn}
-                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt, -10); }}
-                    >
-                      <Ionicons name="remove" size={18} color={C.expense} />
-                    </TouchableOpacity>
-                    <Text style={[sa.stepVal, { color: C.textSecondary, fontWeight: T.weights.bold }]} numberOfLines={1}>
-                      {fmtN(amt)}
-                    </Text>
-                    <TouchableOpacity
-                      style={sa.stepBtn}
-                      onPress={(e) => { e.stopPropagation(); handleItemStep(item.id, amt, 10); }}
-                    >
-                      <Ionicons name="add" size={18} color={C.income} />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity
-            style={[sa.commonBtn, { backgroundColor: C.bgCard, borderColor: C.border, borderRadius: R.lg, padding: S.md, marginBottom: S.base }]}
-            onPress={() => { setShowItems(false); setEditingItemId(null); }}
-          >
-            <Ionicons name="wallet-outline" size={18} color={C.textSecondary} style={{ marginRight: S.sm }} />
-            <Text style={[sa.commonTxt, { color: C.textSecondary, fontSize: T.sizes.sm, fontWeight: T.weights.semibold }]}>{t('expense.commonItem')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          <AmountInput label={t('ledger.amount')} value={val} onChangeText={setVal}
-            history={visible ? { kind: 'expense', categoryId: cat?.id, itemId: editingItemId, paymentType: pType, date: selectedDate } : null}
-            style={{ marginBottom: S.md }} />
-          {items.length > 0 && (
-            <TouchableOpacity
-              style={[sa.showItemsBtn, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.md, padding: S.sm, marginBottom: S.base }]}
-              onPress={() => setShowItems(true)}
-            >
-              <Ionicons name="cube-outline" size={16} color={C.textSecondary} style={{ marginRight: 6 }} />
-              <Text style={[sa.showItemsTxt, { color: C.textSecondary, fontSize: T.sizes.sm, fontWeight: T.weights.semibold }]}>{t('expense.showItems')}</Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
-
-    </Sheet>
-  );
+      {!!items.length && <View style={options}>
+        <Chip label={t('ledger.expense_by_items')} active={mode === 'items'} onPress={() => setMode('items')} style={chip} />
+        <Chip label={t('ledger.category_total')} active={mode === 'total'} onPress={() => setMode('total')} style={chip} />
+      </View>}
+      {mode === 'items' ? items.map(item => <AmountInput key={item.id} inline compact={items.length > 1}
+        showCompactSuggestions={activeItemId === item.id} onFocus={() => setActiveItemId(item.id)}
+        history={history(item.id)} label={item.name} value={selected[item.id] ?? ''}
+        labelLeading={<IconBadge {...categoryLogo(item)} icon="pricetag-outline" color={C.iconExpense} size={26} />}
+        onChangeText={value => update(item.id, value)} />
+      ) : <AmountInput centered history={history(null)} label={t('ledger.amount')} value={selected.total ?? ''}
+        onChangeText={value => update('total', value)} />}
+    </View>}
+  </Sheet>;
 };
-const s2b = StyleSheet.create({
-  title: { marginBottom: 4 },
-  sub: {},
-});
-const sa = StyleSheet.create({
-  toggle:    { flexDirection: 'row', padding: 4 },
-  toggleBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
-  toggleTxt: {},
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  itemCard:  { width: '48%', alignItems: 'center', position: 'relative' },
-  activeDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 },
-  itemName:  { textAlign: 'center', marginBottom: 2 },
-  itemAmt:   { marginBottom: 8 },
-  itemStepper: { flexDirection: 'row', alignItems: 'center', overflow: 'hidden', width: '100%', height: 32 },
-  stepBtn:   { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  stepVal:   { flex: 1, textAlign: 'center', fontSize: BaseTypography.sizes.caption },
-  commonBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
-  commonTxt: {},
-  showItemsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  showItemsTxt: {},
-});
 
 // ── Manage Categories Sheet ────────────────────────────────────────────────────
 
@@ -489,7 +367,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
         active && { borderWidth: 2 },
         Shadow.sm,
       ]}
-      onPress={() => onTap(cat, cashAmt, onlineAmt)}
+      onPress={() => onTap(cat)}
       onLongPress={() => onLongPress(cat)}
       activeOpacity={0.82}
     >
@@ -539,11 +417,11 @@ export default function ExpenseScreen({ navigation }) {
 
   const { width: screenWidth, fontScale } = useWindowDimensions();
   const numColumns = screenWidth < 350 || scale * fontScale > 1.1 ? 2 : 3;
-  const CARD_W = Math.floor((Math.min(screenWidth, Layout.contentWidth) - S.base * 2 - S.sm * (numColumns - 1)) / numColumns);
+  const CARD_W = Math.floor((Math.min(screenWidth, Layout.contentWidth) - S.md * 2 - S.sm * (numColumns - 1)) / numColumns);
 
   const [summary,     setSummary]     = useState([]);
   const [showDeposit, setShowDeposit] = useState(false);
-  const [amtSheet,    setAmtSheet]    = useState({ visible: false, cat: null, cashAmt: 0 });
+  const [amtSheet,    setAmtSheet]    = useState({ visible: false, cat: null });
   const [showManage,  setShowManage]  = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [hoverHelp, setHoverHelp] = useState(false);
@@ -582,7 +460,7 @@ export default function ExpenseScreen({ navigation }) {
     } catch (e) { console.error('step:', e); }
   };
 
-  const handleTap = (cat, cashAmt) => setAmtSheet({ visible: true, cat, cashAmt });
+  const handleTap = cat => setAmtSheet({ visible: true, cat });
 
   const handleLongPress = (cat) => {
     const c = cashFor(cat.id), o = onlineFor(cat.id);
@@ -600,16 +478,6 @@ export default function ExpenseScreen({ navigation }) {
         },
       },
     ]);
-  };
-
-  const handleAmtSave = (amount, pType) => {
-    if (!dayData?.id || !amtSheet.cat) return false;
-    try {
-      setExpenseAmount(dayData.id, amtSheet.cat.id, amount, pType);
-      recalculateBalance(dayData.id, selectedDate);
-      reload();
-      return true;
-    } catch (e) { Alert.alert(t('ledger.error'), t('book.saveError')); return false; }
   };
 
   const handleDepositSave = (amount) => {
@@ -635,19 +503,11 @@ export default function ExpenseScreen({ navigation }) {
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
       <DayNavigator />
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: S.base }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: S.md }]} showsVerticalScrollIndicator={false}>
 
         {/* Balance header */}
-        <Card padding="sm" elevation="none" style={{ backgroundColor: C.skyBg, borderWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.md }}>
-          {[
-            [t('ledger.wallet_balance'), fmt(dayData?.closing_balance)],
-            [t('ledger.locker_balance'), dayData?.locker_balance == null ? t('ledger.unknown') : fmt(dayData.locker_balance)],
-            [t('ledger.cash_spent'), fmt(dayData?.cash_spent ?? totalSpent)],
-          ].map(([label, value]) => <View key={label} style={{ flexGrow: 1, flexBasis: '28%', gap: S.xs }}>
-            <Text style={{ color: C.textSecondary, fontSize: T.sizes.sm }}>{label}</Text>
-            <Text style={{ color: C.primary, fontSize: T.sizes.base, fontWeight: T.weights.bold }}>{value}</Text>
-          </View>)}
-        </Card>
+        <CashBalanceCard wallet={dayData?.closing_balance} locker={dayData?.locker_balance}
+          spent={dayData?.cash_spent ?? totalSpent} unavailable={!dayData} style={{ marginBottom: S.md }} />
 
         {/* Deposit row */}
         {!!dayData?.deposit_today && <DepositRow deposit={dayData.deposit_today} onPress={() => setShowDeposit(true)} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />}
@@ -702,13 +562,11 @@ export default function ExpenseScreen({ navigation }) {
       <AmountSheet
         visible={amtSheet.visible}
         cat={amtSheet.cat}
-        cashAmt={amtSheet.cashAmt}
-        onSave={handleAmtSave}
         onClose={() => setAmtSheet(v => ({ ...v, visible: false }))}
         dayId={dayData?.id}
         selectedDate={selectedDate}
         onReload={reload}
-        C={C} T={T} S={S} R={R} Shadow={Shadow} t={t}
+        C={C} T={T} S={S} t={t}
       />
       <ManageCatsSheet
         visible={showManage}
