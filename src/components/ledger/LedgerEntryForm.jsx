@@ -37,6 +37,9 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   const [items, setItems] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [choosingCategory, setChoosingCategory] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [showNewItem, setShowNewItem] = useState(false);
   const initialForm = useRef(empty);
   const saveLock = useRef(false);
   const kind = mode || (
@@ -71,6 +74,9 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
     const initial = makeInitial(entry);
     initialForm.current = initial;
     setForm(initial);
+    setChoosingCategory(false);
+    setShowNote(!!initial.note);
+    setShowNewItem(false);
     setError('');
     if (initial.categoryId) {
       try {
@@ -102,7 +108,11 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
       list.unshift({ id: entry.item_id, name: entry.item_name || t('ledger.inactive_item'), icon: entry.item_icon, icon_type: entry.item_icon_type, inactive: true });
     }
     setItems(list);
-    setForm(current => ({ ...current, categoryId: id, expenseMode: list.length ? 'items' : 'total' }));
+    setForm(current => Number(current.categoryId) === Number(id) ? current : {
+      ...current, categoryId: id, newItem: '', expenseMode: list.length ? 'items' : 'total',
+    });
+    if (Number(form.categoryId) !== Number(id)) setShowNewItem(false);
+    setChoosingCategory(false);
     setError('');
   };
 
@@ -114,6 +124,7 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
       const list = getAllCategoryItems(form.categoryId);
       setItems(list);
       setForm(current => ({ ...current, newItem: '', expenseMode: 'items' }));
+      setShowNewItem(false);
       setError('');
     } catch { setError(t('ledger.item_add_failed')); }
   };
@@ -164,51 +175,72 @@ export default function LedgerEntryForm({ visible, mode, date, entry, onClose, o
   };
 
   const dateLabel = new Date(`${date}T00:00:00`).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const categoryChip = c => {
+  const category = categories.find(c => Number(c.id) === Number(form.categoryId));
+  const pickingCategory = kind === 'expense' && (choosingCategory || !category);
+  const labelStyle = { color: C.textPrimary, fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, marginBottom: Spacing.xs };
+  const noteField = <Input value={form.note} onChangeText={v => update('note', v)} placeholder={t('ledger.optional_note')} />;
+  const categoryChip = (c, index) => {
     const emoji = c.icon_type !== 'image' && !isImageUri(c.icon) ? c.icon : null;
-    return <Chip key={c.id} size="md" emoji={emoji} label={translateCategoryName(c.name, t)} active={Number(form.categoryId) === Number(c.id)} onPress={() => selectCategory(c.id)} style={{ marginRight: Spacing.xs, marginBottom: Spacing.xs, minHeight: 48, maxWidth: '100%' }} />;
+    return <Chip key={c.id} size="md" emoji={emoji} color={C.accents[index % C.accents.length]} label={translateCategoryName(c.name, t)} active={Number(form.categoryId) === Number(c.id)} onPress={() => selectCategory(c.id)} style={{ marginRight: Spacing.xs, marginBottom: Spacing.xs, minHeight: 48, maxWidth: '100%' }} />;
   };
 
+  const showSave = !pickingCategory && !showNewItem;
   const footer = <>
     {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginBottom: Spacing.sm }}>{error}</Text>}
-    <Button label={saving ? t('ledger.saving') : t('common.save')} onPress={save} loading={saving} fullWidth />
+    {showSave && <Button label={saving ? t('ledger.saving') : t('common.save')} onPress={save} loading={saving} fullWidth />}
   </>;
-  return <Sheet visible={visible} onClose={close} title={entry && kind === 'expense' ? t('common.edit') : title} footer={footer}>
-    <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{dateLabel}</Text>
+  return <Sheet visible={visible} onClose={close} title={entry && kind === 'expense' ? t('common.edit') : title}
+    bodyKey={pickingCategory ? 'categories' : 'fields'} footer={showSave || error ? footer : undefined}>
+    <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{dateLabel}</Text>
     {!!hint && <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base, marginBottom: Spacing.md }}>{hint}</Text>}
     {takingCash && <Text style={{ color: C.primary, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{limitMessage(limit)}</Text>}
     <View style={{ paddingBottom: Spacing.sm }}>
       {kind === 'note' ? <Input value={form.text} onChangeText={v => update('text', v)} placeholder={t('ledger.note_placeholder')} multiline inputStyle={{ minHeight: 130, textAlignVertical: 'top' }} /> : <>
         {kind === 'expense' && <>
-          <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold, marginBottom: Spacing.sm }}>{t('ledger.category')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>{categories.map(categoryChip)}</View>
-          {!!form.categoryId && <>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>
-              <Chip label={t('ledger.expense_by_items')} active={form.expenseMode === 'items'} onPress={() => update('expenseMode', 'items')} style={{ marginRight: Spacing.sm, marginBottom: Spacing.sm, minHeight: 44 }} />
-              <Chip label={t('ledger.category_total')} active={form.expenseMode === 'total'} onPress={() => update('expenseMode', 'total')} style={{ marginBottom: Spacing.sm, minHeight: 44 }} />
+          {pickingCategory ? <>
+            <Text accessibilityRole="header" style={labelStyle}>{t('ledger.choose_expense_category')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{categories.map(categoryChip)}</View>
+            {!!category && <Button label={t('common.cancel')} variant="ghost" size="sm" onPress={() => { setChoosingCategory(false); setError(''); }} />}
+          </> : <>
+            <Card padding="sm" elevation="none" style={{ backgroundColor: C.primaryDim, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md }}>
+              <Text accessibilityRole="header" style={{ ...labelStyle, flexGrow: 1, marginBottom: 0 }}>{translateCategoryName(category.name, t)}</Text>
+              <Button label={t('ledger.change_expense_category')} icon="swap-horizontal-outline" variant="ghost" size="sm"
+                onPress={() => { setChoosingCategory(true); setError(''); }} />
+            </Card>
+            <Text style={labelStyle}>{t('ledger.payment')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm }}>
+              {['cash', 'locker', 'online'].map(type => <Chip key={type} label={t(paymentLabel(type))}
+                active={form.paymentType === type} onPress={() => update('paymentType', type)} style={{ minHeight: 44, maxWidth: '100%' }} />)}
             </View>
-            {form.expenseMode === 'items' ? <>
-              {items.map(item => <View key={item.id} style={{ marginBottom: Spacing.sm }}>
-                <AmountInput compact history={history(item.id)} label={`${item.icon_type !== 'image' && !isImageUri(item.icon) ? `${item.icon || ''} ` : ''}${item.name}${item.inactive ? ` · ${t('ledger.inactive_item')}` : ''}`} value={form.itemAmounts[item.id] || ''} onChangeText={value => setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }))} />
-              </View>)}
-              {(!entry || !items.length) && <Card padding="md" elevation="none" style={{ marginBottom: Spacing.sm }}>
-                {!items.length && <Text style={{ color: C.textSecondary, marginBottom: Spacing.sm }}>{t('ledger.no_category_items')}</Text>}
-                <Input value={form.newItem} onChangeText={v => update('newItem', v)} label={t('ledger.new_item')} placeholder={t('ledger.item_name')} />
-                <Button label={t('ledger.add_item')} icon="add" onPress={addItem} style={{ marginTop: Spacing.sm }} />
-              </Card>}
-            </> : <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
+            {form.paymentType === 'online' && <Text style={{ color: C.online, fontSize: Typography.sizes.sm, marginBottom: Spacing.sm }}>{t('ledger.online_note_hint')}</Text>}
+            {!!items.length && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm }}>
+              <Chip label={t('ledger.expense_by_items')} active={form.expenseMode === 'items'} onPress={() => update('expenseMode', 'items')} style={{ minHeight: 44, maxWidth: '100%' }} />
+              <Chip label={t('ledger.category_total')} active={form.expenseMode === 'total'} onPress={() => update('expenseMode', 'total')} style={{ minHeight: 44, maxWidth: '100%' }} />
+            </View>}
+            {form.expenseMode === 'items' && items.length ? items.map(item => <View key={item.id} style={{ marginBottom: Spacing.sm }}>
+              <AmountInput compact={items.length > 1} history={history(item.id)} label={`${item.icon_type !== 'image' && !isImageUri(item.icon) ? `${item.icon || ''} ` : ''}${item.name}${item.inactive ? ` · ${t('ledger.inactive_item')}` : ''}`} value={form.itemAmounts[item.id] || ''} onChangeText={value => {
+                setForm(current => ({ ...current, itemAmounts: { ...current.itemAmounts, [item.id]: value } }));
+                setError('');
+              }} />
+            </View>) : <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount} onChangeText={v => update('amount', v)} />}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.xs }}>
+              {(!entry || !items.length) && !showNewItem && <Button label={t('ledger.add_item')} icon="add" variant="ghost" size="sm" onPress={() => setShowNewItem(true)} />}
+              {!showNote && <Button label={t('ledger.optional_note')} icon="create-outline" variant="ghost" size="sm" onPress={() => setShowNote(true)} />}
+            </View>
+            {showNewItem && <Card padding="sm" elevation="none">
+              <Input value={form.newItem} onChangeText={v => update('newItem', v)} label={t('ledger.new_item')} placeholder={t('ledger.item_name')} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs }}>
+                <Button label={t('ledger.add_item')} size="sm" icon="add" onPress={addItem} disabled={!form.newItem.trim()} />
+                <Button label={t('common.cancel')} size="sm" variant="ghost" onPress={() => { update('newItem', ''); setShowNewItem(false); }} />
+              </View>
+            </Card>}
+            {showNote && noteField}
           </>}
-          <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold, marginVertical: Spacing.sm }}>{t('ledger.payment')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm }}>
-            {['cash', 'locker', 'online'].map(type => <Chip key={type} label={t(paymentLabel(type))}
-              active={form.paymentType === type} onPress={() => update('paymentType', type)} style={{ minHeight: 44, maxWidth: '100%' }} />)}
-          </View>
-          {form.paymentType === 'online' && <Text style={{ color: C.textSecondary, marginBottom: Spacing.sm }}>{t('ledger.online_note_hint')}</Text>}
         </>}
         {kind !== 'expense' && <AmountInput history={history(null)} label={t('ledger.amount')} value={form.amount}
           onChangeText={v => update('amount', v)} step={takingCash || kind === 'deposit_locker' || kind === 'locker_opening' ? 100 : 10}
           limit={takingCash ? limit ?? 0 : Infinity} />}
-        {kind !== 'locker_opening' && <Input value={form.note} onChangeText={v => update('note', v)} placeholder={t('ledger.optional_note')} />}
+        {kind !== 'locker_opening' && kind !== 'expense' && noteField}
       </>}
     </View>
   </Sheet>;

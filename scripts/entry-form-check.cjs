@@ -58,7 +58,7 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
     if (id === 'react') return React;
     if (id === 'react-native') return { View: 'View', Text: 'Text', ScrollView: 'ScrollView', Image: 'Image', TouchableOpacity: 'TouchableOpacity', Alert: { alert: (...args) => alerts.push(args) } };
     if (id === 'react-i18next') return { useTranslation: () => ({ t, i18n: { language: 'en' } }) };
-    if (id.includes('ThemeContext')) return { useTheme: () => ({ C: {}, scale: 1 }) };
+    if (id.includes('ThemeContext')) return { useTheme: () => ({ C: { accents: ['#315F86'] }, scale: 1 }) };
     if (id.includes('constants/theme')) return { scaleTheme: () => ({ Typography: { sizes: { xs: 11, sm: 13, base: 15, md: 17, xl: 24 }, weights: { bold: '700' } }, Spacing: { xs: 4, sm: 8, md: 12, lg: 20 }, Radius: { md: 12 } }) };
     if (id.includes('db/queries')) return query;
     if (id.includes('db/ledger')) return ledger;
@@ -93,6 +93,8 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
   render();
   return {
     calls, alerts,
+    hasButton(label) { return !!find(node => node.type === 'Button' && node.props.label === label, tree); },
+    button(label) { control('Button', props => props.label === label).onPress(); render(); },
     press(label) { control('Chip', props => props.label === label).onPress(); render(); },
     input(label, value) {
       const input = find(node => ['Input', 'AmountInput'].includes(node.type) && node.props?.label?.includes(label), tree);
@@ -101,9 +103,10 @@ function harness(entry = null, existingItems = [{ id: 10, category_id: 1, name: 
       render();
     },
     addItem(name) {
+      this.button('ledger.add_item');
+      assert.equal(this.hasButton('common.save'), false, 'Finish adding the item before saving the expense');
       this.input('ledger.new_item', name);
-      control('Button', props => props.label === 'ledger.add_item').onPress();
-      render();
+      this.button('ledger.add_item');
     },
     save() { control('Button', props => props.label === 'common.save').onPress(); render(); },
   };
@@ -114,8 +117,8 @@ overdraw.save();
 assert.equal(overdraw.calls.length, 0, 'The form rejects a manual amount above the cap');
 
 const shopping = harness(null, []);
+assert.equal(shopping.hasButton('common.save'), false, 'Choose a category before attempting to save');
 shopping.press('Vegetables');
-shopping.press('ledger.expense_by_items');
 shopping.addItem('Tomato');
 shopping.input('Tomato', '30');
 shopping.addItem('Brinjal');
@@ -124,6 +127,16 @@ shopping.save();
 assert.equal(shopping.calls.length, 1);
 assert.equal(shopping.calls[0].name, 'saveExpenseBatch');
 assert.deepEqual(shopping.calls[0].data.items, [{ itemId: 10, amount: 30 }, { itemId: 11, amount: 40 }]);
+
+const quick = harness();
+quick.press('Vegetables');
+quick.press('ledger.category_total');
+quick.input('ledger.amount', '૧૫૦');
+quick.button('ledger.change_expense_category');
+assert.equal(quick.hasButton('common.save'), false);
+quick.press('Vegetables');
+quick.save();
+assert.equal(quick.calls[0].data.amount, 150, 'Reopening the category preserves the draft and entry mode');
 
 const edit = harness({ id: 80, kind: 'expense', category_id: 1, category_name: 'Vegetables', amount: 70, item_id: null });
 edit.press('ledger.expense_by_items');

@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
-import { Card, Button, IconBadge, Row, SectionHeader } from './common';
+import { Card, Button, IconBadge, ActionTile, SectionHeader } from './common';
 import { getDayOverview } from '../db/dayOverview';
 import { completeTask } from '../db/queries';
 import { translateCategoryName } from '../constants/defaultCategories';
@@ -72,7 +72,7 @@ export default function DayOverview({ date, navigation, refreshKey }) {
       <SectionHeader icon="checkmark-circle" color={C.iconTask} title={t('home.tasks')} badge={pendingCount || undefined} onSeeAll={() => nav('Tasks')} />
       {data.tasks.slice(0, 3).map(task => {
         const done = task.status === 'completed';
-        return <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+        return <View key={task.id} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs }}>
           <TouchableOpacity onPress={() => complete(task.id)} disabled={done} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: done ? C.income : C.iconTask, backgroundColor: done ? C.income : C.transparent, alignItems: 'center', justifyContent: 'center' }}>{done && <Ionicons name="checkmark" size={14} color={C.textOnPrimary} />}</View>
           </TouchableOpacity>
@@ -99,7 +99,7 @@ export default function DayOverview({ date, navigation, refreshKey }) {
 
     {data.notes.length > 0 && <Card>
       <SectionHeader icon="document-text" color={C.iconNotes} title={t('home.notes')} badge={data.notes.length || undefined} onSeeAll={() => nav('Notes')} />
-      {data.notes.slice(0, 2).map(note => <View key={note.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+      {data.notes.slice(0, 2).map(note => <View key={note.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm }}>
         <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 8, backgroundColor: C.iconNotes }} />
         <Text style={{ flex: 1, fontSize: Typography.sizes.base, lineHeight: 22, color: C.textSecondary }} numberOfLines={2}>{note.text}</Text>
       </View>)}
@@ -109,7 +109,7 @@ export default function DayOverview({ date, navigation, refreshKey }) {
     {showMileage && data.fuel.length > 0 && (
       <Card>
         <SectionHeader icon="water" color={C.online} title={`${t('ledger.overview_daily_fuel')} · ${date}`} onSeeAll={() => nav('Vehicle')} />
-        {data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+        {data.fuel.map(record => <View key={record.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.sm }}>
           <Text style={{ color: C.textSecondary }}>{Number(record.liters || 0).toLocaleString(numberLocale(i18n.language))} L · {Number(record.reading || 0).toLocaleString(numberLocale(i18n.language))} km</Text>
           <Text style={{ color: C.textPrimary, fontWeight: Typography.weights.bold }}>{money(record.amount, i18n.language)}</Text>
         </View>)}
@@ -127,11 +127,9 @@ export default function DayOverview({ date, navigation, refreshKey }) {
         </View>
       </Card>
     )}
-    {emptyModules.length > 0 && <Card padding="none" elevation="none">
-      {emptyModules.map(({ icon, color, label, onPress }, index) => (
-        <Row key={icon} icon={icon} iconColor={color} label={label} onPress={onPress}
-          style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderTopWidth: index ? 1 : 0, borderTopColor: C.divider }} />
-      ))}
-    </Card>}
+    {emptyModules.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+      {emptyModules.map(({ icon, color, label, onPress }) => <ActionTile key={icon} icon={icon} color={color} label={label} onPress={onPress}
+        style={{ flexBasis: '46%' }} />)}
+    </View>}
   </View>;
 }

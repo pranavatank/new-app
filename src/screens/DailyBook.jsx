@@ -20,7 +20,7 @@ export default function DailyBook({ navigation }) {
   const [form, setForm] = useState({ visible: false, mode: 'expense', entry: null });
   const [showBreakdown, setShowBreakdown] = useState(false);
   const scrollView = useRef(null);
-  const { Typography, Spacing } = scaleTheme(scale);
+  const { Typography, Spacing, Radius } = scaleTheme(scale);
   const actionRow = { flexDirection: 'row', gap: Spacing.sm };
   const load = useCallback(() => { try { setLedger(getDayLedger(selectedDate)); } catch { setLedger({ error: true, entries: [] }); } }, [selectedDate]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -55,7 +55,7 @@ export default function DailyBook({ navigation }) {
   return <View style={{ flex: 1, backgroundColor: C.bg }}>
     <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
     <DayNavigator />
-    <View style={{ backgroundColor: C.bgCard, borderBottomColor: C.border, borderBottomWidth: 1 }}>
+    <View style={{ backgroundColor: C.bgCard }}>
       <Button label={showBreakdown ? t('ledger.hide_breakdown') : t('ledger.show_breakdown')}
         icon={showBreakdown ? 'chevron-up' : 'chevron-down'} size="sm" variant="ghost" fullWidth
         accessibilityState={{ expanded: showBreakdown }} onPress={toggleBreakdown} />
@@ -63,12 +63,12 @@ export default function DailyBook({ navigation }) {
     <ScrollView ref={scrollView} contentContainerStyle={{ width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: Spacing.md, gap: Spacing.md }} keyboardShouldPersistTaps="handled">
       {showBreakdown && <Card padding="md" elevation="none">
         <SummaryRow label={t('ledger.opening')} value={displayMoney(day.opening_balance)} />
-        {!!day.deposit_today && <SummaryRow label={t('ledger.cash_receipts')} value={displayMoney(day.deposit_today)} divider />}
-        {!!day.wallet_receipts && <SummaryRow label={t('ledger.receipts')} value={displayMoney(day.wallet_receipts)} divider />}
-        <SummaryRow label={t('ledger.outside_cash')} value={displayMoney(day.locker_receipts)} divider />
-        <SummaryRow label={t('ledger.wallet_spent')} value={displayMoney(day.wallet_spent)} divider />
-        <SummaryRow label={t('ledger.locker_spent')} value={displayMoney(day.locker_spent)} divider />
-        {entries.filter(e => e.kind === 'transfer').map(e => <SummaryRow key={`transfer-${e.id}`} label={e.direction === 'out' ? t('ledger.historical_cash_adjustment') : t('ledger.locker_in')} value={`${e.direction === 'out' ? '−' : '+'}${money(e.amount, i18n.language)}`} divider />)}
+        {!!day.deposit_today && <SummaryRow label={t('ledger.cash_receipts')} value={displayMoney(day.deposit_today)} />}
+        {!!day.wallet_receipts && <SummaryRow label={t('ledger.receipts')} value={displayMoney(day.wallet_receipts)} />}
+        <SummaryRow label={t('ledger.outside_cash')} value={displayMoney(day.locker_receipts)} />
+        <SummaryRow label={t('ledger.wallet_spent')} value={displayMoney(day.wallet_spent)} />
+        <SummaryRow label={t('ledger.locker_spent')} value={displayMoney(day.locker_spent)} />
+        {entries.filter(e => e.kind === 'transfer').map(e => <SummaryRow key={`transfer-${e.id}`} label={e.direction === 'out' ? t('ledger.historical_cash_adjustment') : t('ledger.locker_in')} value={`${e.direction === 'out' ? '−' : '+'}${money(e.amount, i18n.language)}`} />)}
         {ledger && !ledger.error && lockerBalance != null &&
           <Button size="sm" variant="ghost" label={t('ledger.add_locker_opening')} onPress={() => add('locker_opening')} />}
       </Card>}
@@ -88,7 +88,8 @@ export default function DailyBook({ navigation }) {
           </View>
           <IconBadge icon="wallet-outline" color={C.textOnGradient} size={42} style={{ backgroundColor: C.gradientSubtle }} />
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.gradientBorder, paddingTop: Spacing.sm, columnGap: Spacing.sm }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between',
+          backgroundColor: C.gradientSubtle, borderRadius: Radius.md, padding: Spacing.sm, columnGap: Spacing.sm }}>
           <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.sm }}>{t('ledger.locker_balance')}</Text>
           <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }}>
             {ledger?.error ? '—' : lockerBalance == null ? t('ledger.unknown') : displayMoney(lockerBalance)}
@@ -99,25 +100,25 @@ export default function DailyBook({ navigation }) {
         <Button size="sm" variant="secondary" label={t('ledger.add_locker_opening')} onPress={() => add('locker_opening')} />}
       <View style={{ gap: Spacing.sm }}>
         <View style={actionRow}>
-          <ActionTile label={t('ledger.add_expense')} icon="cart-outline" emphasized onPress={() => add('expense')} />
-          <ActionTile label={t('ledger.add_note')} icon="document-text-outline" color={C.iconNotes} onPress={() => add('note')} />
+          <ActionTile vertical label={t('ledger.tool_expense')} icon="grid-outline" variant="filled" onPress={() => navigation.navigate('Expense')} />
+          <ActionTile vertical label={t('ledger.add_expense')} icon="add-circle-outline" variant="tinted" onPress={() => add('expense')} />
         </View>
         <View style={actionRow}>
-          <ActionTile label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.income} onPress={() => add('deposit_locker')} />
-          <ActionTile label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.primary} onPress={() => add('take_locker')} />
+          <ActionTile vertical label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.iconPlaces} background={C.skyBg} onPress={() => add('deposit_locker')} />
+          <ActionTile vertical label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.online} background={C.onlineBg} onPress={() => add('take_locker')} />
         </View>
         <View style={actionRow}>
-          <ActionTile label={t('ledger.tool_expense')} icon="grid-outline" onPress={() => navigation.navigate('Expense')} />
-          <ActionTile label={t('ledger.add_forgotten')} icon="help-circle-outline" onPress={() => add('forgotten')} />
+          <ActionTile vertical label={t('ledger.add_note')} icon="document-text-outline" color={C.iconNotes} background={C.expenseBg} onPress={() => add('note')} />
+          <ActionTile vertical label={t('ledger.add_forgotten')} icon="help-circle-outline" color={C.warning} background={C.sandBg} onPress={() => add('forgotten')} />
         </View>
       </View>
-      {ledger && !ledger.error && (cashEntries.length > 0 || onlineNotes.length === 0) && <Card padding="md" elevation="none">
-        <SectionHeader icon="list" title={t('ledger.entries')} />
+      {ledger && !ledger.error && (cashEntries.length > 0 || onlineNotes.length === 0) && <Card padding="md" elevation="none" style={{ borderWidth: 0 }}>
+        <SectionHeader icon="list" title={t('ledger.entries')} badge={cashEntries.length || undefined} style={{ marginBottom: Spacing.sm }} />
         {cashEntries.length ? cashEntries.map(entry => <LedgerEntryRow key={`${entry.kind}:${entry.id}`} entry={entry} onEdit={edit} onDelete={askDelete} />) :
           <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base }}>{t('ledger.empty_day')}</Text>}
       </Card>}
-      {onlineNotes.length > 0 && <Card padding="md">
-        <SectionHeader icon="card-outline" title={t('ledger.online_notes')} />
+      {onlineNotes.length > 0 && <Card padding="md" elevation="none" style={{ backgroundColor: C.onlineBg, borderWidth: 0 }}>
+        <SectionHeader icon="card-outline" color={C.online} title={t('ledger.online_notes')} badge={onlineNotes.length} style={{ marginBottom: Spacing.xs }} />
         {onlineNotes.map(entry => <LedgerEntryRow key={entry.id} entry={entry} onEdit={edit} onDelete={askDelete} />)}
       </Card>}
       <DayOverview date={selectedDate} navigation={navigation} refreshKey={ledger} />

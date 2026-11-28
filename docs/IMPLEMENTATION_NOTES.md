@@ -6,8 +6,8 @@ The baseline captures came from the installed Android app and include app destin
 
 | Area | Change from the phone audit |
 | --- | --- |
-| Today and Home | Two separate rows keep the quick actions clear of the forgotten-expense button. Add Expense and Write a Note come first. Today is the sole home destination. |
-| Date and Month | The date header is shorter. The monthly summary keeps both balances visible and omits zero-value detail rows. |
+| Today and Home | Tall tiles put the icon above its label. Expense grid and quick Add Expense come first, followed by the locker and note actions. Coastal blue, lavender, rose and sand surfaces distinguish their purpose. Entry rows use space between entries and offer Edit and Delete from the row's options button. |
+| Date and Month | Wallet and locker balances sit side by side above the list. Show Details expands the monthly breakdown. Each day's opening balance, spending, and closing balance appear together in a tinted summary. Empty months show a short inline message. |
 | Notes and Purchases | Empty states take less space. Notes has one add action, and its editor keeps Save in the footer. |
 | Tools and navigation | Duplicate Home and Notes shortcuts were removed. The tab bar uses a compact selected indicator and gives more height to content. |
 | Expenses and categories | Category management and items open from above the grid. Narrow screens and larger text get fewer columns. The category list scrolls above a fixed Add and Arrange footer. Arrange uses side-by-side movement controls and commits order changes in one transaction. |
@@ -21,9 +21,13 @@ The shared sheet uses the Android dialog's keyboard resize behavior. The backdro
 
 The source, entry-form, and SQLite checks passed, including a rollback test for a failed category reorder. Touch tests at 360×740 and 320×568 checked navigation, category scrolling and saved order, item editing, Gujarati cash entry, the dark theme, and Save at reduced viewport height. Android, iOS, and web exports succeeded. An isolated Android prebuild generated version 2.0.0 and `adjustResize`. The sampled text and background pairs exceeded 5:1 contrast in each palette. Native keyboard and scrolling checks on the phone still require a signed 2.0 build.
 
+The follow-up on the connected Android phone used Expo Go in Gujarati. It checked the quick expense category picker, preserving a draft when returning from category selection, suggested amounts and adjustment, the online-only hint, and the Save button above the keyboard. The Today and Month checks covered a row's edit action, expanded and collapsed monthly totals, an empty month, and jumping from a month entry to its daily book. The phone audit used drafts. Save and ledger behavior were checked with fixture data.
+
+Touch tests at 360×740 and 320×568 covered the vertical action tiles, quick expense save and edit in Gujarati, and the revised Month layout in dark mode. The connected phone also showed the revised vertical tiles in light and dark and the updated quick expense and Month layouts in dark mode. The Add Item panel keeps its own confirmation visible before the expense can be saved.
+
 ## Everyday use
 
-- The app opens in the new daily book. Large, labelled actions start an expense or a note. Money received and locker movements have separate actions.
+- The app opens in the daily book. Open the Expense grid by category or tap Add Expense for a quick entry. The quick dialog starts with the expense category, then shows payment and amount controls. Tap the category control to pick again, or add an optional note when needed. Money received and locker withdrawals have separate actions.
 - The floating bar opens Today, Month, Notes, and Tools. Today puts closing cash in the gradient card, lets you expand the breakdown, and has a direct Search action.
 - Gujarati is the default for a fresh installation. The language switch on Today keeps an existing language preference. Ledger and recurring amounts accept Gujarati digits, and amounts display in the familiar 100-style format.
 - An expense is a new independent record. Adding ₹100 and then ₹60 for vegetables keeps both entries. Editing a row changes that row.

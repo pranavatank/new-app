@@ -10,7 +10,7 @@ import IconButton from './IconButton';
  * Shared bottom-sheet modal. Consolidates the duplicated local `Sheet`
  * components previously defined separately in Expense.jsx / ExpenseItems.jsx.
  */
-export default function Sheet({ visible, onClose, title, children, scroll = true, footer }) {
+export default function Sheet({ visible, onClose, title, children, scroll = true, footer, bodyKey }) {
   const { C, scale } = useTheme();
   const { t } = useTranslation();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
@@ -54,7 +54,7 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
                 <IconButton icon="close" label={t('common.close')} onPress={onClose} />
               </View>
             )}
-            <Body {...bodyProps}>{children}</Body>
+            <Body key={bodyKey} {...bodyProps}>{children}</Body>
             {footer && <View style={{ paddingTop: Spacing.sm, borderTopColor: C.divider, borderTopWidth: 1 }}>{footer}</View>}
           </View>
         </View>
