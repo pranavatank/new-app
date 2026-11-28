@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rojnishi",
     "slug": "hisab",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo_icon.png",
     "userInterfaceStyle": "automatic",
@@ -19,6 +19,7 @@
       "bundleIdentifier": "com.rojnishi.app"
     },
     "android": {
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo_adaptive_foreground.png",
         "backgroundColor": "#FFFFFF"

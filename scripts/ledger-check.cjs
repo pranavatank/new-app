@@ -62,6 +62,22 @@ const initSqlJs = require('sql.js');
   const category=db.getFirstSync("SELECT id FROM categories WHERE name='Food'").id;
   db.runSync("INSERT INTO categories(name,icon,sort_order,is_active) VALUES('Other test','📍',99,1);");
   const alternateCategory=db.getFirstSync("SELECT last_insert_rowid() id;").id;
+  queries.setCategoryOrder([alternateCategory, category]);
+  assert.deepEqual(queries.getAllCategories().map(row => row.id), [alternateCategory, category]);
+  const writeCategoryOrder = db.runSync;
+  db.runSync = (sql, params) => {
+    if (sql.startsWith('UPDATE categories SET sort_order') && params[1] === alternateCategory) {
+      throw new Error('synthetic category order failure');
+    }
+    return writeCategoryOrder(sql, params);
+  };
+  try {
+    assert.throws(() => queries.setCategoryOrder([category, alternateCategory]), /synthetic category order failure/);
+  } finally {
+    db.runSync = writeCategoryOrder;
+  }
+  assert.deepEqual(queries.getAllCategories().map(row => row.id), [alternateCategory, category], 'partial reorder rolls back');
+  queries.setCategoryOrder([category, alternateCategory]);
   db.runSync("INSERT INTO category_items(category_id,name,icon,icon_type) VALUES(?,?,?,?);",[category,'Tomato','🍅','emoji']);
   const tomato=db.getFirstSync("SELECT last_insert_rowid() id;").id;
   db.runSync("INSERT INTO category_items(category_id,name,icon,icon_type) VALUES(?,?,?,?);",[category,'Brinjal','🍆','emoji']);

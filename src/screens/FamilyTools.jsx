@@ -7,8 +7,6 @@ import { useTheme } from '../store/ThemeContext';
 
 const groups = [
   ['everyday', [
-    ['Home', 'home', 'home-outline', 'iconHome'],
-    ['Notes', 'notes', 'document-text-outline', 'iconNotes'],
     ['Tasks', 'tasks', 'checkbox-outline', 'iconTask'],
     ['Places', 'places', 'location-outline', 'iconPlaces'],
     ['Purchases', 'purchases', 'bag-handle-outline', 'iconExpense'],

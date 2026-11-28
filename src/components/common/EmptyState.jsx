@@ -9,22 +9,22 @@ export default function EmptyState({ icon = 'file-tray-outline', title, subtitle
   const { Typography, Spacing } = scaleTheme(scale);
 
   return (
-    <View style={[{ alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.xxl }, style]}>
+    <View style={[{ alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md }, style]}>
       <View
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: 32,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: C.bgElevated,
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: Spacing.md,
+          marginBottom: Spacing.sm,
         }}
       >
-        <Ionicons name={icon} size={30} color={C.textMuted} />
+        <Ionicons name={icon} size={20} color={C.textMuted} />
       </View>
       {!!title && (
-        <Text style={{ fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, color: C.textSecondary }}>
+        <Text style={{ fontSize: Typography.sizes.base, fontWeight: Typography.weights.bold, color: C.textPrimary, textAlign: 'center' }}>
           {title}
         </Text>
       )}
@@ -35,7 +35,7 @@ export default function EmptyState({ icon = 'file-tray-outline', title, subtitle
             color: C.textMuted,
             marginTop: Spacing.xs,
             textAlign: 'center',
-            paddingHorizontal: Spacing.xl,
+            paddingHorizontal: Spacing.sm,
           }}
         >
           {subtitle}

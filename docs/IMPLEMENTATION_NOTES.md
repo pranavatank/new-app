@@ -1,6 +1,25 @@
 # Daily book implementation notes
 
-Working checkout `main`, last verified on 19 November 2026.
+## Rojnishi 2.0 visual audit · 28 November 2026
+
+The baseline captures came from the installed Android app and include app destinations, scrolled views, and editors with the keyboard open. The redesign uses four labeled tabs and a shared set of surfaces and controls. The light palette uses soft blue-gray surfaces and coastal blue accents. The dark palette uses muted navy and slate, with matching softer blue accents. [Material 3 color roles](https://m3.material.io/styles/color/the-color-system/)
+
+| Area | Change from the phone audit |
+| --- | --- |
+| Today and Home | Two separate rows keep the quick actions clear of the forgotten-expense button. Add Expense and Write a Note come first. Today is the sole home destination. |
+| Date and Month | The date header is shorter. The monthly summary keeps both balances visible and omits zero-value detail rows. |
+| Notes and Purchases | Empty states take less space. Notes has one add action, and its editor keeps Save in the footer. |
+| Tools and navigation | Duplicate Home and Notes shortcuts were removed. The tab bar uses a compact selected indicator and gives more height to content. |
+| Expenses and categories | Category management and items open from above the grid. Narrow screens and larger text get fewer columns. The category list scrolls above a fixed Add and Arrange footer. Arrange uses side-by-side movement controls and commits order changes in one transaction. |
+| Expense items and recurring bills | Add is in the header, leaving the list free of space reserved for a floating button. Recurring Save stays in the footer and monthly date buttons have larger touch targets. |
+| Tasks and Places | Task edit and delete targets are larger. Places puts Add in the header and localizes the example field. Both editors keep their save actions in the footer. |
+| Analytics and Search | The spending chart shows days with cash spending and category rows show a single cash total. Search cards name the payment source and have no fixed scroll tail. |
+| Vehicle | Empty fuel history shows one empty state. The fuel form uses a decimal odometer field that accepts Gujarati digits. Its calendar and record labels follow the app language. |
+| Settings | Removed a fixed blank scroll tail. Both version labels read the release version from Expo config. |
+
+The shared sheet uses the Android dialog's keyboard resize behavior. The backdrop sits behind the panel as a separate touch target, and the body scrolls between the title and footer. [Android keyboard insets](https://developer.android.com/develop/ui/views/layout/sw-keyboard)
+
+The source, entry-form, and SQLite checks passed, including a rollback test for a failed category reorder. Touch tests at 360×740 and 320×568 checked navigation, category scrolling and saved order, item editing, Gujarati cash entry, the dark theme, and Save at reduced viewport height. Android, iOS, and web exports succeeded. An isolated Android prebuild generated version 2.0.0 and `adjustResize`. The sampled text and background pairs exceeded 5:1 contrast in each palette. Native keyboard and scrolling checks on the phone still require a signed 2.0 build.
 
 ## Everyday use
 
@@ -18,11 +37,11 @@ Working checkout `main`, last verified on 19 November 2026.
 
 Tools groups the original routes under Everyday, Money and reports, and App. The old expense category grid remains separate. Its common amount editor changes only legacy/grid-origin rows. Tile totals include all spending, and common amounts and category item amounts remain distinct.
 
-Today and the original Home share day-wise module previews. Pending tasks carry forward from their start date. Completed tasks appear on their completion date. Places, notes and fuel records are filtered by the selected day. Task and fuel shortcuts default to that date, and all-time mileage figures are labelled separately.
+Today contains the day-wise module previews. Pending tasks carry forward from their start date. Completed tasks appear on their completion date. Places, notes and fuel records are filtered by the selected day. Task and fuel shortcuts default to that date, and all-time mileage figures are labelled separately.
 
 ## Shared appearance
 
-All 15 screens and React Navigation use the central light and dark palettes. The refresh uses shared cards, rows, headings, buttons, and ledger entries across Today, Month book, Tools, and Purchases. The source check verifies registered destinations, translated navigation labels, palette parity, and central color and typography usage. See [theme and component rules](THEME_AND_COMPONENTS.md).
+All 14 screens and React Navigation use the central light and dark palettes. The refresh uses shared cards, rows, headings, buttons, and ledger entries across Today, Month book, Tools, and Purchases. The source check verifies registered destinations, translated navigation labels, palette parity, and central color and typography usage. See [theme and component rules](THEME_AND_COMPONENTS.md).
 
 ## Wallet and home locker
 
@@ -84,4 +103,4 @@ The [24 November 2026 EAS preview build](https://expo.dev/accounts/pranav.tank/p
 
 The Android adaptive icon uses a solid white background with the existing transparent notebook artwork at the same scale.
 
-The signed APK is pending. The Home screen redesign is deferred to a later visual pass. See the [build instructions](../README.md#building) for the preview profile and Windows PowerShell commands.
+The signed 2.0 APK is pending. See the [build instructions](../README.md#building) for the preview profile and Windows PowerShell commands.

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
+import { Layout, Typography as BaseTypography, scaleTheme, makeShadow } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { parseCashAmount } from '../utils/cash';
 import DayNavigator from '../components/DayNavigator';
@@ -25,7 +25,7 @@ import {
   getAllCategoryItems,
   getItemExpenses,
   updateCategory,
-  updateCategoryOrder,
+  setCategoryOrder,
 } from '../db/queries';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ const BalanceHeader = ({ dayData, C, T, S, R, t }) => {
   const bh = balanceStyles(C);
 
   return (
-    <Card gradient={C.gradients.primary} elevation="primary" style={{ borderRadius: R.xl, padding: S.xl, marginBottom: S.md, borderWidth: 0 }}>
+    <Card gradient={C.gradients.balance} elevation="none" style={{ borderRadius: R.xl, padding: S.base, marginBottom: S.md, borderWidth: 0 }}>
       <View style={bh.topRow}>
         <View>
           <Text style={[bh.lbl]}>{t('ledger.wallet_balance')}</Text>
@@ -431,147 +431,141 @@ const sa = StyleSheet.create({
   showItemsTxt: {},
 });
 
-// ── Manage Categories Sheet ───────────────────────────────────────────────────
-// NOTE: Uses ScrollView + map instead of FlatList — FlatList inside Modal
-// crashes on Android Hermes in production builds.
+// ── Manage Categories Sheet ────────────────────────────────────────────────────
 
 const ManageCatsSheet = ({ visible, onClose, onRefresh, C, T, S, R, t }) => {
   const [cats, setCats] = useState([]);
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [arranging, setArranging] = useState(false);
+  const [editor, setEditor] = useState(null);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('💰');
 
-  const load = () => {
-    try { setCats(getAllCategories()); } catch (_) { setCats([]); }
-  };
+  React.useEffect(() => {
+    if (!visible) return;
+    setEditor(null);
+    setArranging(false);
+    setCats(getAllCategories());
+  }, [visible]);
 
-  React.useEffect(() => { if (visible) load(); }, [visible]);
-
-  const doAdd = () => {
-    if (!newName.trim()) { Alert.alert(t('common.error'), t('ledger.category_required_name')); return; }
-    addCategory(newName.trim(), newIcon);
-    setNewName(''); setNewIcon('💰'); setAdding(false);
-    load(); onRefresh();
-  };
-
-  const doEdit = () => {
-    if (!editing || !newName.trim()) { Alert.alert(t('common.error'), t('ledger.category_required_name')); return; }
-    const name = newName.trim() === translateCategoryName(editing.name, t) ? editing.name : newName.trim();
-    updateCategory(editing.id, name, newIcon);
-    setEditing(null); setNewName(''); setNewIcon('💰');
-    load(); onRefresh();
-  };
-
-  const doDelete = (id) => {
-    Alert.alert(t('expense.deleteCategory'), t('expense.removeCategory'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => { deleteCategory(id); load(); onRefresh(); } },
-    ]);
-  };
-
-  const moveUp = (index) => {
-    if (index === 0) return;
-    const newCats = [...cats];
-    [newCats[index - 1], newCats[index]] = [newCats[index], newCats[index - 1]];
-    newCats.forEach((cat, i) => updateCategoryOrder(cat.id, i + 1));
-    setCats(newCats);
+  const refresh = () => {
+    setCats(getAllCategories());
     onRefresh();
   };
-
-  const moveDown = (index) => {
-    if (index === cats.length - 1) return;
-    const newCats = [...cats];
-    [newCats[index], newCats[index + 1]] = [newCats[index + 1], newCats[index]];
-    newCats.forEach((cat, i) => updateCategoryOrder(cat.id, i + 1));
-    setCats(newCats);
-    onRefresh();
+  const openEditor = item => {
+    setNewName(item ? translateCategoryName(item.name, t) : '');
+    setNewIcon(item?.icon || '💰');
+    setEditor(item || {});
   };
+
+  const save = () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      Alert.alert(t('common.error'), t('ledger.category_required_name'));
+      return;
+    }
+    try {
+      if (editor.id) {
+        const name = trimmed === translateCategoryName(editor.name, t) ? editor.name : trimmed;
+        updateCategory(editor.id, name, newIcon);
+      } else {
+        addCategory(trimmed, newIcon);
+      }
+      setEditor(null);
+      refresh();
+    } catch {
+      Alert.alert(t('common.error'), t('book.saveError'));
+    }
+  };
+
+  const remove = id => Alert.alert(t('expense.deleteCategory'), t('expense.removeCategory'), [
+    { text: t('common.cancel'), style: 'cancel' },
+    { text: t('common.delete'), style: 'destructive', onPress: () => {
+      try { deleteCategory(id); refresh(); }
+      catch { Alert.alert(t('common.error'), t('book.saveError')); }
+    }},
+  ]);
+
+  const move = (index, offset) => {
+    const target = index + offset;
+    if (target < 0 || target >= cats.length) return;
+    const next = [...cats];
+    [next[index], next[target]] = [next[target], next[index]];
+    try {
+      setCategoryOrder(next.map(category => category.id));
+      setCats(next);
+      onRefresh();
+    } catch {
+      Alert.alert(t('common.error'), t('book.saveError'));
+    }
+  };
+
+  const action = ({ icon, label, onPress, color = C.primary, disabled = false, hint }) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={[mc.action, { borderRadius: R.md, backgroundColor: C.bgElevated, opacity: disabled ? 0.35 : 1 }]}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={18} color={color} />
+    </TouchableOpacity>
+  );
+
+  const footer = editor ? (
+    <View style={[mc.footer, { gap: S.sm }]}>
+      <Button label={t('common.cancel')} variant="secondary" onPress={() => setEditor(null)} style={mc.flex} />
+      <Button label={t('common.save')} onPress={save} style={mc.flex} />
+    </View>
+  ) : arranging ? (
+    <Button label={t('ledger.finish_arranging')} onPress={() => setArranging(false)} fullWidth />
+  ) : (
+    <View style={[mc.footer, { gap: S.sm }]}>
+      <Button label={t('ledger.arrange_categories')} variant="secondary" onPress={() => setArranging(true)} disabled={cats.length < 2} style={mc.flex} />
+      <Button label={t('ledger.add_category')} icon="add" onPress={() => openEditor(null)} style={mc.flex} />
+    </View>
+  );
+
+  const title = editor
+    ? t(editor.id ? 'ledger.edit_category' : 'ledger.add_category')
+    : t(arranging ? 'ledger.arrange_categories' : 'expense.manageCategories');
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('expense.manageCategories')} footer={adding || editing ? (
-      <View style={[s2.btnRow, { gap: S.sm }]}>
-        <Button label={t('common.cancel')} variant="secondary" onPress={() => { setAdding(false); setEditing(null); }} style={{ flex: 1 }} />
-        <Button label={editing ? t('common.save') : t('common.add')} onPress={editing ? doEdit : doAdd} style={{ flex: 1 }} />
-      </View>
-    ) : null}>
-      {!adding && !editing && <View>
-        {cats.map((item, index) => (
-          <View key={item.id} style={[mc.row, { borderBottomColor: C.divider }]}>
-            <View style={mc.reorderBtns}>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.move_category_up')} onPress={() => moveUp(index)} disabled={index === 0} style={mc.orderBtn}>
-                <Ionicons name="chevron-up" size={14} color={C.textMuted} style={{ opacity: index === 0 ? 0.3 : 1 }} />
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.move_category_down')} onPress={() => moveDown(index)} disabled={index === cats.length - 1} style={mc.orderBtn}>
-                <Ionicons name="chevron-down" size={14} color={C.textMuted} style={{ opacity: index === cats.length - 1 ? 0.3 : 1 }} />
-              </TouchableOpacity>
-            </View>
-            <IconBadge emoji={item.icon} color={C.primary} size={34} style={{ marginHorizontal: S.xs }} />
-            <Text style={[mc.name, { color: C.textPrimary, fontSize: T.sizes.base, fontWeight: T.weights.medium }]}>{translateCategoryName(item.name, t)}</Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('common.edit') + ' ' + translateCategoryName(item.name, t)}
-              style={[mc.editBtn, { backgroundColor: C.primaryDim }]}
-              onPress={() => { setEditing(item); setNewName(translateCategoryName(item.name, t)); setNewIcon(item.icon); }}
-            >
-              <Ionicons name="create-outline" size={16} color={C.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('common.delete') + ' ' + translateCategoryName(item.name, t)}
-              style={[mc.del, { backgroundColor: C.expenseLight }]}
-              onPress={() => doDelete(item.id)}
-            >
-              <Ionicons name="trash-outline" size={16} color={C.expense} />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>}
-
-      {(adding || editing) ? (
-        <View style={[mc.addForm, { backgroundColor: C.bgElevated, borderColor: C.border, borderRadius: R.lg, padding: S.base, marginTop: S.base }]}>
-          <View style={[mc.addRow, { gap: S.sm, marginBottom: S.base }]}>
-            <TextInput
-              accessibilityLabel={t('expenseItems.icon')}
-              style={[mc.iconInput, { color: C.textPrimary, borderColor: C.border, backgroundColor: C.bgInput, borderRadius: R.sm }]}
-              value={newIcon}
-              onChangeText={setNewIcon}
-              maxLength={2}
-            />
-            <Input
-              style={{ flex: 1 }}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder={t('expense.categoryName')}
-              autoFocus
-            />
-          </View>
+    <Sheet visible={visible} onClose={onClose} title={title} footer={footer}>
+      {editor ? (
+        <View style={[mc.footer, { alignItems: 'flex-end', gap: S.sm, paddingBottom: S.sm }]}>
+          <Input label={t('expenseItems.icon')} value={newIcon} onChangeText={setNewIcon} maxLength={8}
+            style={{ width: 64 }} inputStyle={{ textAlign: 'center', fontSize: T.sizes.lg }} />
+          <Input label={t('expense.categoryName')} value={newName} onChangeText={setNewName} style={mc.flex} autoFocus />
         </View>
-      ) : (
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={[mc.addBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, borderRadius: R.lg, padding: S.md, marginTop: S.base }]}
-          onPress={() => setAdding(true)}
-        >
-          <Text style={[mc.addBtnTxt, { color: C.primary, fontSize: T.sizes.base, fontWeight: T.weights.bold }]}>{t('expense.addNewCategory')}</Text>
-        </TouchableOpacity>
-      )}
+      ) : cats.map((item, index) => {
+        const name = translateCategoryName(item.name, t);
+        return (
+          <View key={item.id} style={[mc.row, { gap: S.sm, borderBottomColor: C.divider }]}>
+            <IconBadge emoji={item.icon} color={C.primary} size={32} />
+            <Text style={[mc.flex, { color: C.textPrimary, fontSize: T.sizes.base, fontWeight: T.weights.semibold }]}>{name}</Text>
+            {arranging ? <>
+              {action({ icon: 'chevron-up', label: t('ledger.move_category_up'), hint: name, disabled: index === 0, onPress: () => move(index, -1) })}
+              {action({ icon: 'chevron-down', label: t('ledger.move_category_down'), hint: name, disabled: index === cats.length - 1, onPress: () => move(index, 1) })}
+            </> : <>
+              {action({ icon: 'create-outline', label: t('common.edit') + ' ' + name, onPress: () => openEditor(item) })}
+              {action({ icon: 'trash-outline', label: t('common.delete') + ' ' + name, color: C.expense, onPress: () => remove(item.id) })}
+            </>}
+          </View>
+        );
+      })}
     </Sheet>
   );
 };
+
 const mc = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, borderBottomWidth: 1 },
-  reorderBtns: { flexDirection: 'column', gap: 2 },
-  name: { flex: 1 },
-  orderBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  editBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  del: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  addForm: { borderWidth: 1 },
-  addRow: { flexDirection: 'row' },
-  iconInput: { width: 52, borderWidth: 1, textAlign: 'center', fontSize: BaseTypography.sizes.xl, paddingVertical: 8 },
-  addBtn: { alignItems: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
-  addBtnTxt: {},
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: StyleSheet.hairlineWidth },
+  flex: { flex: 1, minWidth: 0 },
+  footer: { flexDirection: 'row' },
+  action: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });
+
 
 // ── Category Card ─────────────────────────────────────────────────────────────
 
@@ -594,7 +588,7 @@ const CatCard = ({ cat, cashAmt, onlineAmt, onStep, onTap, onLongPress, cardW, a
     >
       {active && <View style={[{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4 }, { backgroundColor: accentColor }]} />}
       <IconBadge emoji={cat.icon} color={accentColor} size={50} style={{ marginBottom: 6, marginTop: 4 }} />
-      <Text style={[{ fontSize: T.sizes.xs, fontWeight: T.weights.semibold, textAlign: 'center', marginBottom: 2 }, { color: C.textPrimary }]} numberOfLines={1}>{displayName}</Text>
+      <Text style={{ fontSize: T.sizes.sm, fontWeight: T.weights.semibold, textAlign: 'center', marginBottom: 2, color: C.textPrimary }}>{displayName}</Text>
       <Text style={[{ fontSize: T.sizes.sm, fontWeight: T.weights.black, marginBottom: 8 }, { color: active ? accentColor : C.textMuted }]}>
         {active ? fmt(total) : '—'}
       </Text>
@@ -636,9 +630,9 @@ export default function ExpenseScreen({ navigation }) {
   const Shadow = makeShadow(C);
   const { selectedDate, dayData, refreshDayData } = useAppStore();
 
-  const { width: screenWidth } = useWindowDimensions();
-  const numColumns = scale >= 1.1 ? 2 : 3;
-  const CARD_W = Math.max(80, (screenWidth - S.lg * 2 - S.sm * (numColumns - 1)) / numColumns);
+  const { width: screenWidth, fontScale } = useWindowDimensions();
+  const numColumns = screenWidth < 350 || scale * fontScale > 1.1 ? 2 : 3;
+  const CARD_W = Math.floor((Math.min(screenWidth, Layout.contentWidth) - S.base * 2 - S.sm * (numColumns - 1)) / numColumns);
 
   const [summary,     setSummary]     = useState([]);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -732,7 +726,7 @@ export default function ExpenseScreen({ navigation }) {
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} backgroundColor={C.bgCard} />
       <DayNavigator />
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { padding: S.lg, paddingBottom: S.xl }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: S.base }]} showsVerticalScrollIndicator={false}>
 
         {/* Balance header */}
         <BalanceHeader dayData={dayData} C={C} T={T} S={S} R={R} t={t} />
@@ -750,7 +744,11 @@ export default function ExpenseScreen({ navigation }) {
 
         <Text style={[s.hint, { color: C.textMuted }]}>{t('expense.tapToEnter')}</Text>
         <Text style={[s.hint, { color: C.textSecondary }]}>{t('book.gridScope')}</Text>
-        <Button label={t('book.openDaily')} variant="secondary" onPress={() => navigation.navigate('DailyBook')} style={{ marginBottom: S.base }} />
+        <View style={{ flexDirection: 'row', gap: S.sm, marginBottom: S.sm }}>
+          <Button label={t('expense.manageCategories')} size="sm" variant="secondary" onPress={() => setShowManage(true)} style={{ flex: 1 }} />
+          <Button label={t('expenseItems.title')} size="sm" variant="secondary" onPress={() => navigation.navigate('ExpenseItems')} style={{ flex: 1 }} />
+        </View>
+        <Button label={t('book.openDaily')} size="sm" variant="ghost" onPress={() => navigation.navigate('DailyBook')} style={{ alignSelf: 'flex-start', marginBottom: S.sm }} />
 
         {/* Category grid */}
         <View style={[s.grid, { gap: S.sm }]}>
@@ -771,24 +769,6 @@ export default function ExpenseScreen({ navigation }) {
             />
           ))}
         </View>
-
-        {/* Manage button */}
-        <TouchableOpacity
-          style={[s.manageBtn, { backgroundColor: C.bgCard, borderColor: C.border, borderRadius: R.lg, padding: S.base, marginTop: S.xs }]}
-          onPress={() => setShowManage(true)}
-        >
-          <Ionicons name="settings-outline" size={16} color={C.textSecondary} style={{ marginRight: S.sm }} />
-          <Text style={[s.manageTxt, { color: C.textSecondary }]}>{t('expense.manageCategories')}</Text>
-        </TouchableOpacity>
-
-        {/* Items button */}
-        <TouchableOpacity
-          style={[s.manageBtn, { backgroundColor: C.primaryDim, borderColor: C.primary, borderRadius: R.lg, padding: S.base, marginTop: S.sm }]}
-          onPress={() => navigation.navigate('ExpenseItems')}
-        >
-          <Ionicons name="cube-outline" size={16} color={C.primary} style={{ marginRight: S.sm }} />
-          <Text style={[s.manageTxt, { color: C.primary }]}>{t('expenseItems.title')}</Text>
-        </TouchableOpacity>
 
       </ScrollView>
 
@@ -829,6 +809,4 @@ const s = StyleSheet.create({
   secLbl:    { fontSize: BaseTypography.sizes.xs, fontWeight: BaseTypography.weights.bold, letterSpacing: 1.5 },
   hint:      { fontSize: BaseTypography.sizes.xs, marginBottom: 12 },
   grid:      { flexDirection: 'row', flexWrap: 'wrap' },
-  manageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
-  manageTxt: { fontSize: BaseTypography.sizes.sm, fontWeight: BaseTypography.weights.semibold },
 });

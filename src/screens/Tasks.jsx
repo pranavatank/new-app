@@ -85,7 +85,8 @@ const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
   const nextCal = () => calMonth===11 ? (setCalYear(y=>y+1),setCalMonth(0)) : setCalMonth(m=>m+1);
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={editTask ? t('tasks.editTask') : t('tasks.newTaskTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={editTask ? t('tasks.editTask') : t('tasks.newTaskTitle')}
+      footer={<Button label={editTask ? t('tasks.update') : t('tasks.add')} onPress={handleSave} fullWidth />}>
       <Input
         label={t('tasks.taskTitle')}
         value={title}
@@ -148,15 +149,6 @@ const TaskModal = ({ visible, editTask, initialDate, onSave, onClose }) => {
         </View>
       )}
 
-      {/* Buttons */}
-      <View style={[m.btnRow, { gap: Spacing.sm }]}>
-        <View style={{ flex: 1 }}>
-          <Button variant="ghost" label={t('common.cancel')} onPress={onClose} fullWidth />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button variant="primary" label={editTask ? t('tasks.update') : t('tasks.add')} onPress={handleSave} fullWidth />
-        </View>
-      </View>
     </Sheet>
   );
 };
@@ -174,7 +166,6 @@ const m = StyleSheet.create({
   calGrid:    { flexDirection: 'row', flexWrap: 'wrap' },
   calCell:    { width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   calDayTxt:  { fontSize: BaseTypography.sizes.sm },
-  btnRow:     { flexDirection: 'row', marginTop: 8 },
 });
 
 // ── Task Card ─────────────────────────────────────────────────────────────────
@@ -255,7 +246,7 @@ const tc = StyleSheet.create({
   taskTitle:   { fontWeight: BaseTypography.weights.semibold, lineHeight: 22 },
   meta:        { flexDirection: 'row', flexWrap: 'wrap' },
   actions:     { flexDirection: 'row' },
-  actionBtn:   { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  actionBtn:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   completeBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   completeTxt: { fontWeight: BaseTypography.weights.semibold, letterSpacing: 0.3 },
 });

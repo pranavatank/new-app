@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Modal, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { scaleTheme, makeShadow } from '../../constants/theme';
+import { Layout, scaleTheme, makeShadow } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import IconButton from './IconButton';
 
@@ -19,29 +19,31 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
 
   const Body = scroll ? ScrollView : View;
   const bodyProps = scroll
-    ? { keyboardShouldPersistTaps: 'handled', showsVerticalScrollIndicator: false, style: styles.body }
+    ? { keyboardShouldPersistTaps: 'handled', nestedScrollEnabled: true, style: styles.body }
     : {};
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        enabled={Platform.OS === 'ios'}
       >
-        <Pressable style={[styles.overlay, { backgroundColor: C.overlay }]} onPress={onClose}>
-          <Pressable
+        <View style={styles.overlay}>
+          <Pressable accessible={false} style={[StyleSheet.absoluteFill, { backgroundColor: C.overlay }]} onPress={onClose} />
+          <View
+            accessibilityViewIsModal
             style={[
               styles.sheet,
               {
                 backgroundColor: C.bgCard,
                 borderTopLeftRadius: Radius.xxl,
                 borderTopRightRadius: Radius.xxl,
-                paddingBottom: (insets?.bottom || 0) + Spacing.lg,
-                paddingHorizontal: Spacing.lg,
+                paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, Spacing.sm) : Spacing.sm,
+                paddingHorizontal: Spacing.base,
               },
               Shadow.lg,
             ]}
-            onPress={(e) => e.stopPropagation()}
           >
             <View style={[styles.handle, { backgroundColor: C.textMuted }]} />
             {!!title && (
@@ -54,8 +56,8 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
             )}
             <Body {...bodyProps}>{children}</Body>
             {footer && <View style={{ paddingTop: Spacing.sm, borderTopColor: C.divider, borderTopWidth: 1 }}>{footer}</View>}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -63,8 +65,8 @@ export default function Sheet({ visible, onClose, title, children, scroll = true
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  sheet: { maxHeight: '90%', paddingTop: 10 },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  body: { flexShrink: 1 },
+  sheet: { width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', maxHeight: '94%', paddingTop: 8, overflow: 'hidden' },
+  handle: { alignSelf: 'center', width: 34, height: 4, borderRadius: 2, marginBottom: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  body: { flexGrow: 0, flexShrink: 1 },
 });

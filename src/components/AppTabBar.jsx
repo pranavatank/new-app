@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Layout, makeShadow, scaleTheme } from '../constants/theme';
@@ -27,11 +26,11 @@ export default function AppTabBar({ state, navigation }) {
       backgroundColor: C.bg,
       paddingTop: Spacing.xs,
       paddingBottom: insets.bottom + Spacing.sm,
-      paddingLeft: insets.left + Spacing.md,
-      paddingRight: insets.right + Spacing.md,
+      paddingLeft: insets.left + Spacing.sm,
+      paddingRight: insets.right + Spacing.sm,
     }]}>
-      <View accessibilityRole="tablist" style={[styles.bar, makeShadow(C).md, {
-        backgroundColor: C.bgCard, borderColor: C.border, borderRadius: Radius.full,
+      <View accessibilityRole="tablist" style={[styles.bar, makeShadow(C).sm, {
+        backgroundColor: C.bgCard, borderColor: C.border, borderRadius: Radius.xxl,
         padding: Spacing.xs, gap: Spacing.xs,
       }]}>
         {tabs.map(tab => {
@@ -49,22 +48,15 @@ export default function AppTabBar({ state, navigation }) {
 
           return (
             <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={label}
-              accessibilityState={{ selected: focused }} onPress={open}
+              accessibilityState={{ selected: highlighted }} onPress={open}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
               style={({ pressed }) => [styles.item, {
                 borderRadius: Radius.xl, paddingVertical: Spacing.xs, gap: Spacing.xs,
                 backgroundColor: pressed ? C.bgElevated : C.bgCard,
               }]}>
-              {highlighted ? (
-                <LinearGradient colors={[accent, C.navAccentEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={[iconStyle, { backgroundColor: accent }]}>
-                  <Ionicons name={tab.icon} size={22} color={C.textOnPrimary} />
-                </LinearGradient>
-              ) : (
-                <View style={iconStyle}>
-                  <Ionicons name={tab.icon + '-outline'} size={22} color={C.textSecondary} />
-                </View>
-              )}
+              <View style={[iconStyle, highlighted && { backgroundColor: C.primaryDim }]}>
+                <Ionicons name={highlighted ? tab.icon : tab.icon + '-outline'} size={21} color={highlighted ? accent : C.textSecondary} />
+              </View>
               <Text style={[styles.label, {
                 color: highlighted ? C.textPrimary : C.textSecondary,
                 fontSize: Typography.sizes.sm,
@@ -81,7 +73,7 @@ export default function AppTabBar({ state, navigation }) {
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center' },
   bar: { flexDirection: 'row', width: '100%', maxWidth: Layout.navigationWidth, borderWidth: 1 },
-  item: { flex: 1, minWidth: 0, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
-  icon: { minHeight: 32, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  item: { flex: 1, minWidth: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  icon: { minHeight: 27, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   label: { maxWidth: '100%', textAlign: 'center' },
 });

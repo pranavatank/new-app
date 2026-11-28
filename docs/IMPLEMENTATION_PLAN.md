@@ -86,3 +86,9 @@ On 24 November 2026 the next preview build still reached the SQLite download tas
 The family confirmed that outside cash goes to the home locker, locker withdrawals supply the wallet, and online payments are notes. Keep the wallet prominent in the daily, monthly and money views and show the locker balance alongside it. Use dedicated locker actions and a wallet-only **યાદ નથી** expense. Recurring cash bills can deduct directly from the locker.
 
 Preserve existing wallet entries and English preferences. Accept Gujarati amount input and keep category and item editing usable in small shared sheets. See [the wallet and locker workflow](IMPLEMENTATION_NOTES.md#wallet-and-home-locker) for the Gujarati wording and example.
+
+### 2.0 interface refresh · 28 November 2026
+
+The Android screenshot audit informed a shared coastal-blue palette, a more compact Today screen, and a single-scroll category manager with pinned actions. Today replaces the duplicate Home route. Version 2.0.0 keeps the existing app identity and data on the device. See the [screen-by-screen audit](IMPLEMENTATION_NOTES.md#rojnishi-20-visual-audit--28-november-2026).
+
+The release check on the phone is to open the amount keyboard in Add Expense and scroll the Arrange list to its last category in a signed 2.0 Android build.

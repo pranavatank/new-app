@@ -12,7 +12,7 @@ import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
 import {
-  Card, Button, IconBadge, Sheet, Input, Chip, Badge, EmptyState, SectionHeader, FAB, Row,
+  Card, Button, IconBadge, IconButton, Sheet, Input, Chip, Badge, EmptyState, SectionHeader, Row,
 } from '../components/common';
 import {
   getAllPlaces,
@@ -69,7 +69,8 @@ const PlaceModal = ({ visible, editPlace, onSave, onClose, C, scale, Shadow, t }
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={editPlace ? t('places.editPlace') : t('places.addPlaceTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={editPlace ? t('places.editPlace') : t('places.addPlaceTitle')}
+      footer={<Button label={editPlace ? t('places.update') : t('places.addPlaceTitle')} onPress={handleSave} fullWidth />}>
       {/* Icon selector */}
       <View style={pm.labelRow}>
         <IconBadge
@@ -122,7 +123,7 @@ const PlaceModal = ({ visible, editPlace, onSave, onClose, C, scale, Shadow, t }
         label={t('places.placeName')}
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Ramu Kirana, City Hospital..."
+        placeholder={t('places.namePlaceholder')}
         autoFocus
         style={pm.inputSpacing}
       />
@@ -138,16 +139,6 @@ const PlaceModal = ({ visible, editPlace, onSave, onClose, C, scale, Shadow, t }
         style={[pm.favRow, { backgroundColor: C.bgElevated, borderColor: C.border }]}
       />
 
-      {/* Buttons */}
-      <View style={pm.btnRow}>
-        <Button variant="secondary" label={t('common.cancel')} onPress={onClose} style={{ flex: 1 }} />
-        <Button
-          variant="primary"
-          label={editPlace ? t('places.update') : t('places.addPlace')}
-          onPress={handleSave}
-          style={{ flex: 1 }}
-        />
-      </View>
     </Sheet>
   );
 };
@@ -164,7 +155,6 @@ const pmStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   iconBtn:   { borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 2, padding: 2 },
   inputSpacing: { marginBottom: Spacing.base },
   favRow:    { borderRadius: Radius.lg, borderWidth: 1, paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
-  btnRow:    { flexDirection: 'row', gap: Spacing.sm },
 });
 
 // ── Place Tile (in the grid) ───────────────────────────────────────────────────
@@ -320,6 +310,7 @@ export default function PlacesScreen() {
             {visited.length>0?`${visited.length} ${t('places.visitedToday')}`:t('places.tapToVisit')}
           </Text>
         </View>
+        <IconButton icon="add" label={t('places.addPlaceTitle')} onPress={() => { setEditPlace(null); setShowModal(true); }} />
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -395,14 +386,7 @@ export default function PlacesScreen() {
           </>
         )}
 
-        <View style={{height:32}}/>
       </ScrollView>
-
-      <FAB
-        label={t('places.addPlaceTitle')}
-        onPress={()=>{setEditPlace(null);setShowModal(true);}}
-        style={s.fab}
-      />
 
       <PlaceModal
         visible={showModal}
@@ -421,7 +405,7 @@ const sStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   headerTitle:  { fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold },
   headerSub:    { fontSize: Typography.sizes.xs, marginTop: 2 },
   scroll:       { flex: 1 },
-  content:      { padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl },
+  content:      { padding: Spacing.base },
   visitedCard:  { borderWidth: 1.5, marginBottom: Spacing.base },
   filterRow:    { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
   filterChip:   { flex: 1, justifyContent: 'center' },
@@ -429,5 +413,4 @@ const sStyles = (Typography, Spacing, Radius) => StyleSheet.create({
   grid:         { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: Spacing.xs },
   emptyCard:    { borderRadius: Radius.xl, borderWidth: 1, alignItems: 'center', paddingVertical: Spacing.md },
   emptyBtn:     { marginTop: Spacing.sm },
-  fab:          { position: 'absolute', right: Spacing.lg, bottom: Spacing.base },
 });

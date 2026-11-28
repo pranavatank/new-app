@@ -69,17 +69,22 @@ src/
 
 | Screen           | Purpose                                                                                                                                                         |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**         | Dashboard: gradient balance card, top expense categories, tasks/places/notes previews, optional bike-mileage card, quick-deposit FAB                            |
+| **Today**        | Wallet and locker balances, daily entries, quick actions, and previews of tasks, places, notes, and fuel                                                      |
+| **Month**        | Monthly cash summary and day-by-day ledger                                                                                                                     |
+| **Tools**        | Entry points for less frequent work, reports, and app preferences                                                                                               |
 | **Expense**      | Category grid for entering cash/online spend (tap for exact amount, +/- stepper for quick adjustments, long-press to clear), deposit entry, category management |
 | **ExpenseItems** | Per-category sub-items (e.g. "Rice" under "Grains") with custom emoji-or-photo icons                                                                            |
 | **Tasks**        | Pending/completed task list with overdue tracking                                                                                                               |
 | **Places**       | Saved places, mark visited for the day, favorites, custom emoji-or-photo icons                                                                                  |
 | **Notes**        | Daily journal entries with a mood tag                                                                                                                           |
 | **Analytics**    | Monthly summary — category breakdown, daily trend chart, top spending days, deposit/spend/savings donut                                                         |
-| **Vehicle**      | Bike fuel-up log and mileage tracking (only shown if enabled in Settings)                                                                                       |
+| **Vehicle**      | Bike fuel log and mileage tracking, with an optional preview on Today                                                                                           |
+| **Recurring**    | Scheduled cash expenses and online payment notes                                                                                                               |
+| **Purchases**    | Purchase records with optional photos                                                                                                                          |
+| **Search**       | Find matching expenses, notes, and tasks                                                                                                                       |
 | **Settings**     | Theme, language, text size, biometric toggle, bike-mileage toggle, JSON/Excel/PDF export & import, clear data                                                   |
 
-Nine tabs total: 6 are visible in the floating bottom nav (Home, Expense, Tasks, Places, Analytics, Settings); Notes, ExpenseItems, and Vehicle are reached via in-app navigation from other screens.
+The bottom bar has four destinations: **Today**, **Month**, **Notes**, and **Tools**. Tools links to tasks, places, purchases, expenses, items, recurring expenses, analytics, vehicle, search, and settings.
 
 ## Shared component library (`src/components/common/`)
 

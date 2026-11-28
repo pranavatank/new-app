@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
+import Constants from "expo-constants";
 import {
   AntDesign,
   MaterialCommunityIcons,
@@ -192,8 +193,7 @@ export default function SettingsScreen() {
       />
 
       <ScreenHeader
-        title={t("nav.settings") || "Settings"}
-        subtitle="Preferences & App Info"
+        title={t("nav.settings")}
       />
 
       <ScrollView
@@ -436,20 +436,19 @@ export default function SettingsScreen() {
             icon="document-text-outline"
             iconColor={C.primary}
             label={t("settings.appName")}
-            subtitle={t("settings.version")}
+            subtitle={t("settings.version", { version: Constants.expoConfig?.version })}
             onPress={() => setShowAboutModal(true)}
           />
           <Divider />
           <Row
             icon="person-circle-outline"
             iconColor={C.online}
-            label="Developer"
+            label={t("settings.developer")}
             subtitle="Pranav Tank"
             onPress={() => setShowDeveloperModal(true)}
           />
         </Card>
 
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Export Sheet */}
@@ -684,7 +683,7 @@ export default function SettingsScreen() {
               marginBottom: Spacing.lg,
             }}
           >
-            Version 1.0.0
+            {t("settings.version", { version: Constants.expoConfig?.version })}
           </Text>
 
           <Text

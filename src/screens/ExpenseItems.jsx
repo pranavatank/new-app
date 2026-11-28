@@ -11,7 +11,7 @@ import { scaleTheme } from '../constants/theme';
 import { translateCategoryName } from '../constants/defaultCategories';
 import { useTheme } from '../store/ThemeContext';
 import {
-  Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader, FAB,
+  Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader,
 } from '../components/common';
 import {
   getAllCategoryItems,
@@ -257,7 +257,8 @@ export default function ExpenseItemsScreen({ navigation }) {
     <View style={[st.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} />
 
-      <ScreenHeader title={t('expenseItems.title')} onBack={() => navigation.goBack()} />
+      <ScreenHeader title={t('expenseItems.title')} onBack={() => navigation.goBack()}
+        rightIcon="add" rightLabel={t('expenseItems.addItem')} onRightPress={selectedCategory ? handleAddItem : undefined} />
 
       <ScrollView
         horizontal
@@ -312,10 +313,6 @@ export default function ExpenseItemsScreen({ navigation }) {
         )}
       </ScrollView>
 
-      {selectedCategory && (
-        <FAB label={t('expenseItems.addItem')} onPress={handleAddItem} style={st.fab} />
-      )}
-
       <ItemFormSheet
         visible={showForm}
         item={editingItem}
@@ -332,11 +329,11 @@ const styles = (scale) => {
   return StyleSheet.create({
     root: { flex: 1 },
 
-    tabsContainer: { maxHeight: 80 },
-    tabs: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.md, gap: Spacing.sm },
+    tabsContainer: { flexGrow: 0 },
+    tabs: { paddingHorizontal: Spacing.base, paddingVertical: Spacing.sm, gap: Spacing.sm },
 
     content: { flex: 1 },
-    contentInner: { padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl },
+    contentInner: { padding: Spacing.base },
 
     sectionHeader: {
       flexDirection: 'row',
@@ -360,12 +357,6 @@ const styles = (scale) => {
       justifyContent: 'center',
     },
 
-    fab: {
-      position: 'absolute',
-      bottom: Spacing.base,
-      right: Spacing.xl,
-    },
-
     label: { fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold, marginBottom: Spacing.xs, marginTop: Spacing.sm },
     iconRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
     iconInput: {
@@ -379,6 +370,5 @@ const styles = (scale) => {
     },
     imageBtn: { width: 56, height: 56, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
 
-    btnRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },
   });
 };

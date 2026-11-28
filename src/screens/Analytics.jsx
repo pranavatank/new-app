@@ -20,17 +20,15 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt  = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-const getDaysInMonth = (y, m) => new Date(y, m, 0).getDate(); // m is 1-based here
 
 // ── Month Selector ────────────────────────────────────────────────────────────
 
-const MonthSelector = ({ year, month, onChange, C, T, S, R, Shadow }) => {
+const MonthSelector = ({ year, month, onChange, C, T, S, R, Shadow, t, monthName }) => {
   const prevMonth = () => {
     if (month === 1) onChange(year - 1, 12);
     else onChange(year, month - 1);
@@ -49,18 +47,20 @@ const MonthSelector = ({ year, month, onChange, C, T, S, R, Shadow }) => {
 
   return (
     <View style={[ms.wrap, { backgroundColor: C.bgCard, borderColor: C.border, borderRadius: R.xl, padding: S.sm, marginBottom: S.base }, Shadow.sm]}>
-      <TouchableOpacity onPress={prevMonth} style={[ms.navBtn, { backgroundColor: C.bgElevated }]}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.previous_month')}
+        onPress={prevMonth} style={[ms.navBtn, { backgroundColor: C.bgElevated }]}>
         <Ionicons name="chevron-back" size={20} color={C.primary} />
       </TouchableOpacity>
 
       <View style={ms.center}>
         <Text style={[ms.monthName, { color: C.textPrimary, fontSize: T.sizes.xl, fontWeight: T.weights.bold }]}>
-          {MONTHS_FULL[month - 1]}
+          {monthName}
         </Text>
         <Text style={[ms.year, { color: C.textSecondary, fontSize: T.sizes.xs }]}>{year}</Text>
       </View>
 
       <TouchableOpacity
+        accessibilityRole="button" accessibilityLabel={t('ledger.next_month')} disabled={isCurrentMonth}
         onPress={nextMonth}
         style={[ms.navBtn, { backgroundColor: isCurrentMonth ? C.divider : C.bgElevated }]}
         activeOpacity={isCurrentMonth ? 1 : 0.7}
@@ -126,36 +126,15 @@ const SectionHdr = ({ title, sub, C, T, S }) => (
 );
 
 // ── Daily Trend Bar Chart (pure RN) ──────────────────────────────────────────
-// Shows every day of the month as a bar — active days filled, empty days ghosted
-
-const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
-  const daysInMonth = getDaysInMonth(year, month);
-  const maxVal      = Math.max(...dailyData.map(d => d.total), 1);
-  const BAR_H       = 80; // max bar height in px
+const DailyTrendChart = ({ dailyData, C, T, S, t }) => {
+  const activeDays = dailyData.filter(day => day.total > 0);
+  if (!activeDays.length) return null;
+  const maxVal      = Math.max(...activeDays.map(day => day.total));
+  const BAR_H       = 64;
   const today       = new Date();
   const todayDate   = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-  // Map date → data
-  const dataMap = {};
-  dailyData.forEach(d => { dataMap[d.date] = d; });
-
-  // Build full month array
-  const bars = Array.from({ length: daysInMonth }, (_, i) => {
-    const dayNum = i + 1;
-    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-    const d = dataMap[dateStr];
-    return {
-      day: dayNum,
-      date: dateStr,
-      total: d?.total || 0,
-      isToday: dateStr === todayDate,
-      isFuture: dateStr > todayDate,
-    };
-  });
-
-  const avgSpend = dailyData.length > 0
-    ? Math.round(dailyData.reduce((s,d) => s + d.total, 0) / dailyData.length)
-    : 0;
+  const avgSpend = activeDays.reduce((sum, day) => sum + day.total, 0) / activeDays.length;
 
   return (
     <Card style={{ paddingBottom: S.sm, marginBottom: S.base }}>
@@ -168,27 +147,24 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
       {/* Bars */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={[dt.chartArea, { height: BAR_H + 36 }]}>
-          {bars.map((bar) => {
-            const barH = bar.total > 0 ? Math.max(4, Math.round((bar.total / maxVal) * BAR_H)) : 0;
+          {activeDays.map(({ date, total }) => {
+            const isToday = date === todayDate;
+            const barH = Math.max(4, Math.round((total / maxVal) * BAR_H));
 
             return (
-              <View key={bar.day} style={dt.barCol}>
+              <View key={date} style={dt.barCol} accessible accessibilityLabel={date + ', ' + fmt(total)}>
                 {/* Bar itself */}
                 <View style={[dt.barSlot, { height: BAR_H }]}>
-                  {bar.total > 0 ? (
-                    <View style={[dt.barFill, { height: barH, backgroundColor: C.expense }]} />
-                  ) : (
-                    <View style={[dt.barEmpty, { backgroundColor: bar.isFuture ? C.transparent : C.bgElevated }]} />
-                  )}
+                  <View style={[dt.barFill, { height: barH, backgroundColor: C.expense }]} />
                   {/* Today indicator */}
-                  {bar.isToday && <View style={[dt.todayLine, { backgroundColor: C.primary }]} />}
+                  {isToday && <View style={[dt.todayLine, { backgroundColor: C.primary }]} />}
                 </View>
                 {/* Day label */}
                 <Text style={[dt.dayLabel,
-                  { color: bar.isToday ? C.primary : C.textMuted },
-                  bar.isToday && { fontWeight: T.weights.bold },
+                  { color: isToday ? C.primary : C.textMuted },
+                  isToday && { fontWeight: T.weights.bold },
                 ]}>
-                  {bar.day}
+                  {Number(date.slice(-2))}
                 </Text>
               </View>
             );
@@ -202,7 +178,7 @@ const DailyTrendChart = ({ dailyData, year, month, C, T, S, R, Shadow, t }) => {
           <View style={[dt.legendDot, { backgroundColor: C.expense }]} />
           <Text style={[dt.legendTxt, { color: C.textSecondary }]}>{t('expense.cash')}</Text>
         </View>
-        {avgSpend > 0 && (
+        {activeDays.some(day => day.date === todayDate) && (
           <View style={dt.legendItem}>
             <View style={[dt.legendDot, { backgroundColor: C.primary }]} />
             <Text style={[dt.legendTxt, { color: C.textSecondary }]}>{t('ledger.nav_today')}</Text>
@@ -217,7 +193,6 @@ const dt = StyleSheet.create({
   barCol:    { width: 18, alignItems: 'center', marginHorizontal: 2 },
   barSlot:   { width: 10, justifyContent: 'flex-end', alignItems: 'center', position: 'relative' },
   barFill:   { width: 10, borderRadius: 3, overflow: 'hidden', justifyContent: 'flex-end' },
-  barEmpty:  { width: 6, height: 3, borderRadius: 2 },
   todayLine: { position: 'absolute', bottom: -4, width: 10, height: 2, borderRadius: 1 },
   dayLabel:  { fontSize: BaseTypography.sizes.micro, marginTop: 4 },
   legend:    { flexDirection: 'row' },
@@ -248,15 +223,7 @@ const CategoryBreakdown = ({ catData, totalSpent, C, T, S, R, Shadow, t }) => {
             <View style={[cb.left, { gap: S.sm }]}>
               <IconBadge emoji={cat.icon} color={color} size={36} />
               <View style={cb.nameWrap}>
-                <Text style={[cb.name, { fontSize: T.sizes.sm, fontWeight: T.weights.semibold, color: C.textPrimary }]} numberOfLines={1}>{displayName}</Text>
-                <View style={[cb.subRow, { gap: S.xs }]}>
-                  {cat.cash_total > 0 && (
-                    <Text style={[cb.sub, { color: C.expense }]}>{fmt(cat.cash_total)}</Text>
-                  )}
-                  {cat.online_total > 0 && (
-                    <Text style={[cb.sub, { color: C.online }]}>{fmt(cat.online_total)}</Text>
-                  )}
-                </View>
+                <Text style={{ fontSize: T.sizes.sm, fontWeight: T.weights.semibold, color: C.textPrimary }}>{displayName}</Text>
               </View>
             </View>
 
@@ -278,9 +245,6 @@ const cb = StyleSheet.create({
   row:     { flexDirection: 'row', alignItems: 'center' },
   left:    { flexDirection: 'row', alignItems: 'center', flex: 1 },
   nameWrap:{ flex: 1 },
-  name:    {},
-  subRow:  { flexDirection: 'row', marginTop: 2 },
-  sub:     { fontSize: BaseTypography.sizes.caption, fontWeight: BaseTypography.weights.medium },
   right:   { width: 100, alignItems: 'flex-end' },
   amount:  { marginBottom: 3 },
   barTrack:{ width: 100, height: 6, borderRadius: 3, overflow: 'hidden' },
@@ -395,7 +359,7 @@ const td = StyleSheet.create({
 // ── Main Analytics Screen ─────────────────────────────────────────────────────
 
 export default function AnalyticsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { C, scale } = useTheme();
   const { Typography: T, Spacing: S, Radius: R } = scaleTheme(scale);
   const Shadow = makeShadow(C);
@@ -456,13 +420,14 @@ export default function AnalyticsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
       >
         {/* Month Selector */}
-        <MonthSelector year={year} month={month} onChange={handleMonthChange} C={C} T={T} S={S} R={R} Shadow={Shadow} />
+        <MonthSelector year={year} month={month} onChange={handleMonthChange} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t}
+          monthName={new Date(year, month - 1, 1).toLocaleDateString(i18n.language === 'gu' ? 'gu-IN' : 'en-IN', { month: 'long' })} />
         <SummaryCards totals={totals} C={C} T={T} S={S} R={R} Shadow={Shadow} t={t} />
 
         {!hasData ? (
           <EmptyState
             icon="bar-chart-outline"
-            title={`${t('analytics.noData')} ${MONTHS_FULL[month - 1]}`}
+            title={t('analytics.noData')}
             subtitle={t('analytics.noDataSub')}
             style={{ marginTop: S.base }}
           />
@@ -478,9 +443,7 @@ export default function AnalyticsScreen() {
             {/* Daily Trend */}
             <DailyTrendChart
               dailyData={dailyData}
-              year={year}
-              month={month}
-              C={C} T={T} S={S} R={R} Shadow={Shadow} t={t}
+              C={C} T={T} S={S} t={t}
             />
 
             {/* Category Breakdown */}

@@ -248,9 +248,18 @@ export const getItemExpenses = (dayId, categoryId, paymentType = 'cash') => {
   );
 };
 
-export const updateCategoryOrder = (id, sortOrder) => {
+export const setCategoryOrder = (orderedIds) => {
   const db = getDB();
-  db.runSync('UPDATE categories SET sort_order = ? WHERE id = ?;', [sortOrder, id]);
+  db.execSync('BEGIN TRANSACTION;');
+  try {
+    orderedIds.forEach((id, index) => {
+      db.runSync('UPDATE categories SET sort_order = ? WHERE id = ? AND is_active = 1;', [index + 1, id]);
+    });
+    db.execSync('COMMIT;');
+  } catch (error) {
+    db.execSync('ROLLBACK;');
+    throw error;
+  }
 };
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────

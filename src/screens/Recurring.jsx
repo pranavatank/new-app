@@ -12,7 +12,7 @@ import { useTheme } from '../store/ThemeContext';
 import { parseCashAmount, paymentLabel } from '../utils/cash';
 import {
   Card, Button, Sheet, Input, Chip, Badge, IconBadge,
-  EmptyState, SectionHeader, ScreenHeader, FAB,
+  EmptyState, SectionHeader, ScreenHeader,
 } from '../components/common';
 import {
   getAllRecurringExpenses,
@@ -248,11 +248,14 @@ export default function RecurringScreen() {
         title={t('recurring.title')}
         subtitle={t('recurring.subtitle')}
         onBack={() => navigation.goBack()}
+        rightIcon="add"
+        rightLabel={t('recurring.addTitle')}
+        onRightPress={openAdd}
       />
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ padding: Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl }}
+        contentContainerStyle={{ padding: Spacing.base }}
         showsVerticalScrollIndicator={false}
       >
         {rules.length === 0 ? (
@@ -260,7 +263,6 @@ export default function RecurringScreen() {
             icon="repeat-outline"
             title={t('recurring.emptyTitle')}
             subtitle={t('recurring.emptySubtitle')}
-            style={{ marginTop: Spacing.xxl }}
           />
         ) : (
           <>
@@ -292,13 +294,11 @@ export default function RecurringScreen() {
         )}
       </ScrollView>
 
-      <FAB label={t('recurring.addTitle')} onPress={openAdd} style={s.fab} />
-
       <Sheet
         visible={sheetOpen}
         onClose={() => { setSheetOpen(false); resetForm(); }}
         title={editingId ? t('recurring.editTitle') : t('recurring.addTitle')}
-        scroll
+        footer={<Button label={t('common.save')} onPress={handleSave} loading={saving} fullWidth />}
       >
         <Text style={[s.lbl, { color: C.textSecondary, fontSize: Typography.sizes.xs }]}>
           {t('recurring.category')}
@@ -464,21 +464,6 @@ export default function RecurringScreen() {
           style={{ marginTop: Spacing.base }}
         />
 
-        <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg }}>
-          <Button
-            variant="ghost"
-            label={t('common.cancel')}
-            onPress={() => { setSheetOpen(false); resetForm(); }}
-            style={{ flex: 1 }}
-          />
-          <Button
-            variant="primary"
-            label={t('common.save')}
-            onPress={handleSave}
-            loading={saving}
-            style={{ flex: 1 }}
-          />
-        </View>
       </Sheet>
     </View>
   );
@@ -491,8 +476,6 @@ const styles = (scale) => {
     scroll: { flex: 1 },
     lbl:    { fontWeight: BaseTypography.weights.bold, marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' },
 
-    fab: { position: 'absolute', right: Spacing.lg, bottom: Spacing.base },
-
     ruleCard:       { marginTop: Spacing.sm },
     ruleCardPaused: { opacity: 0.6 },
     ruleRow:        { flexDirection: 'row', alignItems: 'center' },
@@ -503,7 +486,7 @@ const styles = (scale) => {
 
     dayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
     dayCell: {
-      width: 38, height: 38, borderWidth: 1.5,
+      width: 44, minHeight: 44, borderWidth: 1,
       alignItems: 'center', justifyContent: 'center',
     },
   });

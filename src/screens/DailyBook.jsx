@@ -9,7 +9,7 @@ import DayOverview from '../components/DayOverview';
 import LedgerEntryRow, { money } from '../components/ledger/LedgerEntryRow';
 import LedgerEntryForm from '../components/ledger/LedgerEntryForm';
 import { getDayLedger, removeLedgerEntry, restoreLedgerEntry } from '../db/ledger';
-import { Card, ActionTile, SummaryRow, Button, IconBadge, SectionHeader } from '../components/common';
+import { Card, ActionTile, SummaryRow, Button, IconBadge, IconButton, SectionHeader } from '../components/common';
 import { Layout, scaleTheme } from '../constants/theme';
 
 export default function DailyBook({ navigation }) {
@@ -21,6 +21,7 @@ export default function DailyBook({ navigation }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const scrollView = useRef(null);
   const { Typography, Spacing } = scaleTheme(scale);
+  const actionRow = { flexDirection: 'row', gap: Spacing.sm };
   const load = useCallback(() => { try { setLedger(getDayLedger(selectedDate)); } catch { setLedger({ error: true, entries: [] }); } }, [selectedDate]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const add = mode => setForm({ visible: true, mode, entry: null });
@@ -58,7 +59,7 @@ export default function DailyBook({ navigation }) {
         icon={showBreakdown ? 'chevron-up' : 'chevron-down'} size="sm" variant="ghost" fullWidth
         accessibilityState={{ expanded: showBreakdown }} onPress={toggleBreakdown} />
     </View>
-    <ScrollView ref={scrollView} contentContainerStyle={{ width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: Spacing.base, paddingBottom: Spacing.xl, gap: Spacing.md }} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollView} contentContainerStyle={{ width: '100%', maxWidth: Layout.contentWidth, alignSelf: 'center', padding: Spacing.md, gap: Spacing.md }} keyboardShouldPersistTaps="handled">
       {showBreakdown && <Card padding="md" elevation="none">
         <SummaryRow label={t('ledger.opening')} value={displayMoney(day.opening_balance)} />
         {!!day.deposit_today && <SummaryRow label={t('ledger.cash_receipts')} value={displayMoney(day.deposit_today)} divider />}
@@ -74,41 +75,43 @@ export default function DailyBook({ navigation }) {
           </View>
         )}
       </Card>}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
-        <Text accessibilityRole="header" style={{ color: C.textPrimary, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }}>Rojnishi</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
-          <Button size="sm" variant="ghost" icon="search-outline" label={t('search.title')} onPress={() => navigation.navigate('Search')} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.xs }}>
+        <Text accessibilityRole="header" style={{ color: C.textPrimary, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.heavy }}>Rojnishi</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
+          <IconButton icon="search-outline" label={t('search.title')} onPress={() => navigation.navigate('Search')} />
           <Button size="sm" variant="secondary" label={nextLanguage === 'en' ? 'English' : 'ગુજરાતી'} accessibilityLabel={t('ledger.change_language')} onPress={() => changeLanguage(nextLanguage)} />
         </View>
       </View>
       {!!ledger?.error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base }}>{t('ledger.load_failed')}</Text>}
-      <Card gradient={C.gradients.primary} padding="lg" elevation="primary" style={{ borderWidth: 0, gap: Spacing.md }}>
+      <Card gradient={C.gradients.balance} padding="base" elevation="none" style={{ borderWidth: 0, gap: Spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.base, fontWeight: Typography.weights.semibold }}>{t('ledger.wallet_balance')}</Text>
             <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.hero, fontWeight: Typography.weights.black }}>{displayMoney(day.closing_balance)}</Text>
           </View>
-          <IconBadge icon="wallet-outline" color={C.textOnGradient} size={48} style={{ backgroundColor: C.gradientSubtle }} />
+          <IconBadge icon="wallet-outline" color={C.textOnGradient} size={42} style={{ backgroundColor: C.gradientSubtle }} />
         </View>
-        <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.gradientBorder, paddingTop: Spacing.md, gap: Spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.sm }}>{t('ledger.locker_balance')}</Text>
-            <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }}>
-              {ledger?.error ? '—' : lockerBalance == null ? t('ledger.unknown') : displayMoney(lockerBalance)}
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.gradientBorder, paddingTop: Spacing.sm, columnGap: Spacing.sm }}>
+          <Text style={{ color: C.gradientMuted, fontSize: Typography.sizes.sm }}>{t('ledger.locker_balance')}</Text>
+          <Text style={{ color: C.textOnGradient, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }}>
+            {ledger?.error ? '—' : lockerBalance == null ? t('ledger.unknown') : displayMoney(lockerBalance)}
+          </Text>
         </View>
       </Card>
       {ledger && !ledger.error && lockerBalance == null &&
         <Button size="sm" variant="secondary" label={t('ledger.add_locker_opening')} onPress={() => add('locker_opening')} />}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
-        <ActionTile label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.income} onPress={() => add('deposit_locker')} />
-        <ActionTile label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.primary} onPress={() => add('take_locker')} />
-        <ActionTile label={t('ledger.add_expense')} icon="cart-outline" color={C.iconExpense} onPress={() => add('expense')} />
-        <ActionTile label={t('ledger.add_note')} icon="document-text-outline" color={C.iconNotes} onPress={() => add('note')} />
+      <View style={{ gap: Spacing.sm }}>
+        <View style={actionRow}>
+          <ActionTile label={t('ledger.add_expense')} icon="cart-outline" emphasized onPress={() => add('expense')} />
+          <ActionTile label={t('ledger.add_note')} icon="document-text-outline" color={C.iconNotes} onPress={() => add('note')} />
+        </View>
+        <View style={actionRow}>
+          <ActionTile label={t('ledger.add_deposit_locker')} icon="lock-closed-outline" color={C.income} onPress={() => add('deposit_locker')} />
+          <ActionTile label={t('ledger.add_take_locker')} icon="wallet-outline" color={C.primary} onPress={() => add('take_locker')} />
+        </View>
+        <Button size="sm" variant="ghost" icon="help-circle-outline" label={t('ledger.add_forgotten')} onPress={() => add('forgotten')} style={{ alignSelf: 'flex-start' }} />
       </View>
-      <Button size="sm" variant="secondary" icon="help-circle-outline" label={t('ledger.add_forgotten')} onPress={() => add('forgotten')} />
-      {ledger && !ledger.error && <Card padding="md">
+      {ledger && !ledger.error && (cashEntries.length > 0 || onlineNotes.length === 0) && <Card padding="md" elevation="none">
         <SectionHeader icon="list" title={t('ledger.entries')} />
         {cashEntries.length ? cashEntries.map(entry => <LedgerEntryRow key={`${entry.kind}:${entry.id}`} entry={entry} onEdit={edit} onDelete={askDelete} />) :
           <Text style={{ color: C.textSecondary, fontSize: Typography.sizes.base }}>{t('ledger.empty_day')}</Text>}

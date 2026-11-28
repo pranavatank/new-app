@@ -10,7 +10,7 @@ import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import DayNavigator from '../components/DayNavigator';
 import useAppStore from '../store/useAppStore';
-import { Card, Sheet, Input, Chip, EmptyState, IconBadge, FAB, Button } from '../components/common';
+import { Card, Sheet, Input, Chip, EmptyState, IconBadge, Button } from '../components/common';
 import {
   getNotesForDay,
   addNote,
@@ -75,6 +75,7 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
       visible={visible}
       onClose={onClose}
       title={editNote ? t('notes.editNote') : t('notes.newNote')}
+      footer={<Button label={editNote ? t('notes.update') : t('notes.saveNote')} onPress={handleSave} fullWidth />}
     >
       <TouchableOpacity onPress={() => setShowTypes(v => !v)} style={{ minHeight: 48, justifyContent: 'center', marginBottom: Spacing.sm }}>
         <Text style={{ color: C.primary, fontSize: Typography.sizes.base }}>{t('notes.type')} · {showTypes ? '−' : '+'}</Text>
@@ -105,15 +106,6 @@ const NoteModal = ({ visible, editNote, onSave, onClose, C, t }) => {
         {text.length}/1000
       </Text>
 
-      <View style={{flexDirection:'row', gap:Spacing.sm}}>
-        <Button label={t('common.cancel')} variant="secondary" onPress={onClose} style={{flex:1}} />
-        <Button
-          label={editNote?t('notes.update'):t('notes.saveNote')}
-          variant="primary"
-          onPress={handleSave}
-          style={{flex:1}}
-        />
-      </View>
       {!!error && <Text accessibilityRole="alert" style={{ color: C.expense, fontSize: Typography.sizes.base, marginTop: Spacing.sm }}>{error}</Text>}
     </Sheet>
   );
@@ -251,7 +243,7 @@ export default function NotesScreen({ route, navigation }) {
         <IconBadge icon="reader-outline" color={C.iconNotes} size={40} />
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.content, {padding:Spacing.base, paddingBottom: Spacing.xl + Spacing.xxxl}]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { padding: Spacing.base }]} showsVerticalScrollIndicator={false}>
         <Button label={t('ledger.add_note')} icon="add" size="lg" fullWidth onPress={() => { setEditNote(null); setModal(true); }} style={{ marginBottom: Spacing.base }} />
 
         {notes.length === 0 ? (
@@ -281,12 +273,6 @@ export default function NotesScreen({ route, navigation }) {
           ))
         )}
       </ScrollView>
-
-      <FAB
-        label={t('home.addNote')}
-        onPress={()=>{setEditNote(null);setModal(true);}}
-        style={{ position: 'absolute', right: Spacing.lg, bottom: Spacing.base }}
-      />
 
       <NoteModal
         visible={modal}

@@ -26,7 +26,6 @@ import useAppStore from "./src/store/useAppStore";
 import { scaleTheme, makeShadow } from "./src/constants/theme";
 import "./src/i18n"; // must import before any useTranslation usage
 
-import HomeScreen from "./src/screens/Home";
 import ExpenseScreen from "./src/screens/Expense";
 import ExpenseItemsScreen from "./src/screens/ExpenseItems";
 import TasksScreen from "./src/screens/Tasks";
@@ -317,7 +316,6 @@ function AppInner() {
           <Tab.Screen name="MonthlyLedger" component={MonthlyLedgerScreen} />
           <Tab.Screen name="FamilyTools" component={FamilyToolsScreen} />
           <Tab.Screen name="Purchases" component={PurchasesScreen} />
-          <Tab.Screen name="Home" component={HomeScreen} />
           <Tab.Screen name="Expense" component={ExpenseScreen} />
           <Tab.Screen name="Tasks" component={TasksScreen} />
           <Tab.Screen name="Places" component={PlacesScreen} />

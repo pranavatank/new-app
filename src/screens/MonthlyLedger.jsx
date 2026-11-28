@@ -75,7 +75,7 @@ export default function MonthlyLedger({ navigation }) {
               ['locker_out', data.totals.transfer_out],
               ['wallet_spent', data.totals.wallet_spent],
               ['locker_spent', data.totals.locker_spent],
-            ].map(([name, value], index) =>
+            ].filter(([name, value]) => name === 'closing' || name === 'locker_balance' || value !== 0).map(([name, value], index) =>
               <SummaryRow key={name} label={t('ledger.' + name)} value={value == null ? t('ledger.unknown') : amount(value)} divider={index > 0} emphasis={name === 'closing'} />
             )}
           </Card>

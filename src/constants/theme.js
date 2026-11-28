@@ -66,212 +66,182 @@ export const Spacing = BASE_SPACING;
 export const Radius = BASE_RADIUS;
 export const Layout = { contentWidth: 760, navigationWidth: 500, touchTarget: 44 };
 
-// ── Light Theme ───────────────────────────────────────────────────────────────
-// Vibrant gradient canvas · Purple-blue primary · Vivid semantics
-
+// Neutral surfaces keep the ledger readable. Muted accents distinguish actions and cash sources.
 export const LightColors = {
-  // Backgrounds - More colorful with subtle gradients
-  bg:          '#F1F4FF',  // Soft blue-white
-  bgCard:      '#FFFFFF',
-  bgElevated:  '#E9EEFF',  // Light blue tint
-  bgInput:     '#F5F7FF',
+  bg: '#F4F7FA',
+  bgCard: '#FFFFFF',
+  bgElevated: '#E9EFF5',
+  bgInput: '#F0F5F9',
 
-  // Brand - Vibrant purple-blue gradient
-  primary:     '#5B5EF0',   // Vivid indigo
-  primaryDim:  '#5B5EF01F',
-  primarySoft: '#8B8EF7',   // Lighter indigo
-  primaryDark: '#4338CA',   // Deep indigo
+  primary: '#315F86',
+  primaryDim: '#DFEBF6',
+  primarySoft: '#A9C4DA',
+  primaryDark: '#284D6C',
+  income: '#32664F',
+  incomeSoft: '#5B8870',
+  incomeLight: '#32664F20',
+  incomeBg: '#E8F2EB',
+  expense: '#9C454D',
+  expenseSoft: '#BD6A70',
+  expenseLight: '#9C454D1C',
+  expenseBg: '#F8EBEB',
+  online: '#64557D',
+  onlineSoft: '#8E7CA5',
+  onlineLight: '#64557D1C',
+  onlineBg: '#F0ECF5',
 
-  // Semantic - More saturated colors
-  income:       '#0EA872',   // Emerald green
-  incomeSoft:   '#34D399',
-  incomeLight:  '#0EA87220',
-  incomeBg:     '#E7FBF3',   // Mint background
-  expense:      '#EF4444',   // Bright red
-  expenseSoft:  '#F87171',
-  expenseLight: '#EF444420',
-  expenseBg:    '#FEF1F1',
-  online:       '#8B5CF6',   // Rich purple
-  onlineSoft:   '#A78BFA',
-  onlineLight:  '#8B5CF620',
-  onlineBg:     '#F5F2FF',
-
-  // Text - Higher contrast
-  textPrimary:   '#1B1836',  // Deep indigo
-  textSecondary: '#5B5A82',  // Medium purple-gray
-  textMuted:     '#666985',
+  textPrimary: '#202C39',
+  textSecondary: '#435769',
+  textMuted: '#52677B',
   textOnPrimary: '#FFFFFF',
   textOnGradient: '#FFFFFF',
-  incomeOnGradient: '#D1FAE5',
-  expenseOnGradient: '#FFE0E3',
-  onlineOnGradient: '#E9DFFF',
-  gradientMuted: '#E9EEFF',
-  gradientSubtle: '#FFFFFF26',
-  gradientBorder: '#FFFFFF4D',
+  incomeOnGradient: '#D5F0DB',
+  expenseOnGradient: '#F9DBDC',
+  onlineOnGradient: '#F0E2F6',
+  gradientMuted: '#DCEAF4',
+  gradientSubtle: '#FFFFFF22',
+  gradientBorder: '#FFFFFF44',
   headerForeground: '#FFFFFF',
-  headerMuted: '#EEF1FF',
-  headerSubtle: '#FFFFFF29',
-  navAccentEnd: '#302685',
-  subtle: '#E9EEFF',
+  headerMuted: '#DCEAF4',
+  headerSubtle: '#FFFFFF24',
+  navAccentEnd: '#284D6C',
+  subtle: '#E9EFF5',
 
-  // UI chrome - Colorful borders
-  border:      '#E2E6FB',    // Light indigo
-  divider:     '#EEF1FE',
-  shadow:      '#5B5EF0',
-  overlay:     'rgba(27,24,54,0.5)',
+  border: '#D9E3EC',
+  divider: '#E8EFF5',
+  shadow: '#243C52',
+  overlay: 'rgba(20,31,44,0.46)',
   transparent: 'transparent',
 
-  // Status
-  success: '#0EA872',
-  warning: '#F59E0B',  // Amber
-  danger:  '#EF4444',
-
-  // Section accents - Vibrant colors, one per tab/section
-  iconHome:    '#5B5EF0',   // Indigo
-  iconExpense: '#F97316',   // Orange
-  iconTask:    '#F97316',   // Bright orange
-  iconBalance: '#5B5EF0',   // Indigo
-  iconPlaces:  '#0D9488',   // Teal
-  iconNotes:   '#DB2777',   // Pink
-  iconStats:   '#7C3AED',   // Violet
-  iconSettings:'#475569',   // Slate
+  success: '#32664F',
+  warning: '#895D34',
+  danger: '#9C454D',
+  iconHome: '#315F86',
+  iconExpense: '#895D34',
+  iconTask: '#625D83',
+  iconBalance: '#315F86',
+  iconPlaces: '#456D87',
+  iconNotes: '#875667',
+  iconStats: '#625D83',
+  iconSettings: '#526779',
 
   brandLinkedIn: '#0A66C2',
   brandGmail: '#EA4335',
-  rankColors: ['#FFD700', '#C0C0C0', '#CD7F32'],
-
-  // Extra category-chip accent set (cycled for chips/analytics bars)
-  accents: ['#5B5EF0', '#0D9488', '#DB2777', '#F97316', '#7C3AED', '#0EA872', '#EA580C', '#0891B2'],
-
+  rankColors: ['#9F772E', '#616C73', '#885840'],
+  accents: ['#315F86', '#456D87', '#875667', '#895D34', '#625D83', '#32664F', '#925849', '#52708A'],
   gradients: {
-    primary: ['#4338CA', '#5145CD'],
-    income:  ['#0EA872', '#34D399'],
-    expense: ['#B91C1C', '#C32C38'],
-    online:  ['#7C3AED', '#A78BFA'],
-    card:    ['#FFFFFF', '#F1F4FF'],
-    header:  ['#4338CA', '#5145CD', '#5648CF'],
+    primary: ['#315F86', '#2A5274'],
+    balance: ['#25465F', '#345B77'],
+    income: ['#32664F', '#3F775C'],
+    expense: ['#87404A', '#9C454D'],
+    online: ['#59496F', '#64557D'],
+    card: ['#FFFFFF', '#EDF3F8'],
+    header: ['#25465F', '#345B77'],
   },
-
   isDark: false,
 };
 
-// ── Dark Theme ────────────────────────────────────────────────────────────────
-// Deep purple-black · Neon accents · Cyberpunk vibes
-
 export const DarkColors = {
-  // Backgrounds - Rich dark purples
-  bg:          '#0F0A1F',   // Deep purple-black
-  bgCard:      '#1A1333',   // Dark purple
-  bgElevated:  '#251D3D',   // Medium purple
-  bgInput:     '#2A2147',   // Purple-gray
+  bg: '#151D27',
+  bgCard: '#1F2B38',
+  bgElevated: '#283645',
+  bgInput: '#304052',
 
-  // Brand - Neon cyan-blue
-  primary:     '#22D3EE',   // Bright cyan
-  primaryDim:  '#22D3EE25',
-  primarySoft: '#67E8F9',   // Light cyan
-  primaryDark: '#06B6D4',   // Deep cyan
+  primary: '#AFCBE1',
+  primaryDim: '#31475C',
+  primarySoft: '#BDD5E8',
+  primaryDark: '#95B4CD',
+  income: '#ABD0B1',
+  incomeSoft: '#C1DDC4',
+  incomeLight: '#ABD0B121',
+  incomeBg: '#303F34',
+  expense: '#DCADB0',
+  expenseSoft: '#E8BCBE',
+  expenseLight: '#DCADB021',
+  expenseBg: '#423233',
+  online: '#C4B8D5',
+  onlineSoft: '#D2C7E0',
+  onlineLight: '#C4B8D521',
+  onlineBg: '#3B3643',
 
-  // Semantic - Neon colors
-  income:       '#34D399',   // Neon green
-  incomeSoft:   '#6EE7B7',
-  incomeLight:  '#34D39920',
-  incomeBg:     '#0B3B2C',   // Dark green
-  expense:      '#FB7185',   // Neon pink-red
-  expenseSoft:  '#FDA4AF',
-  expenseLight: '#FB718520',
-  expenseBg:    '#3F1728',   // Dark red
-  online:       '#A78BFA',   // Neon purple
-  onlineSoft:   '#C4B5FD',
-  onlineLight:  '#A78BFA20',
-  onlineBg:     '#2E1065',   // Dark purple
+  textPrimary: '#EEF4FA',
+  textSecondary: '#C1CFDD',
+  textMuted: '#A6B9CC',
+  textOnPrimary: '#182B3B',
+  textOnGradient: '#F2F7FC',
+  incomeOnGradient: '#D6EDDB',
+  expenseOnGradient: '#F2D2D4',
+  onlineOnGradient: '#E8DBF0',
+  gradientMuted: '#D8E7F3',
+  gradientSubtle: '#FFFFFF1A',
+  gradientBorder: '#FFFFFF42',
+  headerForeground: '#F2F7FC',
+  headerMuted: '#D8E7F3',
+  headerSubtle: '#FFFFFF1A',
+  navAccentEnd: '#AFCBE1',
+  subtle: '#283645',
 
-  // Text - High contrast neon
-  textPrimary:   '#F3F8FF',  // Bright white-cyan
-  textSecondary: '#A3ACC2',  // Light gray
-  textMuted:     '#929CB3',
-  textOnPrimary: '#0F0A1F',  // Dark background
-  textOnGradient: '#0F0A1F',
-  incomeOnGradient: '#0F0A1F',
-  expenseOnGradient: '#0F0A1F',
-  onlineOnGradient: '#0F0A1F',
-  gradientMuted: '#251D3D',
-  gradientSubtle: '#0F0A1F26',
-  gradientBorder: '#0F0A1F4D',
-  headerForeground: '#F3F8FF',
-  headerMuted: '#C9D3E8',
-  headerSubtle: '#F3F8FF29',
-  navAccentEnd: '#BAF3FF',
-  subtle: '#251D3D',
-
-  // UI chrome - Glowing borders
-  border:      '#332C56',    // Purple-gray
-  divider:     '#251D3D',
-  shadow:      '#000000',
-  overlay:     'rgba(15,10,31,0.85)',
+  border: '#3C4E60',
+  divider: '#304051',
+  shadow: '#0D1520',
+  overlay: 'rgba(12,20,31,0.68)',
   transparent: 'transparent',
 
-  // Status
-  success: '#34D399',
-  warning: '#FBBF24',  // Bright yellow
-  danger:  '#FB7185',
-
-  // Section accents - Neon rainbow
-  iconHome:    '#22D3EE',
-  iconExpense: '#FB923C',
-  iconTask:    '#FB923C',   // Neon orange
-  iconBalance: '#22D3EE',   // Cyan
-  iconPlaces:  '#2DD4BF',   // Green
-  iconNotes:   '#F472B6',   // Pink
-  iconStats:   '#C084FC',   // Violet
-  iconSettings:'#94A3B8',   // Slate
+  success: '#ABD0B1',
+  warning: '#D0B292',
+  danger: '#DCADB0',
+  iconHome: '#AFCBE1',
+  iconExpense: '#CEB093',
+  iconTask: '#C0B9D2',
+  iconBalance: '#AFCBE1',
+  iconPlaces: '#ADC5DA',
+  iconNotes: '#D0ABB8',
+  iconStats: '#C0B9D2',
+  iconSettings: '#AFBECE',
 
   brandLinkedIn: '#0A66C2',
   brandGmail: '#EA4335',
-  rankColors: ['#FFD700', '#C0C0C0', '#CD7F32'],
-
-  accents: ['#22D3EE', '#2DD4BF', '#F472B6', '#FB923C', '#C084FC', '#34D399', '#FBBF24', '#818CF8'],
-
+  rankColors: ['#C9AB74', '#B1BDC4', '#C59983'],
+  accents: ['#AFCBE1', '#ADC5DA', '#D0ABB8', '#CEB093', '#C0B9D2', '#ABD0B1', '#D3A89C', '#A6C1DA'],
   gradients: {
-    primary: ['#06B6D4', '#22D3EE'],
-    income:  ['#059669', '#34D399'],
-    expense: ['#EF476F', '#FB7185'],
-    online:  ['#7C3AED', '#A78BFA'],
-    card:    ['#1A1333', '#251D3D'],
-    header:  ['#1A1333', '#2A2147', '#332C56'],
+    primary: ['#AFCBE1', '#9CBCDA'],
+    balance: ['#293D50', '#344D64'],
+    income: ['#ABCDB2', '#9EBCA3'],
+    expense: ['#DEADB0', '#D0A0A5'],
+    online: ['#C4B8D5', '#B8ACC9'],
+    card: ['#1F2B38', '#253344'],
+    header: ['#293D50', '#344D64'],
   },
-
   isDark: true,
 };
 
-// ── Shadow factory ────────────────────────────────────────────────────────────
-
-export const makeShadow = (C) => ({
+export const makeShadow = C => ({
   sm: {
     shadowColor: C.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: C.isDark ? 0.6 : 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 1,
   },
   md: {
     shadowColor: C.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: C.isDark ? 0.7 : 0.13,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   lg: {
     shadowColor: C.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: C.isDark ? 0.75 : 0.16,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 6,
   },
   primary: {
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: C.isDark ? 0.5 : 0.32,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.13,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });

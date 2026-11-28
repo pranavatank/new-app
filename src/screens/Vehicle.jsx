@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, StatusBar,
-  Pressable, TextInput, Alert,
+  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { scaleTheme, makeShadow } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import { getOrCreateDay, setExpenseAmount, recalculateBalance, getAllCategories, getAllVehicleRecords, addVehicleRecord, updateVehicleRecord, deleteVehicleRecord, getVehicleStats } from '../db/queries';
-import { Card, Button, IconBadge, Sheet, Input, Badge, Chip, EmptyState } from '../components/common';
+import { Card, Button, IconBadge, Sheet, Input, Chip, EmptyState, ScreenHeader } from '../components/common';
 import { getOdometerNeighbors } from '../utils/vehicleRecords';
-
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS_SHORT  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+import { parseCashAmount } from '../utils/cash';
 
 const toISODate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -23,31 +20,9 @@ const parseISODate = (s) => {
   return new Date(y, m - 1, d);
 };
 
-// ── Odometer Digit Component ──────────────────────────────────────────────────
-const OdometerDigit = ({ value, onChange, isDecimal = false }) => {
-  const { C, scale } = useTheme();
-  const { Typography, Radius } = scaleTheme(scale);
-
-  return (
-    <View style={[od.digitBox, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: Radius.lg }]}>
-      <TouchableOpacity style={od.arrow} onPress={() => onChange((value + 1) % 10)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-        <Ionicons name="chevron-up" size={14} color={C.primary} />
-      </TouchableOpacity>
-      <Text style={[od.digit, { color: C.textPrimary, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.black }]}>{value}</Text>
-      <TouchableOpacity style={od.arrow} onPress={() => onChange((value - 1 + 10) % 10)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-        <Ionicons name="chevron-down" size={14} color={C.primary} />
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const od = StyleSheet.create({
-  digitBox: { flex: 1, borderWidth: 2, overflow: 'hidden', alignItems: 'center' },
-  arrow: { width: '100%', paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-  digit: { paddingVertical: 6 },
-});
-
 const DatePickerModal = ({ visible, selected, onSelect, onClose }) => {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'gu' ? 'gu-IN-u-nu-latn' : 'en-IN';
   const { C, scale } = useTheme();
   const { Typography, Spacing, Radius } = scaleTheme(scale);
 
@@ -72,20 +47,24 @@ const DatePickerModal = ({ visible, selected, onSelect, onClose }) => {
   const nextMonth = () => mo === 11 ? (setYr(y => y + 1), setMo(0)) : setMo(m => m + 1);
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Select Date" scroll={false}>
+    <Sheet visible={visible} onClose={onClose} title={t('ledger.select_date')}>
       <View style={[dp.monthRow, { marginBottom: Spacing.md }]}>
         <TouchableOpacity style={[dp.navBtn, { backgroundColor: C.bgElevated }]} onPress={prevMonth}>
           <Ionicons name="chevron-back" size={18} color={C.primary} />
         </TouchableOpacity>
-        <Text style={[dp.monthTxt, { color: C.textPrimary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }]}>{MONTHS[mo]} {yr}</Text>
+        <Text style={[dp.monthTxt, { color: C.textPrimary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }]}>
+          {new Date(yr, mo, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+        </Text>
         <TouchableOpacity style={[dp.navBtn, { backgroundColor: C.bgElevated }]} onPress={nextMonth}>
           <Ionicons name="chevron-forward" size={18} color={C.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={[dp.weekRow, { marginBottom: Spacing.sm }]}>
-        {DAYS_SHORT.map((d) => (
-          <Text key={d} style={[dp.weekTxt, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{d}</Text>
+        {Array.from({ length: 7 }, (_, i) => (
+          <Text key={i} style={[dp.weekTxt, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>
+            {new Date(2026, 0, 4 + i).toLocaleDateString(locale, { weekday: 'narrow' })}
+          </Text>
         ))}
       </View>
 
@@ -125,7 +104,7 @@ const DatePickerModal = ({ visible, selected, onSelect, onClose }) => {
         style={[dp.todayBtn, { backgroundColor: C.primaryDim, marginTop: Spacing.sm, paddingVertical: Spacing.md, borderRadius: Radius.full }]}
         onPress={() => { onSelect(todayStr); onClose(); }}
       >
-        <Text style={[dp.todayTxt, { color: C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>Today</Text>
+        <Text style={[dp.todayTxt, { color: C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>{t('ledger.jump_to_today')}</Text>
       </TouchableOpacity>
     </Sheet>
   );
@@ -152,8 +131,7 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
   const { Typography, Spacing, Radius } = scaleTheme(scale);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [odometerDigits, setOdometerDigits] = useState([0, 0, 0, 0, 0]);
-  const [odometerDecimal, setOdometerDecimal] = useState('0');
+  const [reading, setReading] = useState('');
   const [liters, setLiters] = useState('2');
   const [pricePerLiter, setPricePerLiter] = useState('100');
   const [totalAmount, setTotalAmount] = useState('');
@@ -180,12 +158,7 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
         }
         setSelectedDate(editDate);
 
-        const readingParts = String(editingRecord.reading).split('.');
-        const readInt = parseInt(readingParts[0], 10) || 0;
-        const editDigits = String(readInt).padStart(5, '0').split('').map(Number);
-
-        setOdometerDigits(editDigits);
-        setOdometerDecimal((readingParts[1] || '0').slice(0, 1));
+        setReading(String(editingRecord.reading));
         setLiters(String(editingRecord.liters));
         setPricePerLiter(String(editingRecord.price_per_liter.toFixed(2)));
         setTotalAmount(String(editingRecord.amount.toFixed(2)));
@@ -197,10 +170,7 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
         const adjacent = getOdometerNeighbors(records, toISODate(date));
         const earlierReading = adjacent.previous?.reading || 0;
         const step = adjacent.next ? Math.min(100, (adjacent.next.reading - earlierReading) / 2) : 100;
-        const [whole, decimal] = (earlierReading + Math.max(0, step)).toFixed(1).split('.');
-
-        setOdometerDigits(whole.padStart(5, '0').split('').map(Number));
-        setOdometerDecimal(decimal);
+        setReading((earlierReading + Math.max(0, step)).toFixed(1));
         setLiters('2');
         setPricePerLiter(adjacent.previous?.liters ? (adjacent.previous.amount / adjacent.previous.liters).toFixed(2) : '100');
         setTotalAmount('');
@@ -211,12 +181,6 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
     }
   }, [visible, editingRecord, initialDate, records]);
 
-  const updateDigit = (index, value) => {
-    const newDigits = [...odometerDigits];
-    newDigits[index] = value;
-    setOdometerDigits(newDigits);
-  };
-
   const openDatePicker = () => {
     setShowDatePicker(true);
   };
@@ -226,16 +190,11 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
     setShowDatePicker(false);
   };
 
-  const handleDecimalChange = (value) => {
-    const cleaned = value.replace(/[^0-9]/g, '').slice(0, 1);
-    setOdometerDecimal(cleaned === '' ? '0' : cleaned);
-  };
-
   const handleLitersChange = (value) => {
     setLiters(value);
     setEditMode('liters');
-    const literNum = parseFloat(value) || 0;
-    const priceNum = parseFloat(pricePerLiter) || 0;
+    const literNum = parseCashAmount(value) || 0;
+    const priceNum = parseCashAmount(pricePerLiter) || 0;
     if (literNum > 0 && priceNum > 0) {
       setTotalAmount(String((literNum * priceNum).toFixed(2)));
     }
@@ -244,8 +203,8 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
   const handleAmountChange = (value) => {
     setTotalAmount(value);
     setEditMode('amount');
-    const amountNum = parseFloat(value) || 0;
-    const priceNum = parseFloat(pricePerLiter) || 0;
+    const amountNum = parseCashAmount(value) || 0;
+    const priceNum = parseCashAmount(pricePerLiter) || 0;
     if (amountNum > 0 && priceNum > 0) {
       setLiters(String((amountNum / priceNum).toFixed(2)));
     }
@@ -253,28 +212,27 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
 
   const handlePriceChange = (value) => {
     setPricePerLiter(value);
-    const priceNum = parseFloat(value) || 0;
+    const priceNum = parseCashAmount(value) || 0;
     if (editMode === 'liters') {
-      const literNum = parseFloat(liters) || 0;
+      const literNum = parseCashAmount(liters) || 0;
       if (literNum > 0 && priceNum > 0) {
         setTotalAmount(String((literNum * priceNum).toFixed(2)));
       }
     } else {
-      const amountNum = parseFloat(totalAmount) || 0;
+      const amountNum = parseCashAmount(totalAmount) || 0;
       if (amountNum > 0 && priceNum > 0) {
         setLiters(String((amountNum / priceNum).toFixed(2)));
       }
     }
   };
 
-  const decimalDigit = odometerDecimal === '' ? '0' : odometerDecimal;
-  const currentReading = parseFloat(`${odometerDigits.join('')}.${decimalDigit}`);
+  const currentReading = parseCashAmount(reading);
   const distance = currentReading - lastReading;
   const lastReadingDisplay = Number.isFinite(lastReading) ? Number(lastReading).toFixed(1) : '0.0';
   const distanceDisplay = Number.isFinite(distance) ? distance.toFixed(1) : '0.0';
-  const literNum = parseFloat(liters) || 0;
-  const priceNum = parseFloat(pricePerLiter) || 0;
-  const finalAmount = parseFloat(totalAmount) || (literNum * priceNum);
+  const literNum = parseCashAmount(liters) || 0;
+  const priceNum = parseCashAmount(pricePerLiter) || 0;
+  const finalAmount = parseCashAmount(totalAmount) || (literNum * priceNum);
   const calculatedAvg = (previousLiters > 0 && lastReading > 0 && distance > 0) ? (distance / previousLiters).toFixed(2) : '0.00';
 
   const formatDate = (date) => {
@@ -284,12 +242,12 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
 
   const handleSave = () => {
     const readingChanged = !editingRecord || isoDate !== editingRecord.rawDate || currentReading !== editingRecord.reading;
-    if (readingChanged && (currentReading <= lastReading || (next && currentReading >= next.reading))) {
+    if (!Number.isFinite(currentReading) || (readingChanged && (currentReading <= lastReading || (next && currentReading >= next.reading)))) {
       Alert.alert(t('ledger.error'), t('ledger.vehicle_reading_bounds'));
       return;
     }
-    if (literNum <= 0) {
-      Alert.alert('Invalid Fuel', 'Please enter valid fuel amount');
+    if (![literNum, priceNum, finalAmount].every(value => Number.isFinite(value) && value > 0)) {
+      Alert.alert(t('common.error'), t('vehicle.invalidFuel'));
       return;
     }
 
@@ -310,25 +268,25 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
         recalculateBalance(dayRecord.id, isoDate);
       }
 
-      Alert.alert('Success', `Record ${editingRecord ? 'updated' : 'saved'}!\nDistance: ${distanceDisplay} km\nAverage: ${calculatedAvg} km/L`);
+      Alert.alert(t('vehicle.saveDone'));
       onSave();
       onClose();
     } catch (error) {
-      Alert.alert('Error', `Failed to save: ${error.message}`);
+      Alert.alert(t('common.error'), t('book.saveError'));
     }
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Record', 'Are you sure you want to delete this record?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
+    Alert.alert(t('vehicle.deleteTitle'), '', [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => {
         try {
           deleteVehicleRecord(editingRecord.id);
-          Alert.alert('Deleted', 'Record deleted successfully');
+          Alert.alert(t('vehicle.deleteDone'));
           onSave();
           onClose();
         } catch (error) {
-          Alert.alert('Error', `Failed to delete: ${error.message}`);
+          Alert.alert(t('common.error'), t('book.saveError'));
         }
       }},
     ]);
@@ -336,38 +294,23 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
 
   return (
     <>
-      <Sheet visible={visible} onClose={onClose} scroll>
-        {/* Header */}
-        <View style={[am.header, { marginBottom: Spacing.lg, gap: Spacing.md }]}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
-              <MaterialCommunityIcons name="gas-station" size={Typography.sizes.xl} color={C.primary} />
-              <Text style={[am.title, { color: C.textPrimary, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }]}>
-                {editingRecord ? 'Edit' : 'Add'} Fuel Record
-              </Text>
-            </View>
-            <Text style={[am.subtitle, { color: C.textSecondary, fontSize: Typography.sizes.sm }]}>Track your bike mileage</Text>
+      <Sheet visible={visible} onClose={onClose}
+        title={t(editingRecord ? 'vehicle.editRecord' : 'vehicle.addRecord')}
+        footer={
+          <View style={[am.btnRow, { gap: Spacing.sm }]}>
+            {editingRecord && <Button label={t('common.delete')} variant="danger" onPress={handleDelete} />}
+            <Button label={t('common.save')} onPress={handleSave} style={{ flex: 1 }} />
           </View>
-          {editingRecord && (
-            <TouchableOpacity
-              style={[am.deleteBtn, { backgroundColor: C.expenseLight, borderRadius: Radius.lg }]}
-              onPress={handleDelete}
-            >
-              <Ionicons name="trash-outline" size={20} color={C.expense} />
-            </TouchableOpacity>
-          )}
-        </View>
-
+        }>
         {/* Date Input */}
-        <View style={[am.section, { marginBottom: Spacing.xl }]}>
-          <Text style={[am.label, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.md }]}>Date</Text>
+        <View style={[am.section, { marginBottom: Spacing.md }]}>
+          <Text style={[am.label, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.md }]}>{t('vehicle.date')}</Text>
           <TouchableOpacity onPress={openDatePicker} activeOpacity={0.7}>
             <View style={[am.inputBox, { backgroundColor: C.bgInput, borderColor: C.primary, borderRadius: Radius.lg, paddingHorizontal: Spacing.lg, gap: Spacing.sm }]}>
               <Ionicons name="calendar-outline" size={20} color={C.primary} />
               <Text style={[am.input, { color: C.textPrimary, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.bold, paddingVertical: Spacing.md }]}>{formatDate(selectedDate)}</Text>
             </View>
           </TouchableOpacity>
-          <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginTop: Spacing.xs }]}>Tap to choose date</Text>
         </View>
 
         <DatePickerModal
@@ -377,49 +320,33 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
           onClose={() => setShowDatePicker(false)}
         />
 
-        <View style={[am.section, { marginBottom: Spacing.xl }]}>
-          <Text style={[am.label, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.md }]}>Odometer Reading (km)</Text>
-          <View style={[am.odometerRow, { gap: 6 }]}>
-            {odometerDigits.map((digit, idx) => (
-              <OdometerDigit
-                key={idx}
-                value={digit}
-                onChange={(val) => updateDigit(idx, val)}
-              />
-            ))}
-            <Text style={[am.decimalDot, { color: C.textMuted, fontSize: Typography.sizes.xl, fontWeight: Typography.weights.black }]}>.</Text>
-            <OdometerDigit
-              value={parseInt(odometerDecimal) || 0}
-              onChange={(val) => setOdometerDecimal(String(val))}
-              isDecimal
-            />
-          </View>
-          <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginTop: Spacing.xs }]}>Use arrows to adjust digits</Text>
+        <View style={[am.section, { marginBottom: Spacing.md }]}>
+          <Input label={t('vehicle.odometer')} value={reading} onChangeText={setReading} keyboardType="decimal-pad" />
           <View style={[am.infoBox, { backgroundColor: C.primaryDim, marginTop: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg }]}>
             <Text style={[am.infoText, { color: C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>
-              {editingRecord ? 'Previous' : 'Last'}: {lastReadingDisplay} km | Distance: {distanceDisplay} km
+              {t('vehicle.lastReading', { reading: lastReadingDisplay, distance: distanceDisplay })}
             </Text>
           </View>
         </View>
 
         {/* Fuel Amount */}
-        <View style={{ marginBottom: Spacing.xl }}>
+        <View style={{ marginBottom: Spacing.md }}>
           <Input
-            label="Petrol Filled Now (Liters)"
+            label={t('vehicle.liters')}
             value={liters}
             onChangeText={handleLitersChange}
             keyboardType="decimal-pad"
             placeholder="0.0"
           />
           <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginTop: Spacing.xs }]}>
-            This fuels the riding until your NEXT fill-up — it isn't used for the mileage shown below.
+            {t('vehicle.litersHint')}
           </Text>
         </View>
 
         {/* Price Per Liter */}
-        <View style={{ marginBottom: Spacing.xl }}>
+        <View style={{ marginBottom: Spacing.md }}>
           <Input
-            label="Petrol Price Per Liter (₹)"
+            label={t('vehicle.price')}
             value={pricePerLiter}
             onChangeText={handlePriceChange}
             keyboardType="decimal-pad"
@@ -430,18 +357,18 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
         {/* Total Amount */}
         <View style={{ marginBottom: Spacing.xs }}>
           <Input
-            label="Total Amount (₹)"
+            label={t('vehicle.amount')}
             value={totalAmount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
             placeholder="0.00"
           />
         </View>
-        <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginBottom: Spacing.xl }]}>Enter amount to auto-calculate liters</Text>
+        <Text style={[am.hint, { color: C.textMuted, fontSize: Typography.sizes.xs, marginBottom: Spacing.md }]}>{t('vehicle.amountHint')}</Text>
 
         {/* Payment Type */}
-        <View style={[am.section, { marginBottom: Spacing.xl }]}>
-          <Text style={[am.label, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.md }]}>Payment Type</Text>
+        <View style={[am.section, { marginBottom: Spacing.md }]}>
+          <Text style={[am.label, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold, marginBottom: Spacing.md }]}>{t('ledger.payment')}</Text>
           <View style={[am.typeRow, { gap: Spacing.sm }]}>
             <TouchableOpacity
               style={[am.typeBtn, {
@@ -455,7 +382,7 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
             >
               <Ionicons name="card-outline" size={16} color={paymentType === 'online' ? C.textOnPrimary : C.primary} />
               <Text style={[am.typeBtnText, { color: paymentType === 'online' ? C.textOnPrimary : C.primary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
-                Online
+                {t('ledger.online')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -470,56 +397,44 @@ const AddRecordModal = ({ visible, onClose, records, editingRecord, initialDate,
             >
               <Ionicons name="cash-outline" size={16} color={paymentType === 'cash' ? C.textOnPrimary : C.income} />
               <Text style={[am.typeBtnText, { color: paymentType === 'cash' ? C.textOnPrimary : C.income, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.bold }]}>
-                Cash
+                {t('ledger.cash')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Summary Card */}
-        <Card style={{ borderColor: C.primary, borderWidth: 2, marginBottom: Spacing.xl }}>
+        <Card style={{ borderColor: C.primary, borderWidth: 2, marginBottom: Spacing.md }}>
           <View style={am.summaryRow}>
-            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>Total Amount</Text>
+            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>{t('vehicle.amount')}</Text>
             <Text style={[am.summaryValue, { color: C.expense, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>₹{finalAmount.toFixed(2)}</Text>
           </View>
           <View style={[am.divider, { backgroundColor: C.border, marginVertical: Spacing.xs }]} />
           <View style={am.summaryRow}>
-            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>Petrol Liters</Text>
+            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>{t('vehicle.liters')}</Text>
             <Text style={[am.summaryValue, { color: C.warning, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>{literNum.toFixed(2)} L</Text>
           </View>
           <View style={[am.divider, { backgroundColor: C.border, marginVertical: Spacing.xs }]} />
           <View style={am.summaryRow}>
-            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>Mileage Since Last Fill-up</Text>
+            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>{t('vehicle.lastMileage')}</Text>
             <Text style={[am.summaryValue, { color: C.income, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>{calculatedAvg} km/L</Text>
           </View>
           <View style={[am.divider, { backgroundColor: C.border, marginVertical: Spacing.xs }]} />
           <View style={am.summaryRow}>
-            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>Distance Covered</Text>
+            <Text style={[am.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.sm, fontWeight: Typography.weights.semibold }]}>{t('vehicle.distance')}</Text>
             <Text style={[am.summaryValue, { color: C.primary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>{distanceDisplay} km</Text>
           </View>
         </Card>
 
-        {/* Action Buttons */}
-        <View style={[am.btnRow, { gap: Spacing.md }]}>
-          <Button label="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-          <Button label={`${editingRecord ? 'Update' : 'Save'} Record`} variant="primary" onPress={handleSave} style={{ flex: 1 }} />
-        </View>
       </Sheet>
     </>
   );
 };
 
 const am = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center' },
-  title: {},
-  subtitle: { marginTop: 2 },
-  deleteBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-
   section: {},
   label: { letterSpacing: 0.5 },
   hint: {},
-
-  odometerRow: { flexDirection: 'row', alignItems: 'center' },
 
   infoBox: {},
   infoText: { textAlign: 'center' },
@@ -530,8 +445,6 @@ const am = StyleSheet.create({
 
   inputBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 2 },
   input: { flex: 1 },
-
-  decimalDot: { marginHorizontal: 4 },
 
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   summaryLabel: {},
@@ -544,8 +457,7 @@ const am = StyleSheet.create({
 const Vehicle = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { C, scale } = useTheme();
-  const { Typography, Spacing, Radius } = scaleTheme(scale);
-  const Shadow = makeShadow(C);
+  const { Typography, Spacing } = scaleTheme(scale);
   const [showAddModal, setShowAddModal] = useState(false);
   const [draftDate, setDraftDate] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -621,41 +533,28 @@ const Vehicle = ({ navigation, route }) => {
 
   const totalDistance = stats.totalDistance;
   const totalDistanceDisplay = Number.isFinite(totalDistance) ? totalDistance.toFixed(1) : totalDistance;
-  const totalFuel = stats.totalFuel;
   const totalAmount = stats.totalAmount;
 
   const summaryTiles = [
-    { icon: 'speedometer-outline', value: stats.totalAvg.toFixed(2), label: 'Overall Avg km/L', color: C.primary },
-    { icon: 'trending-up-outline', value: stats.last10Avg.toFixed(2), label: 'Last 10 Fills Avg', color: C.income },
-    { icon: 'map-outline', value: totalDistanceDisplay, label: 'Total km', color: C.expense },
-    { icon: 'cash-outline', value: `₹${totalAmount.toFixed(0)}`, label: 'Total Spent', color: C.warning },
+    { icon: 'speedometer-outline', value: stats.totalAvg.toFixed(2), label: t('vehicle.overallAvg'), color: C.primary },
+    { icon: 'trending-up-outline', value: stats.last10Avg.toFixed(2), label: t('vehicle.recentAvg'), color: C.income },
+    { icon: 'map-outline', value: totalDistanceDisplay, label: t('vehicle.totalDistance'), color: C.expense },
+    { icon: 'cash-outline', value: `₹${totalAmount.toFixed(0)}`, label: t('vehicle.totalSpent'), color: C.warning },
   ];
 
   return (
     <View style={[s.container, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={C.isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
-      <LinearGradient
-        colors={C.gradients.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[s.header, { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xxl, paddingBottom: Spacing.xl, gap: Spacing.md }, Shadow.primary]}
-      >
-        <IconBadge mciIcon="motorbike" color={C.headerForeground} size={52} style={{ backgroundColor: C.headerSubtle }} />
-        <View style={{ flex: 1 }}>
-          <Text style={[s.headerTitle, { color: C.headerForeground, fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.black }]}>{t('ledger.tool_vehicle')}</Text>
-          <Text style={{ color: C.headerMuted, fontSize: Typography.sizes.sm, marginTop: Spacing.xs }}>{t('ledger.overview_mileage_all_time')}</Text>
-        </View>
-      </LinearGradient>
+      <ScreenHeader title={t('ledger.tool_vehicle')} subtitle={t('ledger.overview_mileage_all_time')}
+        onBack={() => navigation.goBack()} />
 
       <ScrollView
         style={s.scroll}
         contentContainerStyle={{ padding: Spacing.base, paddingBottom: Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Summary Cards */}
-        <View style={[s.summaryGrid, { gap: Spacing.sm, marginBottom: Spacing.lg }]}>
+        {vehicleData.length > 0 && <View style={[s.summaryGrid, { gap: Spacing.sm, marginBottom: Spacing.lg }]}>
           {summaryTiles.map((tile) => (
             <Card key={tile.label} style={[s.summaryCard, { minWidth: '47%' }]}>
               <IconBadge icon={tile.icon} color={tile.color} size={40} style={{ marginBottom: Spacing.xs }} />
@@ -663,11 +562,11 @@ const Vehicle = ({ navigation, route }) => {
               <Text style={[s.summaryLabel, { color: C.textSecondary, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{tile.label}</Text>
             </Card>
           ))}
-        </View>
+        </View>}
 
         {/* Records Title */}
         <View style={[s.sectionHeader, { marginBottom: Spacing.md, marginTop: Spacing.sm }]}>
-          <Text style={[s.sectionTitle, { color: C.textPrimary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }]}>Fuel Records</Text>
+          <Text style={[s.sectionTitle, { color: C.textPrimary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.bold }]}>{t('vehicle.records')}</Text>
           <Button label={t('ledger.add_fuel')} icon="add" size="sm" onPress={() => setShowAddModal(true)} />
         </View>
 
@@ -675,13 +574,13 @@ const Vehicle = ({ navigation, route }) => {
         {vehicleData.length === 0 ? (
           <EmptyState
             icon="speedometer-outline"
-            title="No fuel records yet"
-            subtitle="Add your first fuel record to start tracking mileage"
+            title={t('vehicle.empty')}
+            subtitle={t('vehicle.emptyHint')}
           />
         ) : (
           vehicleData.map((item, idx) => (
             <TouchableOpacity
-              key={idx}
+              key={item.id}
               onPress={() => {
                 setEditingRecord(item);
                 setShowAddModal(true);
@@ -691,20 +590,19 @@ const Vehicle = ({ navigation, route }) => {
               <Card style={{ marginBottom: Spacing.md }}>
                 <View style={[s.recordHeader, { marginBottom: Spacing.md }]}>
                   <Chip icon="calendar-outline" label={item.date} color={C.primary} />
-                  <Badge label="Reserve" color={C.income} />
                 </View>
 
                 <View style={[s.recordGrid, { gap: Spacing.md, marginBottom: Spacing.md }]}>
                   <View style={s.recordItem}>
-                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>Reading</Text>
+                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{t('vehicle.reading')}</Text>
                     <Text style={[s.recordValue, { color: C.textPrimary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }]}>{item.formattedReading}</Text>
                   </View>
                   <View style={s.recordItem}>
-                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>Distance</Text>
+                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{t('vehicle.distance')}</Text>
                     <Text style={[s.recordValue, { color: C.textPrimary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }]}>{item.formattedDistance} km</Text>
                   </View>
                   <View style={s.recordItem}>
-                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>Petrol</Text>
+                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{t('vehicle.petrol')}</Text>
                     <Text style={[s.recordValue, { color: C.textPrimary, fontSize: Typography.sizes.md, fontWeight: Typography.weights.bold }]}>{item.liters} L</Text>
                   </View>
                 </View>
@@ -713,11 +611,11 @@ const Vehicle = ({ navigation, route }) => {
 
                 <View style={[s.recordGrid, { gap: Spacing.md }]}>
                   <View style={s.recordItem}>
-                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>Average</Text>
+                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{t('vehicle.average')}</Text>
                     <Text style={[s.recordHighlight, { color: C.primary, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>{item.formattedAverage} km/L</Text>
                   </View>
                   <View style={s.recordItem}>
-                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>Amount</Text>
+                    <Text style={[s.recordLabel, { color: C.textMuted, fontSize: Typography.sizes.xs, fontWeight: Typography.weights.semibold }]}>{t('vehicle.paid')}</Text>
                     <Text style={[s.recordHighlight, { color: C.expense, fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black }]}>₹{item.amount.toFixed(2)}</Text>
                   </View>
                 </View>
@@ -746,8 +644,6 @@ const Vehicle = ({ navigation, route }) => {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { letterSpacing: -0.5 },
 
   scroll: { flex: 1 },
 

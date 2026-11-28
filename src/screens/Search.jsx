@@ -10,6 +10,7 @@ import { scaleTheme } from '../constants/theme';
 import { useTheme } from '../store/ThemeContext';
 import useAppStore from '../store/useAppStore';
 import { translateCategoryName } from '../constants/defaultCategories';
+import { paymentLabel } from '../utils/cash';
 import {
   Card, Input, Chip, Badge, Row, IconBadge, EmptyState, SectionHeader, ScreenHeader,
 } from '../components/common';
@@ -190,7 +191,7 @@ export default function SearchScreen({ navigation }) {
                       <View style={{ alignItems: 'flex-end', gap: 4 }}>
                         <Text style={[st.amount, { color: C.expense }]}>{fmtAmount(r.amount)}</Text>
                         <Chip
-                          label={r.payment_type === 'online' ? t('expense.onlineLabel') : t('expense.cash')}
+                          label={t(paymentLabel(r.payment_type))}
                           color={r.payment_type === 'online' ? C.online : C.income}
                         />
                       </View>
@@ -259,7 +260,6 @@ export default function SearchScreen({ navigation }) {
           </>
         )}
 
-        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );

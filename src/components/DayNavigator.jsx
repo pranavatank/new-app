@@ -159,13 +159,9 @@ export default function DayNavigator() {
 
         {/* Date tap */}
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('ledger.select_date') + ', ' + label + ' ' + sub} style={{ flex: 1, alignItems: 'center', paddingVertical: Spacing.xs }} onPress={() => setCalOpen(true)} activeOpacity={0.8}>
-          {isToday && (
-            <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: Radius.full, marginBottom: 3 }, { backgroundColor: C.primaryDim }]}>
-              <View style={[{ width: 5, height: 5, borderRadius: 3 }, { backgroundColor: C.primary }]} />
-              <Text style={[{ fontSize: Typography.sizes.micro, fontWeight: Typography.weights.heavy, letterSpacing: 1.5 }, { color: C.primary }]}>{t('ledger.today').toUpperCase()}</Text>
-            </View>
-          )}
-          <Text style={[{ fontSize: Typography.sizes.lg, fontWeight: Typography.weights.black, letterSpacing: 0.2 }, { color: C.textPrimary }]}>{label}</Text>
+          <Text style={{ fontSize: Typography.sizes.md, fontWeight: Typography.weights.heavy, color: isToday ? C.primary : C.textPrimary, textAlign: 'center' }}>
+            {isToday ? t('ledger.today') + ' · ' + label : label}
+          </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
             <Text style={[{ fontSize: Typography.sizes.xs, marginTop: 2, letterSpacing: 0.3 }, { color: C.textSecondary }]}>{sub}</Text>
             <Ionicons name="chevron-down" size={12} color={C.textMuted} style={{ marginTop: 2 }} />
